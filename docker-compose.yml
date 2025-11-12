@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - ./public:/var/www/html/public
+      - ./app:/var/www/html/app
+      - ./assets:/var/www/html/assets
+    environment:
+      APACHE_DOCUMENT_ROOT: /var/www/html/public
