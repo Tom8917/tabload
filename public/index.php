@@ -634,8 +634,6 @@
 
 
 
-
-
 // Rendu du tableau : on verifie qu'on a toutes les données (res.include, res.order, res.thresholds, ...), on construit displayCols pour l'ordre d'affichage, on créer des fusion de cases pour col 0 et 8, on fabrique le tableau avec son body, on met en place des inputs permettant de modifier chaque case du tableau, et enfin on utilise tous les évènements déclarés (ex: valeurs basse / haute, l'arrondi décimale, les couleurs, ...).
         function renderTable(headers, rows) {
             if (!headers.length) {
@@ -1049,7 +1047,6 @@
             const delim = ';';
             ensureThresholds(res);
 
-            // colonnes visibles dans l'ordre
             let include = res.include;
             if (!Array.isArray(include) || include.length !== res.headers.length) {
                 include = buildDefaultInclude(res.headers.length);
@@ -1076,6 +1073,7 @@
             });
 
             const rowsOut = [];
+
             const title = (res.title || '').trim();
             if (title !== '') {
                 const titleRow = new Array(headersOut.length).fill('');
@@ -1112,6 +1110,7 @@
             a.click();
             URL.revokeObjectURL(a.href);
         }
+
 
 
 
@@ -1163,14 +1162,124 @@
             return res;
         }
 
+
+
+        // Cette fonction construit un nouveau tableau (headers + rows + thresholds) à partir d'un CSV exporté par l'outil
+        function buildStateFromCsv(csvText) {
+            let text = String(csvText).replace(/\r\n?/g, '\n');
+            let lines = text.split('\n');
+            if (!lines.length) return null;
+
+            let delim = ';';
+            if (lines[0].startsWith('sep=')) {
+                const rest = lines[0].slice(4);
+                if (rest.length > 0) {
+                    delim = rest[0];
+                }
+                lines.shift();
+            }
+
+            lines = lines.map(l => l.trimEnd());
+            while (lines.length && !lines[lines.length - 1]) {
+                lines.pop();
+            }
+            if (!lines.length) return null;
+
+            const rows = lines.map(l => parseCsvLine(l, delim));
+            if (!rows.length) return null;
+
+            let idx = 0;
+            let title = '';
+            const firstRow = rows[0];
+
+            if (
+                firstRow.length > 0 &&
+                firstRow[0].trim() !== '' &&
+                firstRow.slice(1).every(c => !c.trim())
+            ) {
+                title = firstRow[0].trim();
+                idx = 1;
+            }
+
+            if (idx >= rows.length) return null;
+
+            const headerRow = rows[idx];
+            idx++;
+
+            if (!headerRow || !headerRow.length) return null;
+            const colCount = headerRow.length;
+            if (colCount < 1) return null;
+
+            let lowIdx = -1;
+            let highIdx = -1;
+            if (colCount >= 3) {
+                lowIdx = colCount - 2;
+                highIdx = colCount - 1;
+            }
+
+            const dataHeaderLabels = headerRow.slice(0, (lowIdx === -1 ? colCount : lowIdx));
+            const dataRows = rows.slice(idx);
+            if (!dataRows.length) return null;
+
+            const rowsOut = [];
+            const thresholds = [];
+
+            dataRows.forEach(row => {
+                const full = [...row];
+                while (full.length < colCount) {
+                    full.push('');
+                }
+                const data = full.slice(0, (lowIdx === -1 ? colCount : lowIdx));
+
+                let low = '';
+                let high = '';
+                if (lowIdx !== -1 && highIdx !== -1) {
+                    low = full[lowIdx] ?? '';
+                    high = full[highIdx] ?? '';
+                }
+
+                rowsOut.push(data);
+                thresholds.push({ low, high });
+            });
+
+            const res = {
+                headers: dataHeaderLabels,
+                rows: rowsOut,
+                thresholds,
+                include: buildDefaultInclude(dataHeaderLabels.length),
+                order: dataHeaderLabels.map((_, i) => i),
+                groupStyles: {},
+                groupDecimals: {},
+                meta: { delimiter: delim, guessed: false },
+                title
+            };
+
+            if (dataHeaderLabels.length > COL_TAUX) {
+                for (let i = 0; i < res.rows.length; i++) {
+                    res.rows[i][COL_TAUX] = floor2DecimalsString(res.rows[i][COL_TAUX]);
+                }
+            }
+
+            return res;
+        }
+
+
         // import CSV exporté par l'outil (format plat)
         function importCsvText(csvText) {
-            let text = csvText.replace(/\r\n?/g, '\n');
+            let text = String(csvText).replace(/\r\n?/g, '\n');
             let lines = text.split('\n');
-
             if (!lines.length) return;
 
+            if (lines[0].length && lines[0].charCodeAt(0) === 0xFEFF) {
+                lines[0] = lines[0].slice(1);
+            }
+
+            let delim = ';';
             if (lines[0].startsWith('sep=')) {
+                const rest = lines[0].slice(4);
+                if (rest.length > 0) {
+                    delim = rest[0];
+                }
                 lines.shift();
             }
 
@@ -1180,20 +1289,20 @@
             }
             if (!lines.length) return;
 
-            const rows = lines.map(parseCsvLine);
+            const rows = lines.map(l => parseCsvLine(l, delim));
             if (!rows.length) return;
 
             let idx = 0;
             let title = '';
             const firstRow = rows[0];
-
-            if (firstRow.length > 0 &&
+            if (
+                firstRow.length > 0 &&
                 firstRow[0].trim() !== '' &&
-                firstRow.slice(1).every(c => !c.trim())) {
+                firstRow.slice(1).every(c => !c.trim())
+            ) {
                 title = firstRow[0].trim();
                 idx = 1;
             }
-
             if (idx >= rows.length) return;
 
             const headerRow = rows[idx];
@@ -1222,6 +1331,60 @@
                 const low = full[lowIdx] ?? '';
                 const high = full[highIdx] ?? '';
                 rowsOut.push(data);
+                thresholds.push({ low, high });
+            });
+
+            const includeAll = new Array(dataHeaders.length).fill(true);
+
+            const res = {
+                headers: dataHeaders,
+                rows: rowsOut,
+                thresholds,
+                include: includeAll,
+                order: dataHeaders.map((_, i) => i),
+                groupStyles: {},
+                groupDecimals: {},
+                meta: { delimiter: delim, guessed: false },
+                title
+            };
+
+            if (dataHeaders.length > COL_TAUX) {
+                for (let i = 0; i < res.rows.length; i++) {
+                    res.rows[i][COL_TAUX] = floor2DecimalsString(res.rows[i][COL_TAUX]);
+                }
+            }
+
+            window.__TABLOAD_LAST = res;
+            titleInput.value = title;
+
+            renderFromState();
+        }
+
+
+
+        function fallbackImportWithoutIndex(headerRow, dataRows, title, delim) {
+            const colCount = headerRow.length;
+            if (colCount < 3) return;
+
+            const lowIdx = colCount - 2;
+            const highIdx = colCount - 1;
+
+            const dataHeaders = headerRow.slice(0, colCount - 2);
+
+            if (!dataRows.length) return;
+
+            const rowsOut = [];
+            const thresholds = [];
+
+            dataRows.forEach(row => {
+                const full = [...row];
+                while (full.length < colCount) {
+                    full.push('');
+                }
+                const data = full.slice(0, colCount - 2);
+                const low = full[lowIdx] ?? '';
+                const high = full[highIdx] ?? '';
+                rowsOut.push(data);
                 thresholds.push({low, high});
             });
 
@@ -1233,7 +1396,7 @@
                 order: dataHeaders.map((_, i) => i),
                 groupStyles: {},
                 groupDecimals: {},
-                meta: {delimiter: ';', guessed: false},
+                meta: {delimiter: delim, guessed: false},
                 title
             };
 
@@ -1247,6 +1410,7 @@
             titleInput.value = title;
             renderFromState();
         }
+
 
 
 // Ici se trouve les fonctions annexes telles que les boutons +/-, le bouton de parse, les boutons d'export, le collage dans la zone de texte qui se transforme automatiquement, le titre qui s'affiche en direct.
