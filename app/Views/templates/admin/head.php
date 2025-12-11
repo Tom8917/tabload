@@ -111,26 +111,28 @@
     <style>
         /* ================= Violet Premium — Variables ================= */
         :root{
-            /* Palette (violet) */
-            --violet-950:#12081f;   /* quasi noir / profondeur */
-            --violet-900:#1d0e2f;   /* très sombre (fond principal) */
-            --violet-800:#2a1743;   /* sombre */
-            --violet-700:#3a225d;   /* foncé principal */
-            --violet-600:#51317d;   /* accent (brand) */
-            --violet-500:#6a49a1;   /* hover / clair */
-            --violet-400:#8b6bc0;   /* clair */
-            --violet-300:#b19ade;   /* très clair / surfaces */
-            --violet-200:#d6c9f0;   /* chips / fonds pâles */
+            /* Palette (blue) */
+            --violet-950:#0c1420;   /* quasi noir / profondeur */
+            --violet-900:#121f30;   /* très sombre (fond principal) */
+            --violet-800:#16304a;   /* sombre */
+            --violet-700:#1A365D;   /* Couleur 1 : bleu foncé principal (titres, contours) */
+            --violet-600:#105298;   /* Couleur 2 : bleu accent (brand, boutons) */
+            --violet-500:#2b6fb5;   /* hover / variante un peu plus claire */
+            --violet-400:#4a8fd0;   /* clair */
+            --violet-300:#7bb0e4;   /* très clair / surfaces */
+            --violet-200:#c6ddf6;   /* chips / fonds pâles */
 
             /* Jaune secondaire (accents secondaires uniquement) */
             --yellow:#d7fa00;
 
-            /* Lignes / bordures (lavande neutre dérivée) */
-            --line-500:#b7a9d9;
-            --line-300:#e6def7;
+            /* Lignes / bordures (bleu/gris neutre dérivé) */
+            --line-500:#9bb5d9;
+            --line-300:#d5e3f5;
 
             /* Tokens */
-            --r-sm:10px; --r-md:14px; --r-lg:18px;
+            --r-sm:10px;
+            --r-md:14px;
+            --r-lg:18px;
             --shadow-1:0 6px 18px rgba(0,0,0,.10);
             --shadow-2:0 10px 28px rgba(0,0,0,.16);
         }
