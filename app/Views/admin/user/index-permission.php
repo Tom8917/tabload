@@ -11,8 +11,6 @@
                     <th>ID</th>
                     <th>Nom</th>
                     <th>Slug</th>
-                    <th>Modifier</th>
-                    <th>Supprimer</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -42,21 +40,6 @@
                 {"data": "id"},
                 {"data": "name"},
                 {"data": "slug"},
-                {
-                    data: 'id',
-                    sortable: false,
-                    render: function (data) {
-                        return `<a href="${baseUrl}admin/userpermission/${data}"><i class="fa-solid
-                        fa-pencil"></i></a>`;
-                    }
-                },
-                {
-                    data: 'id',
-                    sortable: false,
-                    render: function (data) {
-                        return `<a href='${baseUrl}admin/userpermission/delete/${data}'><i class="fa-solid fa-trash text-danger"></i></a>`;
-                    }
-                }
             ]
         });
     });

@@ -3,7 +3,7 @@ services:
     image: mariadb:10.6
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: coda-portfolio
+      MYSQL_DATABASE: tabload
       MYSQL_USER: root
       MYSQL_PASSWORD: admin
     ports:

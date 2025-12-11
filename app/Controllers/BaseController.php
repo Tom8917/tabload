@@ -91,7 +91,7 @@ abstract class BaseController extends Controller
      *
      * @var string
      */
-    protected $title_prefix = 'coda-portfolio';
+    protected $title_prefix = 'tabload';
 
     /**
      * Menus à gérer dynamiquement dans l'application.

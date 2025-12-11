@@ -172,10 +172,11 @@
 <div class="login-wrap">
     <div class="login-card panel-border-grad">
         <div class="inner">
-            <img src="<?= base_url('assets/brand/coda_logo.png') ?>" alt="coda-portfolio" class="login-logo">
+<!--            <img src="--><?php //= base_url('assets/brand/coda_logo.png') ?><!--" alt="coda-portfolio" class="login-logo">-->
 
-            <h1 class="login-title">Connexion</h1>
-            <p class="login-sub">Accédez à votre espace vapoteur</p>
+            <h1 class="login-title">TABLOAD</h1>
+            <h2 class="login-title">Connexion</h2>
+            <p class="login-sub"></p>
 
             <?php if (isset($error)) { ?>
                 <div class="alert alert-danger py-2 mb-3" role="alert">

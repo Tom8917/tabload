@@ -25,6 +25,20 @@
       }
     }
   },
+  "reports": {
+    "title": "Bilan",
+    "url": "/admin/reports",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-list\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "tabload": {
+    "title": "Tabload",
+    "url": "/admin/tabload",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-list\"></i>",
+    "class": "main-menu-accueil"
+  },
   "tasks": {
     "title": "Tâche",
     "url": "/admin/task",

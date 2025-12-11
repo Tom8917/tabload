@@ -3,19 +3,20 @@
         <div class="sidebar-brand">
             <?php if ($user->id_permission === 1) { ?>
                 <div class="d-flex align-items-center justify-content-center">
-                    <a href="<?= base_url('admin') ?>">
-                        <img src="<?= base_url('assets/brand/coda_logo.png') ?>" alt="Logo"
-                             style="max-width:175px; height:auto; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));"
-                             class="ms-3">
-                    </a>
+<!--                    <a href="--><?php //= base_url('admin') ?><!--">-->
+<!--                        <img src="--><?php //= base_url('assets/brand/coda_logo.png') ?><!--" alt="Logo"-->
+<!--                             style="max-width:175px; height:auto; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));"-->
+<!--                             class="ms-3">-->
+<!--                    </a>-->
+                    <h1>Tabload</h1>
                 </div>
             <?php } else { ?>
                 <div class="d-flex align-items-center justify-content-center">
-                    <a href="<?= base_url('/Dashboard') ?>">
-                        <img src="<?= base_url('assets/brand/coda_logo.png') ?>" alt="Logo"
-                             style="max-width:175px; height:auto; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));"
-                             class="ms-3">
-                    </a>
+<!--                    <a href="--><?php //= base_url('/Dashboard') ?><!--">-->
+<!--                        <img src="--><?php //= base_url('assets/brand/coda_logo.png') ?><!--" alt="Logo"-->
+<!--                             style="max-width:175px; height:auto; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));"-->
+<!--                             class="ms-3">-->
+<!--                    </a>-->
                 </div>
             <?php } ?>
 

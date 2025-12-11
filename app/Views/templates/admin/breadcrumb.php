@@ -1,4 +1,4 @@
-<header class="header header-sticky p-0 mb-4 breadcrumb">
+<header class="header header-sticky p-0 mb-4 breadcrumb rounded-bottom-4 rounded-top-0">
     <div class="container-fluid px-4">
         <button class="header-toggler me-4" type="button"
                 onclick="coreui.Sidebar.getInstance(document.querySelector('#sidebar')).toggle()"
