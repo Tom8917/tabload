@@ -1,0 +1,63 @@
+{
+  "accueil": {
+    "title": "Accueil",
+    "url": "/admin",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-house\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "users": {
+    "title": "Utilisateurs",
+    "url": "#",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-address-book\"></i>",
+    "class": "",
+    "subs": {
+      "user": {
+        "title": "Utilisateurs",
+        "url": "/admin/user",
+        "icon": "<i class=\"nav-icon fa-solid fa-users\"></i>"
+      },
+      "userpermission": {
+        "title": "Permissions",
+        "url": "/admin/userpermission",
+        "icon": "<i class=\"nav-icon fa-solid fa-user-gear\"></i>"
+      }
+    }
+  },
+  "tasks": {
+    "title": "Tâche",
+    "url": "/admin/task",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-list\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "events": {
+    "title": "Évènements",
+    "url": "/admin/events",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "cours": {
+    "title": "Cours",
+    "url": "/admin/cours",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "pages": {
+    "title": "RP",
+    "url": "/admin/pages",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "media": {
+    "title": "Média",
+    "url": "/admin/media",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-image\"></i>",
+    "class": "main-menu-accueil"
+  }
+}

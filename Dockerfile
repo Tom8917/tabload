@@ -1,14 +1,23 @@
-FROM php:8.3-apache
+# Utiliser l'image officielle PHP avec Apache
+FROM php:8.2-apache
 
-# Activer mod_rewrite et définir le bon DocumentRoot
-RUN a2enmod rewrite && \
-    sed -i 's#DocumentRoot /var/www/html#DocumentRoot /var/www/html/public#g' /etc/apache2/sites-available/000-default.conf
+# Installer les extensions nécessaires
+RUN apt-get update && apt-get install -y \
+    zip unzip git curl libzip-dev libpng-dev libonig-dev libxml2-dev \
+    default-mysql-client \
+    && docker-php-ext-install pdo pdo_mysql zip
 
-# Paramètres PHP recommandés pour upload
-RUN { \
-  echo "file_uploads = On"; \
-  echo "post_max_size = 16M"; \
-  echo "upload_max_filesize = 16M"; \
-} > /usr/local/etc/php/conf.d/uploads.ini
+# Active le module Apache "rewrite" (nécessaire à CodeIgniter)
+RUN a2enmod rewrite
 
+# Copier les fichiers du projet dans le conteneur
+COPY . /var/www/html
+
+# Définir le dossier de travail
 WORKDIR /var/www/html
+
+# Donner les bons droits
+RUN chown -R www-data:www-data /var/www/html
+
+# Exposer le port Apache (déjà fait dans docker-compose, mais OK de le redire)
+EXPOSE 80

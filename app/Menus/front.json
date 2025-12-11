@@ -1,0 +1,31 @@
+{
+  "accueil": {
+    "title": "Accueil",
+    "url": "/Dashboard",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-house\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "events": {
+    "title": "Évènements",
+    "url": "/events",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "cours": {
+    "title": "Cours",
+    "url": "/cours",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "pages": {
+    "title": "RP",
+    "url": "/pages",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
+    "class": "main-menu-accueil"
+  }
+}
+
