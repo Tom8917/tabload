@@ -8,6 +8,6 @@ class Tabload extends BaseController
 {
     public function getIndex()
     {
-        return $this->view('admin/tabload/index');
+        return $this->view('admin/tabload/index', [], true);
     }
 }

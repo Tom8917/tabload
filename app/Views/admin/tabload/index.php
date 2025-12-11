@@ -85,7 +85,7 @@
                 </div>
                 <div class="card-body">
                     <p class="text-body-secondary mb-3">
-                        Séparateurs acceptés : tabulation "->", point-virgule ";" , virgule "," , pipe "|".
+                        Séparateurs acceptés : tabulation "→", point-virgule ";" , virgule "," , pipe "|".
                     </p>
 
                     <div class="mb-3">
@@ -194,10 +194,7 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
 <script>
-
-    // On enveloppe tout dans une fonction anonyme
     (function () {
-        // On déclare les variables et les différents éléments HTML (tableau, boutons, ...).
         const $ = s => document.querySelector(s);
         const rawEl = $('#raw');
         const delimEl = $('#delimiter');
@@ -213,15 +210,109 @@
         const importCsvBtn = document.getElementById('importCsvBtn');
         const importCsvInput = document.getElementById('importCsvInput');
 
-        // On déclare les colonnes actives par défaut (0, 2, 8, 13). On définit les COL_TAUX et COL_PERC95 aux colonnes appropriées (8 et 13).
+        // Colonnes par défaut à inclure (visibles)
         const DEFAULT_INCLUDED_INDEXES = [0, 2, 8, 13];
+
+        // Noms d'en-têtes fixes par défaut
+        const DEFAULT_HEADER_LABELS = [
+            'Parcours_Utilisateur',
+            'Parents',
+            'Nom',
+            'Min',
+            'Moy',
+            'Max',
+            'Nombre',
+            'Errreurs',
+            'Taux_d_erreurs',
+            'Elt/s',
+            'EcartType',
+            'Moy-90%',
+            'Perc50',
+            'Perc95',
+            'Perc99'
+        ];
+
+        // Indices "théoriques" pour arrondir le taux à l'import brut
         const COL_TAUX = 8;
-        const COL_PERC95 = 13;
+        const COL_PERC95 = 13; // conservé pour info, mais on utilise surtout l'index dynamique
+
+        function buildHeadersForCount(count) {
+            const headers = [];
+            for (let i = 0; i < count; i++) {
+                if (i < DEFAULT_HEADER_LABELS.length) {
+                    headers.push(DEFAULT_HEADER_LABELS[i]);
+                } else {
+                    headers.push('Colonne ' + (i + 1));
+                }
+            }
+            return headers;
+        }
+
+        function findColIndexByName(headers, target) {
+            const normTarget = String(target).trim().toLowerCase();
+            return headers.findIndex(h => String(h || '').trim().toLowerCase() === normTarget);
+        }
+
+        // Index dynamique de la colonne Taux d'erreur
+        function getTauxIndex(headers) {
+            const idx = findColIndexByName(headers, 'Taux_d_erreurs');
+            if (idx !== -1) return idx;
+            // fallback si le nom d'en-tête a été modifié, mais que la structure d'origine est conservée
+            if (headers.length > COL_TAUX) return COL_TAUX;
+            return -1;
+        }
+
+        // Index dynamique de la colonne Perc95 (aucun fallback vers 13 pour éviter la duplication)
+        function getPerc95Index(headers) {
+            return findColIndexByName(headers, 'Perc95');
+        }
+
+        // Supprime d'éventuelles colonnes Perc95 dupliquées
+        function dedupePerc95Columns(res) {
+            if (!res || !Array.isArray(res.headers)) return;
+
+            const headers = res.headers;
+            const percIdxs = [];
+
+            for (let i = 0; i < headers.length; i++) {
+                const label = String(headers[i] || '').trim().toLowerCase();
+                if (label === 'perc95') {
+                    percIdxs.push(i);
+                }
+            }
+
+            if (percIdxs.length <= 1) return;
+
+            // On garde la première, on supprime les suivantes
+            for (let k = percIdxs.length - 1; k >= 1; k--) {
+                const idx = percIdxs[k];
+
+                headers.splice(idx, 1);
+
+                if (Array.isArray(res.rows)) {
+                    res.rows.forEach(row => {
+                        if (row.length > idx) {
+                            row.splice(idx, 1);
+                        }
+                    });
+                }
+
+                if (Array.isArray(res.include)) {
+                    res.include.splice(idx, 1);
+                }
+
+                if (Array.isArray(res.order)) {
+                    res.order = res.order
+                        .filter(i => i !== idx)
+                        .map(i => (i > idx ? i - 1 : i));
+                }
+            }
+        }
 
         let currentDragIdx = null;
 
 
-        // Cette fonction regarde les 5 premières lignes et teste tous les séparateurs. Pour chaque séparateur tester, elle compte combien de fois il est passé. Elle choisie ensuite celui qui a le meilleur "score".
+        // Détection du séparateur
         function detectDelimiter(lines) {
             const cands = [
                 {k: 'tab', d: '\t'},
@@ -242,12 +333,11 @@
             return best;
         }
 
-        // Cette fonction coupe les lignes selon le séparateur et supprime les éventuelles espaces avant et après.
         function splitLine(line, delim) {
             return line.split(delim).map(s => s.trim());
         }
 
-        // Ici on arrondie à deux chiffres après la virgule, et on remplace les virgules par des points. Ensuite on utilise une méthode qui arrondie vers le bas (*100 -> math.floor -> /100).
+        // Arrondi à 2 décimales vers le bas
         function floor2DecimalsString(value) {
             if (value == null) return '';
             let s = String(value).trim();
@@ -259,10 +349,7 @@
             return floored.toFixed(2);
         }
 
-
-
-
-// Cette fonction fait la séparation en lignes, détecte le séparateur utilisé, fait les colonnes, met la première ligne en en-tête si hasHeader est à true, sinon on nomme les colonnes "Colonne i+1".
+        // Parsing du texte brut → headers + rows avec en-têtes fixes
         function parseRaw(raw, forcedDelim, hasHeader) {
             raw = raw.replace(/\r\n?/g, '\n').trim();
             const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
@@ -279,24 +366,26 @@
             }
 
             const rows = lines.map(l => splitLine(l, used));
-            let headers = [];
-            let data = rows;
 
-            if (hasHeader) {
-                headers = rows[0].map(h => h || 'Col');
+            // Si hasHeader = true : on enlève la 1ère ligne du data, mais on ignore son contenu
+            let data;
+            if (hasHeader && rows.length > 0) {
                 data = rows.slice(1);
             } else {
-                const max = rows.reduce((m, r) => Math.max(m, r.length), 0);
-                headers = Array.from({length: max}, (_, i) => 'Colonne ' + (i + 1));
+                data = rows;
             }
 
-            const maxCols = headers.length;
+            const maxCols = rows.reduce((m, r) => Math.max(m, r.length), 0);
+
+            const headers = buildHeadersForCount(maxCols);
+
             const norm = data.map(r => {
                 const a = r.slice(0, maxCols);
                 while (a.length < maxCols) a.push('');
                 return a;
             });
 
+            // Formatage du taux d'erreur sur la colonne théorique 8 si elle existe
             if (maxCols > COL_TAUX) {
                 for (let i = 0; i < norm.length; i++) {
                     norm[i][COL_TAUX] = floor2DecimalsString(norm[i][COL_TAUX]);
@@ -306,9 +395,6 @@
             return {headers, rows: norm, meta: {delimiter: used, guessed}};
         }
 
-
-
-// Cette petite fonction permet de formater les caractères spéciaux pour sécuriser l'affichage en HTML.
         function escapeHtml(s) {
             return String(s)
                 .replaceAll('&', '&amp;')
@@ -318,7 +404,6 @@
                 .replaceAll("'", '&#39;');
         }
 
-// cette fonction permet de passer à true les valeurs de DEFAULT_INCLUDE_INDEXES qui est une const ciblant les colonnes 0,2,8 et 13. En gros, ce sont ces colones qui seront cochées par défaut.
         function buildDefaultInclude(headersLength) {
             const inc = new Array(headersLength).fill(false);
             for (const idx of DEFAULT_INCLUDED_INDEXES) {
@@ -329,7 +414,6 @@
             return inc;
         }
 
-// res.thresholds low/high verifie que Valeur haute et Valeur basse existent.
         function ensureThresholds(res) {
             const n = res.rows.length;
             if (!Array.isArray(res.thresholds) || res.thresholds.length !== n) {
@@ -337,12 +421,11 @@
             }
         }
 
-// helper pour initialiser les décimales Perc95 par groupe
         function ensureGroupDecimals(res) {
             if (!res.groupDecimals) res.groupDecimals = {};
         }
 
-// On lit res.include pour savoir quelles colonnes sont cochées. res.order lit l'ordre des colonnes. On construit ensuite un tableau qui permet d'afficher les colonnes dans l'ordre et affiche colonnes low et high après la colonne perc95, ou tout à la fin si perc95 n'est pas présente.
+        // Colonnes à afficher (données + colonnes low/high)
         function buildDisplayColumns(res) {
             const headers = res.headers;
             let include = res.include;
@@ -357,13 +440,14 @@
                 res.order = order;
             }
 
+            const percIdx = getPerc95Index(headers);
             const dataIdx = order.filter(i => include[i]);
             const display = [];
             let percInserted = false;
 
             for (const idx of dataIdx) {
                 display.push({type: 'data', idx});
-                if (idx === COL_PERC95) {
+                if (idx === percIdx && percIdx !== -1) {
                     display.push({type: 'low'});
                     display.push({type: 'high'});
                     percInserted = true;
@@ -378,7 +462,6 @@
             return display;
         }
 
-
         function classForGroupStyle(style) {
             if (style === 'green') return ' cell-green';
             if (style === 'orange') return ' cell-orange';
@@ -386,7 +469,7 @@
             return '';
         }
 
-// On compare la valeur perc95 avec low et high afin de déterminé automatiquement la couleur de la colonne perc95. On prend en compte la possibilité que low OU high peut être manquant.
+        // Couleur auto pour Perc95 en fonction des seuils
         function percClassForValue(valStr, lowStr, highStr) {
             if (valStr == null || valStr === '') return '';
             let vs = String(valStr).replace(',', '.');
@@ -418,18 +501,16 @@
             return '';
         }
 
-        // récupère le nombre de décimales pour un parcours (ligne r)
         function getPercDecimalsForRow(res, rows, r) {
             if (!res.groupDecimals) return null;
             const key = rows[r][0] || '(vide)';
             const raw = res.groupDecimals[key];
             if (raw === undefined || raw === null || raw === '') return null;
             const n = parseInt(raw, 10);
-            if (Number.isNaN(n) || (n !== 2 && n !== 3)) return null; // seulement 2 ou 3
+            if (Number.isNaN(n) || (n !== 2 && n !== 3)) return null;
             return n;
         }
 
-        // formate Perc95 selon le nb de décimales choisi
         function formatPerc95(value, decimals) {
             if (value == null) return '';
             let s = String(value).trim();
@@ -440,10 +521,7 @@
             return n.toFixed(decimals);
         }
 
-
-
-
-// On récupère les valeurs res.include (colonnes cochées) et res.order (ordre de base des colonnes), et on génère un bloc html affichant le nom de la colonne, la case à cocher, et permet de déplacer la colonne.
+        // Toggles de colonnes (cases à cocher + drag & drop)
         function renderColumnToggles(headers) {
             const res = window.__TABLOAD_LAST;
             if (!res || !headers.length) {
@@ -534,9 +612,7 @@
             });
         }
 
-
-
-// Ici on part de la colonne 0, on analyse toute la colonne 0 (parcours utilisateur), et on affiche une interface permettant de modifier la couleur du taux d'erreur (COL_TAUX : col.8). Lire la colonne 0 permet de donner un label au select de modification de couleur du taux d'erreur correspondant.
+        // Configs par parcours (taux d'erreur + décimales Perc95)
         function renderGroupConfigs(headers, rows) {
             const res = window.__TABLOAD_LAST;
             if (!res || !rows.length) {
@@ -558,9 +634,12 @@
                 return;
             }
 
+            const tauxIdx = getTauxIndex(headers);
+            const tauxNumHuman = (tauxIdx >= 0 ? (tauxIdx + 1) : '?');
+
             let html = `
             <div class="small fw-semibold mb-2">
-                Taux d'erreur (col. ${COL_TAUX}) & décimales Perc95 par parcours
+                Taux d'erreur (col. ${tauxNumHuman}) & décimales Perc95 par parcours
             </div>
             <div class="d-flex flex-column gap-2">
         `;
@@ -626,15 +705,7 @@
             });
         }
 
-
-
-
-
-
-
-
-
-// Rendu du tableau : on verifie qu'on a toutes les données (res.include, res.order, res.thresholds, ...), on construit displayCols pour l'ordre d'affichage, on créer des fusion de cases pour col 0 et 8, on fabrique le tableau avec son body, on met en place des inputs permettant de modifier chaque case du tableau, et enfin on utilise tous les évènements déclarés (ex: valeurs basse / haute, l'arrondi décimale, les couleurs, ...).
+        // Rendu du tableau
         function renderTable(headers, rows) {
             if (!headers.length) {
                 wrapEl.innerHTML = '<p class="text-body-secondary mb-0">Aucun contenu.</p>';
@@ -652,6 +723,10 @@
                 res.order = headers.map((_, i) => i);
             }
 
+            const percIdx = getPerc95Index(headers);
+            let tauxIndex = getTauxIndex(headers);
+            if (tauxIndex < 0 || tauxIndex >= headers.length) tauxIndex = -1;
+
             ensureThresholds(res);
             ensureGroupDecimals(res);
 
@@ -667,6 +742,7 @@
 
             const n = rows.length;
 
+            // Regroupement par parcours (col. 0)
             const firstSpan = new Array(n).fill(0);
             const firstSkip = new Array(n).fill(false);
 
@@ -688,37 +764,8 @@
                 }
             }
 
-            const tauxIndex = (headers.length > COL_TAUX) ? COL_TAUX : -1;
-            const tauxSpan = new Array(n).fill(0);
-            const tauxSkip = new Array(n).fill(false);
-
-            if (tauxIndex !== -1) {
-                let i = 0;
-                while (i < n) {
-                    const start = i;
-                    const val = rows[i][0];
-                    let j = i + 1;
-                    while (j < n && rows[j][0] === val) j++;
-                    const span = j - start;
-
-                    let master = -1;
-                    for (let k = start; k < j; k++) {
-                        if (rows[k][1] === 'Actions') {
-                            master = k;
-                            break;
-                        }
-                    }
-                    if (master !== -1 && span > 0) {
-                        tauxSpan[master] = span;
-                        for (let k = start; k < j; k++) {
-                            if (k !== master) tauxSkip[k] = true;
-                        }
-                    }
-                    i = j;
-                }
-            }
-
-            const hasTempsGroup = displayCols.some(c => c.type === 'data' && c.idx === COL_PERC95);
+            const hasTempsGroup = (percIdx !== -1) &&
+                displayCols.some(c => c.type === 'data' && c.idx === percIdx);
             const colspanTotal = displayCols.length;
             const title = (res.title || '').trim();
 
@@ -741,11 +788,11 @@
                     const col = displayCols[i];
                     if (col.type === 'data') {
                         const ci = col.idx;
-                        if (ci === COL_PERC95 && !tempsDone) {
+                        if (ci === percIdx && !tempsDone) {
                             firstHeaderRow += `
                             <th colspan="3" class="text-center align-middle header-cell">Temps de réponse</th>`;
                             tempsDone = true;
-                        } else if (ci !== COL_PERC95) {
+                        } else if (ci !== percIdx) {
                             firstHeaderRow += `
                             <th class="text-nowrap align-middle header-cell" rowspan="2">
                                 <input type="text" value="${escapeHtml(headers[ci] ?? '')}"
@@ -759,7 +806,7 @@
 
                 for (let i = 0; i < displayCols.length; i++) {
                     const col = displayCols[i];
-                    if (col.type === 'data' && col.idx === COL_PERC95) {
+                    if (col.type === 'data' && col.idx === percIdx) {
                         const ci = col.idx;
                         secondHeaderRow += `
                         <th class="text-nowrap align-middle header-cell">
@@ -812,6 +859,7 @@
                         let rowspanAttr = '';
                         let skip = false;
 
+                        // Regroupement sur Parcours_Utilisateur
                         if (ci === 0) {
                             if (firstSkip[r]) {
                                 skip = true;
@@ -820,11 +868,12 @@
                             }
                         }
 
+                        // Taux d'erreur groupé exactement comme la colonne 0
                         if (!skip && ci === tauxIndex && tauxIndex !== -1) {
-                            if (tauxSkip[r]) {
+                            if (firstSkip[r]) {
                                 skip = true;
-                            } else if (tauxSpan[r] > 1) {
-                                rowspanAttr = ` rowspan="${tauxSpan[r]}"`;
+                            } else if (firstSpan[r] > 1) {
+                                rowspanAttr = ` rowspan="${firstSpan[r]}"`;
                             }
                         }
 
@@ -832,19 +881,19 @@
 
                         let extraClass = '';
 
-                        if (ci === COL_TAUX) {
+                        if (ci === tauxIndex && tauxIndex !== -1) {
                             const key = rows[r][0] || '(vide)';
                             const style = (res.groupStyles && res.groupStyles[key]) || '';
                             extraClass += classForGroupStyle(style);
                         }
 
-                        if (ci === COL_PERC95 && headers.length > COL_PERC95) {
+                        if (ci === percIdx && percIdx !== -1) {
                             extraClass += percClassForValue(rows[r][ci], thVal.low, thVal.high);
                         }
 
                         let val = rows[r][ci] ?? '';
 
-                        if (ci === COL_PERC95) {
+                        if (ci === percIdx && percIdx !== -1) {
                             const dec = getPercDecimalsForRow(res, rows, r);
                             if (dec != null) {
                                 const formatted = formatPerc95(val, dec);
@@ -913,12 +962,15 @@
 
                     let val = res.rows[r][c];
 
-                    if (c === COL_TAUX) {
+                    const tauxIdxBlur = getTauxIndex(res.headers);
+                    const percIdxBlur = getPerc95Index(res.headers);
+
+                    if (c === tauxIdxBlur && tauxIdxBlur !== -1) {
                         val = floor2DecimalsString(val);
                         res.rows[r][c] = val;
                     }
 
-                    if (c === COL_PERC95) {
+                    if (c === percIdxBlur && percIdxBlur !== -1) {
                         const dec = getPercDecimalsForRow(res, res.rows, r);
                         if (dec != null) {
                             val = formatPerc95(val, dec);
@@ -951,22 +1003,13 @@
             renderGroupConfigs(headers, rows);
         }
 
-
-
-
-
-
-// Permet de relancer le rendu du tableau.
         function renderFromState() {
             const res = window.__TABLOAD_LAST;
             if (!res) return;
             renderTable(res.headers, res.rows);
         }
 
-
-
-// Ces fonctions permettent l'ajout et la suppression de colonne. L'ajout créé une colonne avec le nom Colonne i+1, se met dans l'ordre automatiquement. La suppression supprime la dernière colonne du tableau (toutes les valeurs concernées), et remet à jour le tableau automatiquement pour l'ordre.
-        // Ajout :
+        // Ajout / suppression de colonnes
         function addColumn(){
             const res = window.__TABLOAD_LAST;
             if (!res) return;
@@ -988,7 +1031,7 @@
 
             renderFromState();
         }
-        // Suppression :
+
         function removeColumn(){
             const res = window.__TABLOAD_LAST;
             if (!res) return;
@@ -1009,7 +1052,6 @@
             renderFromState();
         }
 
-// Cette fonction permet le bon formatage des caractères de séparation.
         function currentDelimiter() {
             const v = delimEl.value;
             if (v === 'auto') return null;
@@ -1020,7 +1062,6 @@
             return null;
         }
 
-// Cette fonction s'execute au moment de transformer le texte brut en tableau. Elle initalise toutes les fonctions précédentes (pas de couleurs, ordre par défaut, colonnes cochées par défaut, ...).
         function parseAndRender() {
             const raw = rawEl.value || '';
             const forced = currentDelimiter();
@@ -1037,9 +1078,7 @@
             renderFromState();
         }
 
-
-
-// Dans cette fonction, on récupère l'état de res et on recalcule les colonnes (data). On construit le tableau csv avec les bonnes en-têtes, les valeurs low et high, ... On encode également avec UTF-16 pour la prise en compte des accents.
+        // Export CSV (UTF-16LE + META)
         function exportCSV(){
             const res = window.__TABLOAD_LAST;
             if(!res || !res.headers.length) return;
@@ -1081,6 +1120,20 @@
                 rowsOut.push(titleRow);
             }
 
+            // Ligne META (groupStyles + groupDecimals)
+            const meta = {};
+            if (res.groupStyles && Object.keys(res.groupStyles).length) {
+                meta.groupStyles = res.groupStyles;
+            }
+            if (res.groupDecimals && Object.keys(res.groupDecimals).length) {
+                meta.groupDecimals = res.groupDecimals;
+            }
+            if (Object.keys(meta).length) {
+                const metaRow = new Array(headersOut.length).fill('');
+                metaRow[0] = '#TABLOAD_META=' + JSON.stringify(meta);
+                rowsOut.push(metaRow);
+            }
+
             rowsOut.push(headersOut, ...dataRows);
 
             const body = rowsOut.map(row => row.map(cell => {
@@ -1111,11 +1164,7 @@
             URL.revokeObjectURL(a.href);
         }
 
-
-
-
-
-// Ici, on extrait pas vraiement le tableau, on le capture. On utilise donc la librairie "html2canvas" qui va faire une sorte de capture d'écran du tableau complet et va en faire un fichier .png.
+        // Export PNG via html2canvas
         function exportPNG() {
             const table = wrapEl.querySelector('table');
             if (!table) return;
@@ -1137,7 +1186,7 @@
             });
         }
 
-        // parse une ligne CSV avec ; et guillemets
+        // Parsing d'une ligne de CSV
         function parseCsvLine(line, delim = ';') {
             const res = [];
             let cur = '';
@@ -1162,114 +1211,13 @@
             return res;
         }
 
-
-
-        // Cette fonction construit un nouveau tableau (headers + rows + thresholds) à partir d'un CSV exporté par l'outil
-        function buildStateFromCsv(csvText) {
-            let text = String(csvText).replace(/\r\n?/g, '\n');
-            let lines = text.split('\n');
-            if (!lines.length) return null;
-
-            let delim = ';';
-            if (lines[0].startsWith('sep=')) {
-                const rest = lines[0].slice(4);
-                if (rest.length > 0) {
-                    delim = rest[0];
-                }
-                lines.shift();
-            }
-
-            lines = lines.map(l => l.trimEnd());
-            while (lines.length && !lines[lines.length - 1]) {
-                lines.pop();
-            }
-            if (!lines.length) return null;
-
-            const rows = lines.map(l => parseCsvLine(l, delim));
-            if (!rows.length) return null;
-
-            let idx = 0;
-            let title = '';
-            const firstRow = rows[0];
-
-            if (
-                firstRow.length > 0 &&
-                firstRow[0].trim() !== '' &&
-                firstRow.slice(1).every(c => !c.trim())
-            ) {
-                title = firstRow[0].trim();
-                idx = 1;
-            }
-
-            if (idx >= rows.length) return null;
-
-            const headerRow = rows[idx];
-            idx++;
-
-            if (!headerRow || !headerRow.length) return null;
-            const colCount = headerRow.length;
-            if (colCount < 1) return null;
-
-            let lowIdx = -1;
-            let highIdx = -1;
-            if (colCount >= 3) {
-                lowIdx = colCount - 2;
-                highIdx = colCount - 1;
-            }
-
-            const dataHeaderLabels = headerRow.slice(0, (lowIdx === -1 ? colCount : lowIdx));
-            const dataRows = rows.slice(idx);
-            if (!dataRows.length) return null;
-
-            const rowsOut = [];
-            const thresholds = [];
-
-            dataRows.forEach(row => {
-                const full = [...row];
-                while (full.length < colCount) {
-                    full.push('');
-                }
-                const data = full.slice(0, (lowIdx === -1 ? colCount : lowIdx));
-
-                let low = '';
-                let high = '';
-                if (lowIdx !== -1 && highIdx !== -1) {
-                    low = full[lowIdx] ?? '';
-                    high = full[highIdx] ?? '';
-                }
-
-                rowsOut.push(data);
-                thresholds.push({ low, high });
-            });
-
-            const res = {
-                headers: dataHeaderLabels,
-                rows: rowsOut,
-                thresholds,
-                include: buildDefaultInclude(dataHeaderLabels.length),
-                order: dataHeaderLabels.map((_, i) => i),
-                groupStyles: {},
-                groupDecimals: {},
-                meta: { delimiter: delim, guessed: false },
-                title
-            };
-
-            if (dataHeaderLabels.length > COL_TAUX) {
-                for (let i = 0; i < res.rows.length; i++) {
-                    res.rows[i][COL_TAUX] = floor2DecimalsString(res.rows[i][COL_TAUX]);
-                }
-            }
-
-            return res;
-        }
-
-
-        // import CSV exporté par l'outil (format plat)
+        // Import CSV exporté par l'outil
         function importCsvText(csvText) {
             let text = String(csvText).replace(/\r\n?/g, '\n');
             let lines = text.split('\n');
             if (!lines.length) return;
 
+            // BOM éventuel
             if (lines[0].length && lines[0].charCodeAt(0) === 0xFEFF) {
                 lines[0] = lines[0].slice(1);
             }
@@ -1294,15 +1242,36 @@
 
             let idx = 0;
             let title = '';
-            const firstRow = rows[0];
-            if (
-                firstRow.length > 0 &&
-                firstRow[0].trim() !== '' &&
-                firstRow.slice(1).every(c => !c.trim())
-            ) {
-                title = firstRow[0].trim();
-                idx = 1;
+            let meta = null;
+
+            // Titre éventuel
+            if (idx < rows.length) {
+                const firstRow = rows[idx];
+                if (
+                    firstRow.length > 0 &&
+                    firstRow[0].trim() !== '' &&
+                    !firstRow[0].startsWith('#TABLOAD_META=') &&
+                    firstRow.slice(1).every(c => !c.trim())
+                ) {
+                    title = firstRow[0].trim();
+                    idx++;
+                }
             }
+
+            // Ligne META éventuelle
+            if (idx < rows.length) {
+                const maybeMeta = rows[idx];
+                if (maybeMeta[0] && maybeMeta[0].startsWith('#TABLOAD_META=')) {
+                    const rawMeta = maybeMeta[0].slice('#TABLOAD_META='.length);
+                    try {
+                        meta = JSON.parse(rawMeta);
+                    } catch (e) {
+                        meta = null;
+                    }
+                    idx++;
+                }
+            }
+
             if (idx >= rows.length) return;
 
             const headerRow = rows[idx];
@@ -1311,11 +1280,30 @@
             const colCount = headerRow.length;
             if (colCount < 3) return;
 
-            const lowIdx = colCount - 2;
-            const highIdx = colCount - 1;
+            // Recherche explicite de "Valeur basse" / "Valeur haute"
+            let lowIdx = -1;
+            let highIdx = -1;
+            for (let i = 0; i < colCount; i++) {
+                const label = (headerRow[i] || '').trim().toLowerCase();
+                if (label === 'valeur basse') lowIdx = i;
+                if (label === 'valeur haute') highIdx = i;
+            }
 
-            const dataHeaders = headerRow.slice(0, colCount - 2);
+            // Si pas trouvés proprement, fallback sur les 2 dernières colonnes
+            if (
+                lowIdx === -1 ||
+                highIdx === -1 ||
+                lowIdx === highIdx ||
+                highIdx !== lowIdx + 1
+            ) {
+                lowIdx = colCount - 2;
+                highIdx = colCount - 1;
+            }
 
+            const dataEnd = Math.min(lowIdx, highIdx);
+            if (dataEnd < 1) return;
+
+            const dataHeaders = headerRow.slice(0, dataEnd);
             const dataRows = rows.slice(idx);
             if (!dataRows.length) return;
 
@@ -1327,7 +1315,7 @@
                 while (full.length < colCount) {
                     full.push('');
                 }
-                const data = full.slice(0, colCount - 2);
+                const data = full.slice(0, dataEnd);
                 const low = full[lowIdx] ?? '';
                 const high = full[highIdx] ?? '';
                 rowsOut.push(data);
@@ -1342,78 +1330,30 @@
                 thresholds,
                 include: includeAll,
                 order: dataHeaders.map((_, i) => i),
-                groupStyles: {},
-                groupDecimals: {},
+                groupStyles: (meta && meta.groupStyles) ? meta.groupStyles : {},
+                groupDecimals: (meta && meta.groupDecimals) ? meta.groupDecimals : {},
                 meta: { delimiter: delim, guessed: false },
                 title
             };
 
-            if (dataHeaders.length > COL_TAUX) {
+            // Nettoyage éventuel des duplications Perc95
+            dedupePerc95Columns(res);
+
+            // Reformatage du taux d'erreur sur l'index dynamique
+            const tauxIndex = getTauxIndex(res.headers);
+            if (tauxIndex >= 0 && tauxIndex < res.headers.length) {
                 for (let i = 0; i < res.rows.length; i++) {
-                    res.rows[i][COL_TAUX] = floor2DecimalsString(res.rows[i][COL_TAUX]);
+                    res.rows[i][tauxIndex] = floor2DecimalsString(res.rows[i][tauxIndex]);
                 }
             }
 
             window.__TABLOAD_LAST = res;
-            titleInput.value = title;
+            titleInput.value = res.title || '';
 
             renderFromState();
         }
 
-
-
-        function fallbackImportWithoutIndex(headerRow, dataRows, title, delim) {
-            const colCount = headerRow.length;
-            if (colCount < 3) return;
-
-            const lowIdx = colCount - 2;
-            const highIdx = colCount - 1;
-
-            const dataHeaders = headerRow.slice(0, colCount - 2);
-
-            if (!dataRows.length) return;
-
-            const rowsOut = [];
-            const thresholds = [];
-
-            dataRows.forEach(row => {
-                const full = [...row];
-                while (full.length < colCount) {
-                    full.push('');
-                }
-                const data = full.slice(0, colCount - 2);
-                const low = full[lowIdx] ?? '';
-                const high = full[highIdx] ?? '';
-                rowsOut.push(data);
-                thresholds.push({low, high});
-            });
-
-            const res = {
-                headers: dataHeaders,
-                rows: rowsOut,
-                thresholds,
-                include: buildDefaultInclude(dataHeaders.length),
-                order: dataHeaders.map((_, i) => i),
-                groupStyles: {},
-                groupDecimals: {},
-                meta: {delimiter: delim, guessed: false},
-                title
-            };
-
-            if (dataHeaders.length > COL_TAUX) {
-                for (let i = 0; i < res.rows.length; i++) {
-                    res.rows[i][COL_TAUX] = floor2DecimalsString(res.rows[i][COL_TAUX]);
-                }
-            }
-
-            window.__TABLOAD_LAST = res;
-            titleInput.value = title;
-            renderFromState();
-        }
-
-
-
-// Ici se trouve les fonctions annexes telles que les boutons +/-, le bouton de parse, les boutons d'export, le collage dans la zone de texte qui se transforme automatiquement, le titre qui s'affiche en direct.
+        // Boutons / événements
         colPlusBtn.addEventListener('click', addColumn);
         colMinusBtn.addEventListener('click', removeColumn);
         document.getElementById('parseBtn').addEventListener('click', parseAndRender);

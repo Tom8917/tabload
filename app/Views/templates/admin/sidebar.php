@@ -106,11 +106,11 @@
                         </div>
                         <div class="toast-body">
                             <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;">
-                                <div style="width:60px;height:60px;background:#1d0e2f;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;">
-                                    #1d0e2f
+                                <div style="width:60px;height:60px;background:#1A365D;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;">
+                                    #1A365D
                                 </div>
-                                <div style="width:60px;height:60px;background:#d7fa00;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;">
-                                    #d7fa00
+                                <div style="width:60px;height:60px;background:#105298;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;">
+                                    #105298
                                 </div>
                             </div>
                         </div>
