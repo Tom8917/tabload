@@ -30,7 +30,7 @@ class Home extends BaseController
             'events' => $em ? $em->countAllResults() : 0,
         ];
 
-        return $this->view('/admin/dashboard/index.php', ['stats' => $stats], ['saveData' => true]);
+        return $this->view('admin/dashboard/index', ['stats' => $stats], true, ['saveData' => true]);
     }
 
     public function getforbidden() : string

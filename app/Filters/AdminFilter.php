@@ -19,14 +19,11 @@ class AdminFilter implements FilterInterface
 
         $user = $session->get('user');
         if (!$user || $user->getPermissionSlug() !== 'administrateur') {
-            return redirect()->to(site_url('reports'));
+            return redirect()->to(site_url('/'));
         }
 
         return null;
     }
 
-    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
-    {
-
-    }
+    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null) {}
 }

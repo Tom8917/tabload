@@ -77,7 +77,7 @@ class Login extends BaseController
     }
 
     // GET /logout
-    public function logout()
+    public function getLogout()
     {
         $this->session->remove('user');
         return $this->redirect('/login');

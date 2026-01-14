@@ -420,9 +420,17 @@
 
 </head>
 <body>
-<?php if (isset($menus)) {
-    echo view($template_dir . 'sidebar', ['menus' => $menus]);
-} ?>
+<?php
+if (!empty($menus)) {
+    echo view($template_dir . 'sidebar', [
+        'menus'     => $menus,
+        'user'      => $user ?? null,
+        'localmenu' => $localmenu ?? null,
+        'mainmenu'  => $mainmenu ?? null,
+    ]);
+}
+?>
+
 <div class="wrapper d-flex flex-column min-vh-100">
     <?php if (isset($breadcrumb)) {
         echo view($template_dir . '/breadcrumb');

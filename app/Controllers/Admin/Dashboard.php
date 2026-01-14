@@ -6,7 +6,7 @@ use App\Controllers\BaseController;
 
 class Dashboard extends BaseController
 {
-    protected $title = 'Dashboard';
+    protected $title        = 'Dashboard';
     protected $require_auth = true;
 
     public function getIndex(): string
@@ -29,21 +29,16 @@ class Dashboard extends BaseController
             'events' => $em ? $em->countAllResults() : 0,
         ];
 
-        $typesCount = [];
-        if (class_exists('App\Models\EventModel')) {
-            $rows = model('App\Models\EventModel')->select('type, COUNT(*) as c')->groupBy('type')->find();
-            foreach ($rows as $r) $typesCount[$r['type'] ?: 'autre'] = (int)$r['c'];
-        }
-
-        return $this->view('/admin/dashboard/index.php', ['stats' => $stats], ['saveData' => true]);
+        return $this->view('admin/dashboard/index', ['stats' => $stats], true, ['saveData' => true]);
     }
 
-    public function getTest() {
+    public function getTest(): void
+    {
         $this->error("Oh");
         $this->message("Oh");
         $this->success("Oh");
         $this->warning("Oh");
         $this->error("Oh");
-        $this->redirect("/Admin/Dashboard");
+        $this->redirect("/admin");
     }
 }
