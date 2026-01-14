@@ -98,7 +98,7 @@ abstract class BaseController extends Controller
      *
      * @var array|null
      */
-    protected $menus;
+    protected array $menusCache = [];
 
     /**
      * Chemin de navigation pour la gestion des breadcrumbs.
@@ -134,16 +134,21 @@ abstract class BaseController extends Controller
      * @param bool $admin Indique si l'utilisateur est un administrateur.
      * @return array Liste des menus.
      */
-    protected function menus($admin = false)
+
+    protected function menus(bool $admin = false): array
     {
-        if (!$this->menus) {
-            if (isset($this->session->user) && $this->session->user->getPermissionSlug() === 'administrateur')
-            {
-                $file = 'admin.json';
-            } else {
-                $file = 'front.json';
-            }
-            $this->menus = json_decode(file_get_contents(APPPATH . 'Menus/' . $file), true); } return $this->menus;
+        $key = $admin ? 'admin' : 'front';
+
+        if (!isset($this->menusCache[$key])) {
+            $file = $admin ? 'admin.json' : 'front.json';
+            $path = APPPATH . 'Menus/' . $file;
+
+            $this->menusCache[$key] = file_exists($path)
+                ? (json_decode(file_get_contents($path), true) ?? [])
+                : [];
+        }
+
+        return $this->menusCache[$key];
     }
 
     /**
@@ -198,15 +203,21 @@ abstract class BaseController extends Controller
      *
      * @return bool True si l'utilisateur a les permissions, False sinon.
      */
-    public function checkPermission()
+    public function checkPermission(): bool
     {
-        if (isset($this->session->user)) {
-            if (!in_array($this->session->user->getPermissionSlug(), $this->requiredPermissions)) {
-                $this->session->set('redirect_url', current_url(true)->getPath());
-                $this->redirect('/front');
-            }
+        if (!isset($this->session->user)) {
             return false;
         }
+
+        if (!in_array(
+            $this->session->user->getPermissionSlug(),
+            $this->requiredPermissions,
+            true
+        )) {
+            $this->session->set('redirect_url', current_url(true)->getPath());
+            $this->redirect('/');
+        }
+
         return true;
     }
 
@@ -251,28 +262,38 @@ abstract class BaseController extends Controller
      * @param bool $admin Indique si le template admin doit être utilisé.
      * @return string Contenu rendu de la vue.
      */
-    public function view($vue = null, $datas = [], $admin = false)
+    public function view($vue = null, array $datas = [], $admin = false, array $options = [])
     {
+        // Retro-compat : ancien usage -> 3e param était un array d'options
+        if (is_array($admin)) {
+            $options = $admin;
+            $admin = false;
+        }
+
         $connected = isset($this->session->user);
-        $template_dir = $admin ? "/templates/admin/" : "/templates/front/";
+        $template_dir = $admin ? "templates/admin/" : "templates/front/";
 
         $flashData = session()->getFlashdata('data');
         if ($flashData) {
             $datas = array_merge($datas, $flashData);
         }
 
+        // Menus : IMPORTANT, on passe bien le bool $admin
+        $menus = $this->menus((bool) $admin);
+
         return view($template_dir . 'head', [
                 'template_dir' => $template_dir,
-                'show_menu' => $connected,
-                'mainmenu' => $this->mainmenu,
-                'breadcrumb' => $this->breadcrumb,
-                'localmenu' => $this->menu,
-                'user' => ($this->session->user ?? null),
-                'menus' => $this->menus($admin),
-                'title' => sprintf('%s : %s', $this->title, $this->title_prefix),
+                'show_menu'    => $connected,
+                'mainmenu'     => $this->mainmenu,
+                'breadcrumb'   => $this->breadcrumb,
+                'localmenu'    => $this->menu,
+                'user'         => ($this->session->user ?? null),
+                'menus'        => $menus,
+                'title'        => sprintf('%s : %s', $this->title, $this->title_prefix),
+                'options'      => $options, // si tu en as besoin dans les vues
             ])
             . (($vue !== null) ? view($vue, $datas) : '')
-            . view($template_dir . 'footer', ['messages' => $this->messages]);
+            . view($template_dir . 'footer', ['messages' => $this->messages, 'options' => $options]);
     }
 
     /**

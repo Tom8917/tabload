@@ -6,7 +6,7 @@ use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Filters\FilterInterface;
 
-class AdminFilter implements FilterInterface
+class AuthFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
@@ -15,11 +15,6 @@ class AdminFilter implements FilterInterface
         if (!$session->has('user')) {
             $session->set('redirect_url', current_url(true)->getPath());
             return redirect()->to(site_url('login'));
-        }
-
-        $user = $session->get('user');
-        if (!$user || $user->getPermissionSlug() !== 'administrateur') {
-            return redirect()->to(site_url('reports'));
         }
 
         return null;

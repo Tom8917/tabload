@@ -101,7 +101,7 @@
                 <div class="toast-container position-fixed bottom-0 end-0 p-3">
                     <div id="paletteToast" class="toast" role="alert">
                         <div class="toast-header">
-                            <strong class="me-auto">Palette CODA</strong>
+                            <strong class="me-auto">Palette TABLOAD</strong>
                             <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
                         </div>
                         <div class="toast-body">
@@ -116,7 +116,7 @@
                         </div>
                     </div>
                 </div>
-
+    
                 <script>
                     function showPalette() {
                         const toastEl = document.getElementById('paletteToast');
