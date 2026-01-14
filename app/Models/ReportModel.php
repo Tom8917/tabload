@@ -8,7 +8,6 @@ class ReportModel extends Model
 {
     protected $table      = 'reports';
     protected $primaryKey = 'id';
-    protected $requiredPermissions = ['administrateur'];
 
     protected $allowedFields = [
         'user_id',

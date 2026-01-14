@@ -2,55 +2,90 @@
 
 namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Models\ReportModel;
 use App\Models\ReportSectionModel;
 use App\Services\ReportSectionService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
-class Reports extends BaseController
+class Report extends BaseController
 {
     protected ReportModel $reports;
     protected ReportSectionService $sectionsService;
     protected ReportSectionModel $sections;
+
+    // Si ton front a besoin d’être connecté
+    protected $require_auth = true;
 
     public function __construct()
     {
         $this->reports         = new ReportModel();
         $this->sectionsService = new ReportSectionService();
         $this->sections        = new ReportSectionModel();
-
-        // accessible à tout user connecté (BaseController le gère)
-        $this->title = 'Mes bilans';
-        $this->menu  = 'reports';
     }
 
-    private function currentUserId(): int
+    /**
+     * Petit helper : récupère l’id user connecté (à adapter à ton auth)
+     */
+    private function userId(): int
     {
-        return (int) (session()->get('user')->id ?? 0);
+        // Exemple courant : session('user')->id
+        $user = session('user');
+        return (int) ($user->id ?? 0);
     }
 
-    private function mustGetMyReport(int $reportId): array
+    /**
+     * Helper : récupère un report du user, sinon 404
+     */
+    private function findOwnedReportOr404(int $reportId): array
     {
-        $report = $this->reports->findOneForUser($reportId, $this->currentUserId());
-        if (!$report) {
-            // 404 = meilleur pour ne rien “leaker”
+        $report = $this->reports->find($reportId);
+
+        if (! $report) {
             throw PageNotFoundException::forPageNotFound("Report {$reportId} not found");
         }
+
+        if ((int) ($report['user_id'] ?? 0) !== $this->userId()) {
+            // On évite de révéler l’existence d’un report qui n’appartient pas au user
+            throw PageNotFoundException::forPageNotFound("Report {$reportId} not found");
+        }
+
         return $report;
     }
 
-    // GET /bilans
-    public function getIndex()
+    /**
+     * Helper : récupère une section du report, sinon 404
+     */
+    private function findOwnedSectionOr404(int $reportId, int $sectionId): array
     {
-        $data = [
-            'reports' => $this->reports->findAllForUser($this->currentUserId()),
-            'success' => session('success'),
-        ];
+        $section = $this->sections->find($sectionId);
 
-        return $this->view('/front/reports/index', $data, false);
+        if (! $section || (int) $section['report_id'] !== $reportId) {
+            throw PageNotFoundException::forPageNotFound("Section {$sectionId} not found");
+        }
+
+        // Vérifie aussi que le report appartient au user
+        $this->findOwnedReportOr404($reportId);
+
+        return $section;
     }
 
-    // GET /bilans/new
+    /**
+     * GET /reports
+     */
+    public function getIndex()
+    {
+        $data['reports'] = $this->reports
+            ->where('user_id', $this->userId())
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+
+        return $this->view('front/reports/index', $data, false);
+    }
+
+    /**
+     * GET /reports/new
+     */
     public function getNew()
     {
         $data = [
@@ -58,10 +93,12 @@ class Reports extends BaseController
             'success' => session('success'),
         ];
 
-        return $this->view('/front/reports/new', $data, false);
+        return $this->view('front/reports/new', $data, false);
     }
 
-    // POST /bilans
+    /**
+     * POST /reports
+     */
     public function postCreate()
     {
         $post = $this->request->getPost();
@@ -80,7 +117,7 @@ class Reports extends BaseController
         }
 
         $id = $this->reports->insert([
-            'user_id'          => $this->currentUserId(),
+            'user_id'          => $this->userId(),
             'title'            => $post['title'],
             'application_name' => $post['application_name'],
             'version'          => $post['version'] ?? null,
@@ -92,10 +129,12 @@ class Reports extends BaseController
             ->with('success', 'Bilan créé. Vous pouvez maintenant ajouter les parties et sous-parties.');
     }
 
-    // GET /bilans/{id}/sections
+    /**
+     * GET /reports/{id}/sections
+     */
     public function getSections(int $id)
     {
-        $report   = $this->mustGetMyReport($id);
+        $report   = $this->findOwnedReportOr404($id);
         $sections = $this->sectionsService->getSectionsForReport($id);
 
         $data = [
@@ -105,16 +144,18 @@ class Reports extends BaseController
             'success'  => session('success'),
         ];
 
-        return $this->view('/front/reports/sections', $data, false);
+        return $this->view('front/reports/sections', $data, false);
     }
 
-    // POST /bilans/{id}/sections/root
+    /**
+     * POST /reports/{id}/sections/root
+     */
     public function postSectionsRoot(int $reportId)
     {
-        $this->mustGetMyReport($reportId);
+        $this->findOwnedReportOr404($reportId);
 
         $post = $this->request->getPost();
-        $title   = trim($post['title'] ?? '');
+        $title = trim($post['title'] ?? '');
         $content = $post['content'] ?? '';
 
         if ($title === '') {
@@ -132,25 +173,27 @@ class Reports extends BaseController
             ->with('success', 'Partie ajoutée.');
     }
 
-    // POST /bilans/{id}/sections/{parentId}/child
+    /**
+     * POST /reports/{id}/sections/{parentId}/child
+     */
     public function postSectionsChild(int $reportId, int $parentId)
     {
-        $this->mustGetMyReport($reportId);
-
-        // sécurité : le parent doit appartenir à CE report
-        $parent = $this->sections->find($parentId);
-        if (! $parent || (int) $parent['report_id'] !== $reportId) {
-            throw PageNotFoundException::forPageNotFound("Section {$parentId} not found");
-        }
+        $this->findOwnedReportOr404($reportId);
 
         $post = $this->request->getPost();
-        $title   = trim($post['title'] ?? '');
+        $title = trim($post['title'] ?? '');
         $content = $post['content'] ?? '';
 
         if ($title === '') {
             return redirect()->back()
                 ->withInput()
                 ->with('errors', ['title_child_' . $parentId => 'Le titre de la sous-partie est obligatoire.']);
+        }
+
+        // Optionnel mais conseillé : vérifier que $parentId appartient bien à ce report
+        $parent = $this->sections->find($parentId);
+        if (! $parent || (int) $parent['report_id'] !== $reportId) {
+            throw PageNotFoundException::forPageNotFound("Parent section {$parentId} not found");
         }
 
         $this->sectionsService->createChildSection($parentId, [
@@ -162,33 +205,31 @@ class Reports extends BaseController
             ->with('success', 'Sous-partie ajoutée.');
     }
 
-    // GET /bilans/{reportId}/sections/{sectionId}/edit
+    /**
+     * GET /reports/{reportId}/sections/{sectionId}/edit
+     */
     public function getEditSection(int $reportId, int $sectionId)
     {
-        $report = $this->mustGetMyReport($reportId);
+        $report  = $this->findOwnedReportOr404($reportId);
+        $section = $this->findOwnedSectionOr404($reportId, $sectionId);
 
-        $section = $this->sections->find($sectionId);
-        if (! $section || (int) $section['report_id'] !== $reportId) {
-            throw PageNotFoundException::forPageNotFound("Section {$sectionId} not found");
-        }
-
-        return $this->view('/front/reports/section_edit', [
+        $data = [
             'report'  => $report,
             'section' => $section,
             'errors'  => session('errors') ?? [],
             'success' => session('success'),
-        ], false);
+        ];
+
+        return $this->view('front/reports/section_edit', $data, false);
     }
 
-    // POST /bilans/{reportId}/sections/{sectionId}/update
+    /**
+     * POST /reports/{reportId}/sections/{sectionId}/update
+     */
     public function postUpdateSection(int $reportId, int $sectionId)
     {
-        $this->mustGetMyReport($reportId);
-
-        $section = $this->sections->find($sectionId);
-        if (! $section || (int) $section['report_id'] !== $reportId) {
-            throw PageNotFoundException::forPageNotFound("Section {$sectionId} not found");
-        }
+        $this->findOwnedReportOr404($reportId);
+        $section = $this->findOwnedSectionOr404($reportId, $sectionId);
 
         $post = $this->request->getPost();
 
@@ -224,19 +265,17 @@ class Reports extends BaseController
             ->with('success', 'Section mise à jour.');
     }
 
-    // POST /bilans/{reportId}/sections/{sectionId}/delete
+    /**
+     * POST /reports/{reportId}/sections/{sectionId}/delete
+     */
     public function postDeleteSection(int $reportId, int $sectionId)
     {
-        $this->mustGetMyReport($reportId);
-
-        $section = $this->sections->find($sectionId);
-        if (! $section || (int) $section['report_id'] !== $reportId) {
-            throw PageNotFoundException::forPageNotFound("Section {$sectionId} not found");
-        }
+        $this->findOwnedReportOr404($reportId);
+        $this->findOwnedSectionOr404($reportId, $sectionId);
 
         $this->sections->delete($sectionId);
 
         return redirect()->to(site_url('reports/' . $reportId . '/sections'))
-            ->with('success', 'Section supprimée.');
+            ->with('success', 'Section supprimée (ainsi que ses sous-sections).');
     }
 }

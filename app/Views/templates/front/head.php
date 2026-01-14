@@ -96,8 +96,17 @@
     </style>
 </head>
 <body>
-<?php if (isset($menus)) echo view($template_dir . 'sidebar', ['menus' => $menus]); ?>
+<?php
+if (!empty($show_menu)) {
+    echo view($template_dir . 'sidebar', [
+        'menus'     => $menus ?? [],
+        'user'      => $user ?? null,
+        'localmenu' => $localmenu ?? null,
+        'mainmenu'  => $mainmenu ?? null,
+    ]);
+}
+?>
 <div class="wrapper d-flex flex-column min-vh-100">
-    <?php if (isset($breadcrumb)) echo view($template_dir . '/breadcrumb'); ?>
+    <?php if (isset($breadcrumb)) echo view($template_dir . 'breadcrumb'); ?>
     <div class="body flex-grow-1">
         <div class="container-fluid px-4">

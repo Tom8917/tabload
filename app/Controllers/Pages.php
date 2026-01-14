@@ -16,13 +16,13 @@ class Pages extends BaseController
     public function getIndex()
     {
         $data['pages'] = $this->pages->orderBy('created_at','ASC')->findAll();
-        return $this->view('front/pages/index', $data, true);
+        return $this->view('front/pages/index', $data, false);
     }
 
     public function getShow(string $slug)
     {
         $page = $this->pages->where('slug',$slug)->first();
         if (!$page) return redirect()->to(site_url('pages'))->with('error','Page introuvable');
-        return $this->view('front/pages/show', ['page'=>$page], true);
+        return $this->view('front/pages/show', ['page'=>$page], false);
     }
 }

@@ -3,115 +3,101 @@
 use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
+$routes->setDefaultNamespace('App\Controllers');
+$routes->setDefaultController('Login');
+$routes->setDefaultMethod('getIndex');
+$routes->setTranslateURIDashes(false);
 
-// ------------------------------------------------------------
-// PUBLIC (non authentifié)
-// ------------------------------------------------------------
+// Désactive l'auto routing (recommandé si tu veux 0 surprise)
+$routes->setAutoRoute(false);
 
-$routes->get('login',           'Login::getIndex');
-$routes->post('login',          'Login::postLogin');
-$routes->get('logout',          'Login::logout');
-
-$routes->get('login/register',  'Login::getRegister');
+/*
+|--------------------------------------------------------------------------
+| PUBLIC (sans auth)
+|--------------------------------------------------------------------------
+*/
+$routes->get('login',                'Login::getIndex');
+$routes->post('login',               'Login::postLogin');
+$routes->get('login/register', 'Login::getRegister');
 $routes->post('login/register', 'Login::postRegister');
+$routes->get('login/logout', 'Login::getLogout');
 
-// Optionnel : page d’accueil publique (si tu en as une)
-$routes->get('home', 'Home::index');
 
-// ------------------------------------------------------------
-// FRONT (auth obligatoire)
-// ------------------------------------------------------------
-
-// Accueil front => Dashboard (protégé)
-$routes->get('/', 'Dashboard::getIndex', ['filter' => 'auth']);
-
-// Tout ce qui suit est du front, authentifié
+/*
+|--------------------------------------------------------------------------
+| FRONT (auth)
+|--------------------------------------------------------------------------
+| - "/" = dashboard
+| - toutes les pages front ici
+*/
 $routes->group('', ['filter' => 'auth'], static function ($routes) {
 
-    // Dashboard (si tu veux aussi /dashboard en plus de /)
-    $routes->get('dashboard', 'Dashboard::getIndex');
+    // Dashboard
+    $routes->get('/',                'Dashboard::getIndex');
+    $routes->get('dashboard',        'Dashboard::getIndex');
 
-    // -------------------------
-    // REPORTS (FRONT ONLY)
-    // -------------------------
-    $routes->get('reports',                          'Reports::getIndex');
-    $routes->get('reports/new',                      'Reports::getNew');
-    $routes->post('reports',                         'Reports::postCreate');
+    // Cours
+    $routes->get('cours',            'Cours::getIndex');
+    $routes->get('cours/(:segment)', 'Cours::getShow/$1');
 
-    $routes->get('reports/(:num)/sections',                'Reports::getSections/$1');
-    $routes->post('reports/(:num)/sections/root',          'Reports::postSectionsRoot/$1');
-    $routes->post('reports/(:num)/sections/(:num)/child',  'Reports::postSectionsChild/$1/$2');
+    // Events
+    $routes->get('events',           'Events::getIndex');
+    $routes->get('events/list',      'Events::getList');
 
-    $routes->get('reports/(:num)/sections/(:num)/edit',    'Reports::getEditSection/$1/$2');
-    $routes->post('reports/(:num)/sections/(:num)/update', 'Reports::postUpdateSection/$1/$2');
-    $routes->post('reports/(:num)/sections/(:num)/delete', 'Reports::postDeleteSection/$1/$2');
+    // Pages
+    $routes->get('pages',            'Pages::getIndex');
+    $routes->get('pages/(:segment)', 'Pages::getShow/$1');
 
-    // -------------------------
-    // TABLOAD (FRONT ONLY)
-    // -------------------------
-    $routes->get('tabload', 'Tabload::getIndex');
-    // si tu as des POST (import/export etc), ajoute ici :
-    // $routes->post('tabload/parse', 'Tabload::postParse');
-    // $routes->post('tabload/export', 'Tabload::postExport');
+    // Profile
+    // (comme ton Profile attend un ID, on fait une route /profile qui redirige vers /profile/{id})
+    $routes->get('profile',          'Profile::getMe');
+    $routes->get('profile/(:num)',   'Profile::getIndex/$1');
 
-    // -------------------------
-    // MODULES "partagés" (front)
-    // -------------------------
-    $routes->get('events', 'Events::getIndex');
-    // $routes->get('events/new', 'Events::getNew');
-    // $routes->post('events', 'Events::postCreate');
+    $routes->get('report',                          'Report::getIndex');
+    $routes->get('report/new',                      'Report::getNew');
+    $routes->post('report',                         'Report::postCreate');
+     $routes->get('report/(:num)/sections',                'Report::getSections/$1');
+     $routes->post('report/(:num)/sections/root',          'Report::postSectionsRoot/$1');
+     $routes->post('report/(:num)/sections/(:num)/child',  'Report::postSectionsChild/$1/$2');
+     $routes->get('report/(:num)/sections/(:num)/edit',    'Report::getEditSection/$1/$2');
+     $routes->post('report/(:num)/sections/(:num)/update', 'Report::postUpdateSection/$1/$2');
+     $routes->post('report/(:num)/sections/(:num)/delete', 'Report::postDeleteSection/$1/$2');
 
-    $routes->get('cours', 'Cours::getIndex');
-    // $routes->get('cours/(:num)', 'Cours::getShow/$1');
-
-    $routes->get('tasks', 'Tasks::getIndex');
-    // $routes->post('tasks', 'Tasks::postCreate');
-
-    $routes->get('pages', 'Pages::getIndex');
-    // $routes->get('pages/(:num)', 'Pages::getShow/$1');
-
-    $routes->get('profile', 'Profile::getIndex');
-    $routes->post('profile', 'Profile::postUpdate');
+     $routes->get('tabload',         'Tabload::getIndex');
 });
 
+/*
+|--------------------------------------------------------------------------
+| ADMIN (admin)
+|--------------------------------------------------------------------------
+*/
+$routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'admin'], static function ($routes) {
 
-// ------------------------------------------------------------
-// ADMIN (auth + admin filter)
-// ------------------------------------------------------------
+    // Dashboard admin (ton menu admin "/admin" pointe là)
+    $routes->get('/',                 'Dashboard::getIndex');
+    $routes->get('dashboard',         'Dashboard::getIndex');
 
-$routes->group('admin', [
-    'namespace' => 'App\Controllers\Admin',
-    'filter'    => 'admin',
-], static function ($routes) {
+    // Users / permissions etc (à compléter selon tes controllers admin existants)
+    $routes->get('user',              'User::getIndex');
+    $routes->get('user/(:num)',       'User::getEdit/$1');
+    $routes->post('user/(:num)',      'User::postUpdate/$1');
 
-    // Optionnel : dashboard admin
-    $routes->get('/', 'Dashboard::getIndex');
+    $routes->get('userpermission',    'UserPermission::getIndex');
 
-    // -------------------------
-    // USERS (ADMIN ONLY)
-    // -------------------------
-    $routes->get('user',                 'User::getIndex');
-    $routes->get('user/new',             'User::getNew');
-    $routes->post('user',                'User::postCreate');
+    // Reports admin (si tu gardes la partie admin encore)
+    $routes->get('reports',                          'Report::getIndex');
+    $routes->get('reports/new',                      'Report::getNew');
+    $routes->post('reports',                         'Report::postCreate');
 
-    $routes->get('user/(:num)',          'User::getEdit/$1');
-    $routes->post('user/(:num)',         'User::postUpdate/$1');
-    $routes->post('user/(:num)/delete',  'User::postDelete/$1');
+    $routes->get('reports/(:num)/sections',                'Report::getSections/$1');
+    $routes->post('reports/(:num)/sections/root',          'Report::postSectionsRoot/$1');
+    $routes->post('reports/(:num)/sections/(:num)/child',  'Report::postSectionsChild/$1/$2');
 
-    // Permissions
-    $routes->get('userpermission',                'UserPermission::getIndex');
-    $routes->get('userpermission/new',            'UserPermission::getNew');
-    $routes->post('userpermission',               'UserPermission::postCreate');
-    $routes->get('userpermission/(:num)',         'UserPermission::getEdit/$1');
-    $routes->post('userpermission/(:num)',        'UserPermission::postUpdate/$1');
-    $routes->post('userpermission/(:num)/delete', 'UserPermission::postDelete/$1');
+    $routes->get('reports/(:num)/sections/(:num)/edit',    'Report::getEditSection/$1/$2');
+    $routes->post('reports/(:num)/sections/(:num)/update', 'Report::postUpdateSection/$1/$2');
+    $routes->post('reports/(:num)/sections/(:num)/delete', 'Report::postDeleteSection/$1/$2');
 
-    // -------------------------
-    // MODULES "partagés" (admin)
-    // IMPORTANT : reports/tabload ne doivent PAS être ici
-    // -------------------------
-    $routes->get('events', 'Events::getIndex');
-    $routes->get('cours',  'Cours::getIndex');
-    $routes->get('tasks',  'Tasks::getIndex');
-    $routes->get('pages',  'Pages::getIndex');
+    // Tabload admin (si tu le gardes)
+    $routes->get('tabload',          'Tabload::getIndex');
+
 });

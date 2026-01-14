@@ -75,4 +75,12 @@ class Profile extends BaseController
         }
         return [];
     }
+
+    public function getMe()
+    {
+        $user = session()->get('user');
+        if (!$user) return redirect()->to(site_url('login'));
+
+        return redirect()->to(site_url('profile/' . (int)$user->id));
+    }
 }

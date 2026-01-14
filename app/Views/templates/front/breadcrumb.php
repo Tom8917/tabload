@@ -36,18 +36,6 @@
 
         <ul class="header-nav">
 
-            <?php if ($user->id_permission == 3): ?>
-                <li class="nav-item py-1">
-                    <div class="vr h-100 mx-2 text-body text-opacity-75"></div>
-                </li>
-                <a class="dropdown-item ms-2 me-2 mt-1" href="<?= base_url('/cart'); ?>"><i
-                            class="fa-solid fa-cart-shopping theme-icon-active"></i></a>
-            <?php endif; ?>
-
-            <li class="nav-item py-1">
-                <div class="vr h-100 mx-2 text-body text-opacity-75"></div>
-            </li>
-
             <li class="nav-item dropdown">
                 <button class="btn btn-link nav-link py-2 px-2 d-flex align-items-center" type="button"
                         aria-expanded="false" data-coreui-toggle="dropdown">

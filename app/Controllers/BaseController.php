@@ -187,10 +187,9 @@ abstract class BaseController extends Controller
      */
     protected function checkLogin($redirect = true)
     {
-        if (!isset($this->session->user)) {
+        if (!$this->session || !$this->session->has('user')) {
             if ($redirect) {
-                $redirect_url = current_url(true)->getPath();
-                $this->session->set('redirect_url', $redirect_url);
+                $this->session->set('redirect_url', current_url(true)->getPath());
                 $this->redirect('/login');
             }
             return false;
@@ -205,15 +204,13 @@ abstract class BaseController extends Controller
      */
     public function checkPermission(): bool
     {
-        if (!isset($this->session->user)) {
+        if (!$this->session || !$this->session->has('user')) {
             return false;
         }
 
-        if (!in_array(
-            $this->session->user->getPermissionSlug(),
-            $this->requiredPermissions,
-            true
-        )) {
+        $user = $this->session->get('user');
+
+        if (!$user || !in_array($user->getPermissionSlug(), $this->requiredPermissions, true)) {
             $this->session->set('redirect_url', current_url(true)->getPath());
             $this->redirect('/');
         }
@@ -264,39 +261,47 @@ abstract class BaseController extends Controller
      */
     public function view($vue = null, array $datas = [], $admin = false, array $options = [])
     {
-        // Retro-compat : ancien usage -> 3e param était un array d'options
+        // Détecte si le controller courant est dans App\Controllers\Admin\
+        $isAdminContext = false;
+        if ($this->router) {
+            $ctrl = (string)$this->router->controllerName(); // ex: App\Controllers\Admin\Dashboard
+            $isAdminContext = str_starts_with($ctrl, 'App\\Controllers\\Admin\\');
+        }
+
+        // Retro-compat : si 3e param = array => options
         if (is_array($admin)) {
             $options = $admin;
-            $admin = false;
+            $admin = $isAdminContext; // IMPORTANT : on ne force plus à false
+        } else {
+            $admin = (bool)$admin;
+            // si tu veux être “safe”, tu peux aussi forcer admin quand contexte admin :
+            if ($isAdminContext) {
+                $admin = true;
+            }
         }
 
-        $connected = isset($this->session->user);
+        $connected = ($this->session && $this->session->has('user'));
+        $user = $connected ? $this->session->get('user') : null;
+
         $template_dir = $admin ? "templates/admin/" : "templates/front/";
-
-        $flashData = session()->getFlashdata('data');
-        if ($flashData) {
-            $datas = array_merge($datas, $flashData);
-        }
-
-        // Menus : IMPORTANT, on passe bien le bool $admin
-        $menus = $this->menus((bool) $admin);
+        $menus = $this->menus((bool)$admin);
 
         return view($template_dir . 'head', [
                 'template_dir' => $template_dir,
-                'show_menu'    => $connected,
-                'mainmenu'     => $this->mainmenu,
-                'breadcrumb'   => $this->breadcrumb,
-                'localmenu'    => $this->menu,
-                'user'         => ($this->session->user ?? null),
-                'menus'        => $menus,
-                'title'        => sprintf('%s : %s', $this->title, $this->title_prefix),
-                'options'      => $options, // si tu en as besoin dans les vues
+                'show_menu' => $connected,
+                'mainmenu' => $this->mainmenu,
+                'breadcrumb' => $this->breadcrumb,
+                'localmenu' => $this->menu,
+                'user' => $user,
+                'menus' => $menus,
+                'title' => sprintf('%s : %s', $this->title, $this->title_prefix),
+                'options' => $options,
             ])
             . (($vue !== null) ? view($vue, $datas) : '')
             . view($template_dir . 'footer', ['messages' => $this->messages, 'options' => $options]);
     }
 
-    /**
+        /**
      * Ajoute un message de succès.
      *
      * @param string $txt Message à afficher.

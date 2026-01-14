@@ -18,12 +18,6 @@
     "perm": "none",
     "icon": "<i class=\"nav-icon fa-solid fa-table\"></i>"
   },
-  "profile": {
-    "title": "My account",
-    "url": "/profile",
-    "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-user\"></i>"
-  },
   "events": {
     "title": "Évènements",
     "url": "/events",
@@ -43,6 +37,13 @@
     "url": "/pages",
     "perm": "none",
     "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "media": {
+    "title": "Média",
+    "url": "/admin/media",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-image\"></i>",
     "class": "main-menu-accueil"
   }
 }
