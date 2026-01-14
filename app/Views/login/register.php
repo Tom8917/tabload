@@ -140,7 +140,7 @@
 <body>
 <div class="vape-card">
     <h1 class="neon-text">Créer un compte</h1>
-    <p class="subtitle">Rejoignez la communauté vapoteur</p>
+    <p class="subtitle">Rejoignez tabload</p>
 
     <?php if (isset($errors)) : ?>
         <div class="mb-3">

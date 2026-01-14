@@ -11,7 +11,7 @@ class Home extends BaseController
     {
         $um = Model("App\Models\UserModel");
         $infosUser = $um->countUserByPermission();
-        return $this->view('/dashboard/index.php', ['infosUser' => $infosUser], true);
+        return $this->view('/front/dashboard/index.php', ['infosUser' => $infosUser], true);
     }
 
     public function getforbidden() : string

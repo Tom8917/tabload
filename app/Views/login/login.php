@@ -14,22 +14,26 @@
 
     <!-- Fallback Violet Premium (supprime si déjà défini globalement) -->
     <style>
-        :root {
-            --violet-950:#12081f;
-            --violet-900:#1d0e2f;
-            --violet-800:#2a1743;
-            --violet-700:#3a225d;
-            --violet-600:#51317d;
-            --violet-500:#6a49a1;
-            --violet-400:#8b6bc0;
-            --violet-300:#b19ade;
-            --violet-200:#d6c9f0;
+        :root{
+            /* Palette (blue) */
+            --violet-950:#0c1420;   /* quasi noir / profondeur */
+            --violet-900:#121f30;   /* très sombre (fond principal) */
+            --violet-800:#16304a;   /* sombre */
+            --violet-700:#1A365D;   /* Couleur 1 : bleu foncé principal (titres, contours) */
+            --violet-600:#105298;   /* Couleur 2 : bleu accent (brand, boutons) */
+            --violet-500:#2b6fb5;   /* hover / variante un peu plus claire */
+            --violet-400:#4a8fd0;   /* clair */
+            --violet-300:#7bb0e4;   /* très clair / surfaces */
+            --violet-200:#c6ddf6;   /* chips / fonds pâles */
 
+            /* Jaune secondaire (accents secondaires uniquement) */
             --yellow:#d7fa00;
 
-            --line-500:#b7a9d9;
-            --line-300:#e6def7;
+            /* Lignes / bordures (bleu/gris neutre dérivé) */
+            --line-500:#9bb5d9;
+            --line-300:#d5e3f5;
 
+            /* Tokens */
             --r-sm:10px;
             --r-md:14px;
             --r-lg:18px;

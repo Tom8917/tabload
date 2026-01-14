@@ -1,10 +1,28 @@
 {
   "accueil": {
     "title": "Accueil",
-    "url": "/Dashboard",
+    "url": "/",
     "perm": "none",
     "icon": "<i class=\"nav-icon fa-solid fa-house\"></i>",
     "class": "main-menu-accueil"
+  },
+  "reports": {
+    "title": "Reports",
+    "url": "/reports",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-file-lines\"></i>"
+  },
+  "tabload": {
+    "title": "TabLoad",
+    "url": "/tabload",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-table\"></i>"
+  },
+  "profile": {
+    "title": "My account",
+    "url": "/profile",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-user\"></i>"
   },
   "events": {
     "title": "Évènements",
