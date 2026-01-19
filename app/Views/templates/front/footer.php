@@ -1,6 +1,9 @@
 </div>
+</div>
 <footer class="footer px-4 mt-4">
-    <div></div>
+    <div>
+        Outil développé par Tom MARTIN.
+    </div>
 </footer>
 </div>
 <?php if (isset($messages)) { ?>
@@ -31,6 +34,3 @@
 <?php } ?>
 </body>
 </html>
-
-
-

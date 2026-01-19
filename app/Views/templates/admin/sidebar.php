@@ -8,8 +8,11 @@
 <!--                             style="max-width:175px; height:auto; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));"-->
 <!--                             class="ms-3">-->
 <!--                    </a>-->
-                    <h1>Tabload</h1>
-                </div>
+                    <div class="d-flex align-items-center justify-content-center">
+                        <img src="<?= base_url('assets/brand/tabload_logo_2.png') ?>"
+                             alt="Tabload logo"
+                             height="100">
+                    </div>                </div>
             <?php } else { ?>
                 <div class="d-flex align-items-center justify-content-center">
 <!--                    <a href="--><?php //= base_url('/Dashboard') ?><!--">-->

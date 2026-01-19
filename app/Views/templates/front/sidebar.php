@@ -15,7 +15,9 @@ $localmenu = $localmenu ?? null;
     <div class="sidebar-header border-bottom">
         <div class="sidebar-brand">
             <div class="d-flex align-items-center justify-content-center">
-                <h1 class="m-0">Tabload</h1>
+                <img src="<?= base_url('assets/brand/tabload_logo_2.png') ?>"
+                     alt="Tabload logo"
+                     height="100">
             </div>
         </div>
     </div>

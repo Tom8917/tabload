@@ -6,8 +6,15 @@ use CodeIgniter\Model;
 
 class ReportModel extends Model
 {
-    protected $table      = 'reports';
-    protected $primaryKey = 'id';
+    protected $table            = 'reports';
+    protected $primaryKey       = 'id';
+    protected $returnType       = 'array';
+    protected $useSoftDeletes   = false;
+
+    // On garde useTimestamps pour created_at/updated_at
+    protected $useTimestamps    = true;
+    protected $createdField     = 'created_at';
+    protected $updatedField     = 'updated_at';
 
     protected $allowedFields = [
         'user_id',
@@ -16,11 +23,16 @@ class ReportModel extends Model
         'version',
         'author_name',
         'status',
-        'created_at',
-        'updated_at',
-    ];
 
-    protected $useTimestamps = true;
+        // nouveaux champs
+        'doc_status',
+        'version_date',
+        'author_updated_at',
+        'corrected_by',
+        'corrected_at',
+        'validated_by',
+        'validated_at',
+    ];
 
     public function findAllForUser(int $userId): array
     {

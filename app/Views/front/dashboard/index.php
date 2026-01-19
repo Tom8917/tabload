@@ -19,7 +19,7 @@
                             Cours publiés <span class="badge bg-primary rounded-pill"><?= esc($stats['cours'] ?? 0) ?></span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Évènements à venir <span class="badge bg-info rounded-pill text-dark"><?= esc($stats['upcoming'] ?? 0) ?></span>
+                            Évènements à venir <span class="badge bg-warning rounded-pill text-dark"><?= esc($stats['upcoming'] ?? 0) ?></span>
                         </li>
                     </ul>
                 </div>
