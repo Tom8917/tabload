@@ -18,8 +18,9 @@ class AdminFilter implements FilterInterface
         }
 
         $user = $session->get('user');
-        if (!$user || $user->getPermissionSlug() !== 'administrateur') {
-            return redirect()->to(site_url('/'));
+
+        if ((int)($user->id_permission ?? 0) !== 1) {
+            return redirect()->to(site_url('/'))->with('error', "Accès admin refusé.");
         }
 
         return null;

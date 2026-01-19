@@ -6,9 +6,9 @@
         <div class="alert alert-danger"><?= esc(session('error')) ?></div>
     <?php endif; ?>
 
-    <h3 class="mb-3">Profil de <?= esc($user['name'] ?: 'Utilisateur #'.$user['id']) ?></h3>
+    <h3 class="text-center mb-5">Profil de <?= esc($user['name'] ?: 'Utilisateur #'.$user['id']) ?></h3>
 
-    <div class="row g-4 align-items-start">
+    <div class="row g-4 align-items-center">
         <div class="col-md-3">
             <img
                     src="<?= esc(base_url($user['avatar'])) ?>"
@@ -25,7 +25,7 @@
                         <dd class="col-sm-9"><?= esc($user['id'] ?? '') ?></dd>
 
                         <dt class="col-sm-3">Nom</dt>
-                        <dd class="col-sm-9"><?= esc($user['name'] ?? '') ?></dd>
+                        <dd class="col-sm-9"><?= esc($user['firstname'] . ' ' . $user['lastname'] ?? '') ?></dd>
 
                         <dt class="col-sm-3">Email</dt>
                         <dd class="col-sm-9"><?= esc($user['email'] ?? '') ?></dd>

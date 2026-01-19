@@ -46,7 +46,7 @@ class Profile extends BaseController
         $user = $this->toArraySafe($raw);
 
         // 5) Hydrater des valeurs par défaut utiles
-        $user['name']          = $user['name']          ?? ($user['username'] ?? '');
+        $user['name']          = $user['firstname'] . ' ' . $user['lastname'] ?? ($user['username'] ?? '');
         $user['email']         = $user['email']         ?? '';
         $user['id_permission'] = (int)($user['id_permission'] ?? 0);
         $user['avatar']        = $user['avatar']        ?? 'assets/img/default-avatar.png';
@@ -54,7 +54,7 @@ class Profile extends BaseController
         return $this->view('front/profile/index', [
             'user'    => $user,     // toujours un array ici
             'isAdmin' => $isAdmin,
-        ], true);
+        ], false);
     }
 
     /**

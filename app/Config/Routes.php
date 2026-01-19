@@ -30,7 +30,7 @@ $routes->get('login/logout', 'Login::getLogout');
 | - "/" = dashboard
 | - toutes les pages front ici
 */
-$routes->group('', ['filter' => 'auth'], static function ($routes) {
+$routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes) {
 
     // Dashboard
     $routes->get('/',                'Dashboard::getIndex');
@@ -53,42 +53,77 @@ $routes->group('', ['filter' => 'auth'], static function ($routes) {
     $routes->get('profile',          'Profile::getMe');
     $routes->get('profile/(:num)',   'Profile::getIndex/$1');
 
-    $routes->get('report',                          'Report::getIndex');
-    $routes->get('report/new',                      'Report::getNew');
-    $routes->post('report',                         'Report::postCreate');
-     $routes->get('report/(:num)/sections',                'Report::getSections/$1');
-     $routes->post('report/(:num)/sections/root',          'Report::postSectionsRoot/$1');
-     $routes->post('report/(:num)/sections/(:num)/child',  'Report::postSectionsChild/$1/$2');
-     $routes->get('report/(:num)/sections/(:num)/edit',    'Report::getEditSection/$1/$2');
-     $routes->post('report/(:num)/sections/(:num)/update', 'Report::postUpdateSection/$1/$2');
-     $routes->post('report/(:num)/sections/(:num)/delete', 'Report::postDeleteSection/$1/$2');
+    // Cours
+    $routes->get('media',            'Media::getIndex');
 
-     $routes->get('tabload',         'Tabload::getIndex');
+    // REPORTS (Front user)
+    $routes->get('report',                 'Report::getIndex');          // liste
+    $routes->get('report/new',             'Report::getNew');            // form création
+    $routes->post('report',                'Report::postCreate');        // create
+
+    $routes->get('report/(:num)',          'Report::getShow/$1');        // show (détail)
+    $routes->get('report/(:num)/edit',     'Report::getEdit/$1');        // form edit
+    $routes->post('report/(:num)/update',  'Report::postUpdate/$1');     // update
+    $routes->post('report/(:num)/delete',  'Report::postDelete/$1');     // delete
+
+// SECTIONS
+    $routes->get('report/(:num)/sections',                'Report::getSections/$1');
+    $routes->post('report/(:num)/sections/root',          'Report::postSectionsRoot/$1');
+    $routes->post('report/(:num)/sections/(:num)/child',  'Report::postSectionsChild/$1/$2');
+    $routes->get('report/(:num)/sections/(:num)/edit',    'Report::getEditSection/$1/$2');
+    $routes->post('report/(:num)/sections/(:num)/update', 'Report::postUpdateSection/$1/$2');
+    $routes->post('report/(:num)/sections/(:num)/delete', 'Report::postDeleteSection/$1/$2');
+
+    $routes->post('report/sections/upload-image', 'Report::postUploadSectionImage');
+
+
+    $routes->get('tabload',         'Tabload::getIndex');
 });
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN (admin)
-|--------------------------------------------------------------------------
-*/
+$routes->group('media', function($routes) {
+
+    // 📂 Bibliothèque d’images (page HTML)
+    $routes->get('/', 'Media::getIndex');
+
+    // 📤 Upload fichier(s)
+    $routes->post('upload', 'Media::postUpload');
+
+    // 🗑️ Suppression d’un fichier (par nom)
+    $routes->get('delete/(:segment)', 'Media::getDelete/$1');
+
+    // 📡 Liste JSON (AJAX / modal / picker)
+    $routes->get('list', 'Media::getList');
+});
+
+// --------------------------------------------------------------------------
+// ADMIN (admin)
+// --------------------------------------------------------------------------
 $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'admin'], static function ($routes) {
 
-    // Dashboard admin (ton menu admin "/admin" pointe là)
-    $routes->get('/',                 'Dashboard::getIndex');
-    $routes->get('dashboard',         'Dashboard::getIndex');
+    // Dashboard admin
+    $routes->get('/',         'Dashboard::getIndex');
+    $routes->get('dashboard', 'Dashboard::getIndex');
 
-    // Users / permissions etc (à compléter selon tes controllers admin existants)
-    $routes->get('user',              'User::getIndex');
-    $routes->get('user/(:num)',       'User::getEdit/$1');
-    $routes->post('user/(:num)',      'User::postUpdate/$1');
+    // Users / permissions etc
+    $routes->get('user',         'User::getIndex');
+    $routes->get('user/(:num)',  'User::getEdit/$1');
+    $routes->post('user/(:num)', 'User::postUpdate/$1');
 
-    $routes->get('userpermission',    'UserPermission::getIndex');
+    $routes->get('userpermission', 'UserPermission::getIndex');
 
-    // Reports admin (si tu gardes la partie admin encore)
-    $routes->get('reports',                          'Report::getIndex');
-    $routes->get('reports/new',                      'Report::getNew');
-    $routes->post('reports',                         'Report::postCreate');
+    // ----------------------------------------------------------------------
+    // REPORTS (Admin)
+    // ----------------------------------------------------------------------
+    $routes->get('reports',                 'Report::getIndex');          // liste
+    $routes->get('reports/new',             'Report::getNew');            // form création
+    $routes->post('reports',                'Report::postCreate');        // create
 
+    $routes->get('reports/(:num)',          'Report::getShow/$1');        // show (détail)
+    $routes->get('reports/(:num)/edit',     'Report::getEdit/$1');        // form edit
+    $routes->post('reports/(:num)/update',  'Report::postUpdate/$1');     // update
+    $routes->post('reports/(:num)/delete',  'Report::postDelete/$1');     // delete
+
+    // --- Sections (Admin)
     $routes->get('reports/(:num)/sections',                'Report::getSections/$1');
     $routes->post('reports/(:num)/sections/root',          'Report::postSectionsRoot/$1');
     $routes->post('reports/(:num)/sections/(:num)/child',  'Report::postSectionsChild/$1/$2');
@@ -97,7 +132,20 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->post('reports/(:num)/sections/(:num)/update', 'Report::postUpdateSection/$1/$2');
     $routes->post('reports/(:num)/sections/(:num)/delete', 'Report::postDeleteSection/$1/$2');
 
-    // Tabload admin (si tu le gardes)
-    $routes->get('tabload',          'Tabload::getIndex');
+    // Upload d'image dans une section (même endpoint que front mais côté admin)
+    $routes->post('reports/sections/upload-image', 'Report::postUploadSectionImage');
 
+    // ----------------------------------------------------------------------
+    // Autres modules admin
+    // ----------------------------------------------------------------------
+    $routes->get('cours',            'Cours::getIndex');
+    $routes->get('cours/(:segment)', 'Cours::getShow/$1');
+
+    $routes->get('events',      'Events::getIndex');
+    $routes->get('events/list', 'Events::getList');
+
+    $routes->get('pages',            'Pages::getIndex');
+    $routes->get('pages/(:segment)', 'Pages::getShow/$1');
+
+    $routes->get('tabload', 'Tabload::getIndex');
 });

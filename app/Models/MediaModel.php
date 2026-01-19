@@ -6,12 +6,29 @@ use CodeIgniter\Model;
 
 class MediaModel extends Model
 {
-    protected $table = 'media';
+    protected $table      = 'media';
     protected $primaryKey = 'id';
-    protected $allowedFields = [
-        'file_name', 'file_path', 'mime_type', 'file_size', 'entity_id', 'entity_type'];
+    protected $returnType = 'array';
 
-    protected $useTimestamps = false;
+    protected $allowedFields = [
+        'file_name',
+        'file_path',
+        'mime_type',
+        'file_size',
+        'entity_id',
+        'entity_type',
+        'created_at',
+        'updated_at',
+    ];
+
+    protected $useTimestamps = true;
+    protected $createdField  = 'created_at';
+    protected $updatedField  = 'updated_at';
+
+    public function getMediaByPath(string $filePath): ?array
+    {
+        return $this->where('file_path', $filePath)->first();
+    }
 
     public function getAllMedias($limit = null, $offset = 0) {
         return $this->findAll($limit, $offset);

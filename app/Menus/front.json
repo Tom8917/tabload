@@ -7,8 +7,8 @@
     "class": "main-menu-accueil"
   },
   "reports": {
-    "title": "Reports",
-    "url": "/reports",
+    "title": "Bilan",
+    "url": "/report",
     "perm": "none",
     "icon": "<i class=\"nav-icon fa-solid fa-file-lines\"></i>"
   },
@@ -41,7 +41,7 @@
   },
   "media": {
     "title": "Média",
-    "url": "/admin/media",
+    "url": "/media",
     "perm": "none",
     "icon": "<i class=\"nav-icon fa-solid fa-image\"></i>",
     "class": "main-menu-accueil"

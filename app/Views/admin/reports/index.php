@@ -53,10 +53,14 @@
                                         <?= esc(ucfirst(str_replace('_', ' ', $status))) ?>
                                     </span>
                                 </td>
-                                <td>
+                                <td class="d-flex gap-2">
+                                    <a href="<?= site_url('admin/reports/' . $report['id']) ?>"
+                                       class="btn btn-sm btn-outline-secondary">
+                                        Consulter
+                                    </a>
                                     <a href="<?= site_url('admin/reports/' . $report['id'] . '/sections') ?>"
                                        class="btn btn-sm btn-outline-primary">
-                                        Rédiger
+                                        Plan
                                     </a>
                                 </td>
                             </tr>

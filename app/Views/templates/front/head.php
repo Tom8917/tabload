@@ -54,6 +54,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+    <!-- Quill -->
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+
     <!-- JS (ordre propre) -->
     <script src="<?= base_url('js/jquery-3.7.1.min.js') ?>"></script>
     <script src="<?= base_url('js/color-modes.js') ?>"></script>
@@ -74,6 +78,7 @@
 
     <!-- TinyMCE (si tu l’utilises en front) -->
     <script src="<?= base_url('js/tinymce/tinymce.min.js') ?>"></script>
+    <script src="<?= base_url('assets/tinymce/tinymce.min.js') ?>"></script>
 
     <!-- FRONT JS (si tu veux, crée un fichier dédié) -->
     <!-- <script src="<?= base_url('js/front.js') ?>"></script> -->
@@ -92,7 +97,7 @@
     </script>
 
     <style>
-        body { background-color: aliceblue; }
+        body { background-color: whitesmoke; }
     </style>
 </head>
 <body>
