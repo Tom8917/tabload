@@ -345,8 +345,8 @@ class ReportTemplateService
         $appName = esc($appName);
 
         return <<<HTML
-<p>L'objectif de la campagne est de vérifier que l’application {$appName} satisfait aux exigences
-en termes de débit transactionnel et aux critères d'écceptablitié
+<p>L'objectif de la campagne est de vérifier que l’application {$appName} satisfait aux exigences 
+en termes de débit transactionnel et aux critères d'écceptablitié 
 en termes de temps de réponse et de taux d'erreurs.</p>
 HTML;
     }
@@ -364,8 +364,8 @@ HTML;
     private function tplCampaignProtocole(): string
     {
         return <<<HTML
-<p>Les temps de réponse sont obtenus aux piedsdes serveurs,
-hors temps réseau jusqu'à l'utilisateur final,
+<p>Les temps de réponse sont obtenus aux piedsdes serveurs, 
+hors temps réseau jusqu'à l'utilisateur final, 
 et hors temps de génération de l'affichage sur le poste client.</p>
 HTML;
     }
@@ -375,10 +375,10 @@ HTML;
         return <<<HTML
 <p>Les exigences sont formulées dans le document "document de l'entrant".</p>
 
-<p>Une campagne de tests de performance consiste à exécuter des tests sur des Périodes<br>
+<p>Une campagne de tests de performance consiste à exécuter des tests sur des Périodes 
 (qui modélisent des Périodes réelles du plan de production).</p>
 
-<p>Une période est composée d'Activités qui sont-elles même composées de Scénarios.<br>
+<p>Une période est composée d'Activités qui sont-elles même composées de Scénarios. 
 À chaque Période est associée une exigence de charge.</p>
 
 <p>Les tableaux ci-après décrivent les critères d'acceptablité de temps de réponse et techniques qui ont été utilisés au cours de la campagne.<br>
@@ -386,11 +386,10 @@ HTML;
 
 <p>Les tableaux ci-après décrivent les Scénarios, Activités et Périodes utilisés dans cette campagne ainsi que les exigences de charge associées.</p>
 
-<p>Scénarios<br>
-Les scénarios utilisateurs ont été scindés en étapes appelées "Points de mesure".<br>
-De plus à chaque scénario est associé un point de mesure implicite - qui représente la totalité du scénario - nommé "Durée transaction".</p>
-
-<p>"insérer le tableau de description de scénarios".</p>
+<>Scénarios<br>
+Les scénarios utilisateurs ont été scindés en étapes appelées "Points de mesure". 
+De plus à chaque scénario est associé un point de mesure implicite - qui représente la totalité du scénario - nommé "Durée transaction".<br>
+"insérer le tableau de description de scénarios".</p>
 
 <p>Activités<br>
 "insérer le tableau des activités".</p>
@@ -419,7 +418,7 @@ HTML;
         };
 
         return <<<HTML
-<p>L'objectif de ce {$label} est de vérifier que lorsque le système est soumis à une sollicitation conforme aux exigences de XXX transactions par seconde,<br>
+<p>L'objectif de ce {$label} est de vérifier que lorsque le système est soumis à une sollicitation conforme aux exigences de XXX transactions par seconde, 
 les critères d'acceptabilité fonctionnels et techniques formulés par la Maîtrise d'Ouvrage sont respectés.</p>
 
 <p>Rappel des débits utilisés :<br>
@@ -429,7 +428,7 @@ les critères d'acceptabilité fonctionnels et techniques formulés par la Maît
 "insérer le tableau".</p>
 
 <p>Conditions d'exécution :<br>
-S'il y a eu un paramètre modifié, le spécifier ici.<br>
+S'il y a eu un paramètre modifié, le spécifier ici. 
 SINON, mettre "Les conditions d'exécution sont nominales.".</p>
 HTML;
     }
@@ -450,17 +449,14 @@ HTML;
     private function tplPlaceholderShort(): string
     {
         return <<<HTML
-<p>À compléter :</p>
-<ul>
-    <li>...</li>
-</ul>
+<p>À compléter.</p>
 HTML;
     }
 
     private function tplPlaceholderList(): string
     {
         return <<<HTML
-<p>Points à compléter :</p>
+<p>Points à compléter.</p>
 <ul>
     <li>...</li>
     <li>...</li>
