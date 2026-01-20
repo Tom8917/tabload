@@ -1,108 +1,333 @@
 <?php
-$files     = $files ?? [];
-$uploadUrl = $uploadUrl ?? site_url('media/upload');
-$deleteUrl = $deleteUrl ?? site_url('media/delete');
+/**
+ * index_picker — version robuste (compatible ancien + nouveau controller)
+ *
+ * Nouveau mode (recommandé) :
+ *  - $folders, $files, $breadcrumbs, $currentFolder, $filter, $sort
+ *
+ * Ancien mode :
+ *  - $files = items avec 'url' + 'name'
+ */
+
+$filter = $filter ?? 'all';
+$sort   = $sort ?? 'date_desc';
+
+// Nouveau format
+$folders = $folders ?? [];
+$newFiles = $files ?? []; // si controller nouveau, $files contient file_name/file_path
+$currentFolderId = $currentFolder['id'] ?? null;
+$breadcrumbs = $breadcrumbs ?? [];
+
+// Ancien format fallback
+$legacyFiles = [];
+$isLegacy = false;
+if (!empty($newFiles) && isset($newFiles[0]) && array_key_exists('url', $newFiles[0])) {
+    $isLegacy = true;
+    $legacyFiles = $newFiles;
+    $folders = []; // pas de dossiers en legacy
+}
+
+// Base url
+$baseUrl = rtrim(base_url(), '/');
+
+function isImageRowPicker(array $f): bool {
+    // legacy: url/name
+    if (isset($f['url'])) {
+        $name = strtolower((string)($f['name'] ?? ''));
+        return (bool)preg_match('~\.(jpe?g|png|webp|gif)$~i', $name);
+    }
+    // new: mime_type/kind
+    $mime = strtolower((string)($f['mime_type'] ?? ''));
+    $kind = strtolower((string)($f['kind'] ?? ''));
+    return $kind === 'image' || str_starts_with($mime, 'image/');
+}
+
+function fileUrlPicker(array $f, string $baseUrl): string {
+    if (isset($f['url'])) return (string)$f['url'];
+    $path = (string)($f['file_path'] ?? '');
+    return $baseUrl . '/' . ltrim($path, '/');
+}
+
+function fileNamePicker(array $f): string {
+    return (string)($f['name'] ?? ($f['file_name'] ?? ''));
+}
+
+function currentNavUrlPicker(?int $folderId, string $filter, string $sort): string {
+    $u = $folderId ? site_url('media/folder/'.$folderId) : site_url('media');
+    return $u.'?picker=1&type='.$filter.'&sort='.$sort;
+}
 ?>
 <!doctype html>
 <html lang="fr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bibliothèque d’images</title>
+    <title>Médiathèque — Sélection</title>
 
-    <!-- Bootstrap (simple). Remplace par ton CSS local si tu veux -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <style>
-        body { background:#f8f9fa; }
-        .dropzone{
-            border:2px dashed #adb5bd;
-            border-radius:16px;
-            padding:18px;
-            background:#fff;
-            cursor:pointer;
+        .media-toolbar{
+            border: 1px solid rgba(0,0,0,.08);
+            border-radius: 18px;
+            padding: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.04);
         }
-        .dropzone.dragover{ background:#f1f3f5; border-color:#6c757d; }
-        .thumb{ height:110px; width:100%; object-fit:cover; }
-        .small-muted{ font-size:.85rem; color:#6c757d; }
+        .chip{
+            border: 1px solid rgba(0,0,0,.12);
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: .9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .chip.active{ border-color: rgba(13,110,253,.55); }
+
+        .dropzone{
+            border: 2px dashed rgba(0,0,0,.18);
+            border-radius: 18px;
+            padding: 18px;
+            cursor: pointer;
+            transition: .15s ease;
+        }
+        .dropzone.dragover{
+            border-color: rgba(13,110,253,.65);
+            transform: translateY(-1px);
+        }
+        .card-soft{
+            border: 1px solid rgba(0,0,0,.08);
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.04);
+            overflow: hidden;
+        }
+        .thumb{
+            height: 140px;
+            width: 100%;
+            object-fit: cover;
+        }
+        .ellipsis{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dropdown-menu{ z-index: 2000; }
     </style>
 </head>
 <body>
 
-<div class="container py-3">
+<div class="container-fluid py-3">
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="m-0">Bibliothèque d’images</h5>
-        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="tryClose()">Fermer</button>
-    </div>
-
-    <!-- Upload zone -->
-    <div class="dropzone mb-3" id="dropZone">
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <div>
-                <div><strong>Glisse-dépose</strong> des fichiers ici</div>
-                <div class="small-muted">ou clique pour sélectionner (jpg/png/webp/gif/pdf) — 4 Mo max / fichier</div>
-            </div>
-            <div class="ms-auto d-flex gap-2">
-                <input id="fileInput" class="d-none" type="file" multiple
-                       accept=".jpg,.jpeg,.png,.webp,.gif,.pdf">
-                <button id="btnPick" type="button" class="btn btn-primary btn-sm">Choisir</button>
-                <button id="btnUpload" type="button" class="btn btn-success btn-sm" disabled>Uploader</button>
-                <button id="btnClear" type="button" class="btn btn-outline-secondary btn-sm" disabled>Vider</button>
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <div>
+            <div class="h5 m-0">Sélectionner une image</div>
+            <div class="small text-muted">
+                <?= $isLegacy ? 'Mode compatibilité (ancien picker).' : 'Navigue dans les dossiers, puis clique “Utiliser”.' ?>
             </div>
         </div>
-
-        <div class="d-flex align-items-center gap-2 mt-2">
-            <div class="small-muted" id="fileCount">0 fichier</div>
-            <div class="progress flex-grow-1 d-none" id="progressWrap" style="height:8px;">
-                <div class="progress-bar" id="progressBar" style="width:0%"></div>
-            </div>
+        <div class="ms-auto d-flex gap-2">
+            <button class="btn btn-outline-secondary rounded-pill" type="button" onclick="tryClose()">Fermer</button>
         </div>
-
-        <div class="mt-2 small" id="resultBox"></div>
     </div>
 
-    <!-- Grid -->
-    <?php if (empty($files)): ?>
-        <div class="alert alert-light border">Aucun fichier.</div>
-    <?php else: ?>
-        <div class="row g-3">
-            <?php foreach ($files as $f): ?>
-                <div class="col-6 col-md-4 col-lg-3 col-xl-2">
-                    <div class="card h-100 shadow-sm">
-                        <img src="<?= esc($f['url']) ?>" class="card-img-top thumb" alt="<?= esc($f['name']) ?>">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="small text-truncate" title="<?= esc($f['name']) ?>"><?= esc($f['name']) ?></div>
-                            </div>
+    <!-- Breadcrumbs (uniquement si nouveau mode) -->
+    <?php if (!$isLegacy): ?>
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb mb-0">
+                <?php if (empty($breadcrumbs)): ?>
+                    <li class="breadcrumb-item active">Racine</li>
+                <?php else: ?>
+                    <?php foreach ($breadcrumbs as $i => $bc): ?>
+                        <?php
+                        $isLast = ($i === count($breadcrumbs)-1);
+                        $id = $bc['id'] ?? null;
+                        $url = $id ? site_url('media/folder/'.$id) : site_url('media');
+                        $url .= '?picker=1&type='.$filter.'&sort='.$sort;
+                        ?>
+                        <li class="breadcrumb-item <?= $isLast ? 'active' : '' ?>">
+                            <?php if ($isLast): ?>
+                                <?= esc($bc['name'] ?? 'Racine') ?>
+                            <?php else: ?>
+                                <a href="<?= esc($url) ?>"><?= esc($bc['name'] ?? 'Racine') ?></a>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </ol>
+        </nav>
+    <?php endif; ?>
 
-                            <div class="d-grid gap-2 mt-2">
-                                <button type="button" class="btn btn-success btn-sm"
-                                        onclick="selectImage('<?= esc($f['url']) ?>','<?= esc($f['name']) ?>')">
-                                    Utiliser
-                                </button>
+    <!-- Toolbar -->
+    <div class="media-toolbar mb-3">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <?php if (!$isLegacy): ?>
+                <a class="chip <?= $filter==='all'?'active':'' ?>" href="<?= esc(currentNavUrlPicker($currentFolderId,'all',$sort)) ?>">📦 Tous</a>
+                <a class="chip <?= $filter==='image'?'active':'' ?>" href="<?= esc(currentNavUrlPicker($currentFolderId,'image',$sort)) ?>">🖼️ Images</a>
+                <a class="chip <?= $filter==='document'?'active':'' ?>" href="<?= esc(currentNavUrlPicker($currentFolderId,'document',$sort)) ?>">📄 Documents</a>
+                <div class="vr mx-2 d-none d-md-block"></div>
+            <?php endif; ?>
 
-                                <div class="d-flex gap-2">
-                                    <a class="btn btn-outline-secondary btn-sm w-100" href="<?= esc($f['url']) ?>" target="_blank" rel="noopener">
-                                        Ouvrir
-                                    </a>
+            <div class="input-group" style="max-width: 340px;">
+                <span class="input-group-text border-0" style="border-radius: 999px 0 0 999px;">🔎</span>
+                <input id="searchInput" type="text" class="form-control border-0"
+                       style="border-radius: 0 999px 999px 0;"
+                       placeholder="Rechercher un nom…">
+            </div>
+
+            <?php if (!$isLegacy): ?>
+                <div class="ms-auto d-flex gap-2">
+                    <select class="form-select rounded-pill" style="max-width:220px" id="sortSelect">
+                        <option value="date_desc" <?= $sort==='date_desc'?'selected':'' ?>>Date ↓</option>
+                        <option value="date_asc"  <?= $sort==='date_asc'?'selected':'' ?>>Date ↑</option>
+                        <option value="name_asc"  <?= $sort==='name_asc'?'selected':'' ?>>Nom A→Z</option>
+                        <option value="name_desc" <?= $sort==='name_desc'?'selected':'' ?>>Nom Z→A</option>
+                        <option value="size_desc" <?= $sort==='size_desc'?'selected':'' ?>>Taille ↓</option>
+                        <option value="size_asc"  <?= $sort==='size_asc'?'selected':'' ?>>Taille ↑</option>
+                    </select>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Upload (picker = images only) -->
+    <div class="card-soft mb-3">
+        <div class="p-3">
+            <div id="dropZone" class="dropzone text-center">
+                <div class="fw-semibold">Glisse-dépose tes images ici</div>
+                <div class="text-muted small mb-2">ou clique pour sélectionner — 4 Mo max / fichier</div>
+
+                <input id="fileInput" type="file" class="d-none" multiple accept=".jpg,.jpeg,.png,.webp,.gif">
+                <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">Choisir des images</button>
+            </div>
+
+            <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
+                <div class="text-muted small" id="fileCount">0 fichier</div>
+                <div class="ms-auto d-flex gap-2">
+                    <button id="btnClear" type="button" class="btn btn-outline-secondary rounded-pill" disabled>Vider</button>
+                    <button id="btnUpload" type="button" class="btn btn-success rounded-pill" disabled>Uploader</button>
+                </div>
+            </div>
+
+            <div class="progress mt-3 d-none" id="uploadProgressWrap" style="height: 10px;">
+                <div class="progress-bar" id="uploadProgress" role="progressbar" style="width: 0%"></div>
+            </div>
+
+            <div class="mt-2">
+                <div id="uploadResult" class="small"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dossiers (nouveau mode seulement) -->
+    <?php if (!$isLegacy): ?>
+        <div class="d-flex align-items-center mb-2">
+            <div class="h6 m-0">Dossiers</div>
+            <div class="ms-auto text-muted small"><span id="foldersCount"><?= count($folders ?? []) ?></span> dossier(s)</div>
+        </div>
+
+        <div class="row g-3 mb-3" id="foldersGrid">
+            <?php if (empty($folders)): ?>
+                <div class="col-12"><div class="text-muted">Aucun dossier ici.</div></div>
+            <?php else: ?>
+                <?php foreach ($folders as $d): ?>
+                    <div class="col-12 col-md-6 col-lg-4 col-xl-3 folder-item"
+                         data-name="<?= esc(strtolower($d['name'] ?? ''), 'attr') ?>">
+                        <div class="card-soft folder-card">
+                            <div class="p-3 d-flex align-items-center gap-3">
+                                <div style="font-size:30px;">📁</div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold ellipsis" title="<?= esc($d['name']) ?>">
+                                        <a class="text-decoration-none"
+                                           href="<?= site_url('media/folder/'.$d['id'].'?picker=1&type='.$filter.'&sort='.$sort) ?>">
+                                            <?= esc($d['name']) ?>
+                                        </a>
+                                    </div>
+                                    <div class="text-muted small">Dossier</div>
                                 </div>
-
-                                <?php if (!empty($f['in_db']) && !empty($f['id'])): ?>
-                                    <div class="small-muted text-center">en base (#<?= (int)$f['id'] ?>)</div>
-                                <?php else: ?>
-                                    <div class="small-muted text-center">fichier (hors base)</div>
-                                <?php endif; ?>
+                                <a class="btn btn-sm btn-outline-secondary rounded-pill"
+                                   href="<?= site_url('media/folder/'.$d['id'].'?picker=1&type='.$filter.'&sort='.$sort) ?>">
+                                    Ouvrir
+                                </a>
                             </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
 
+    <!-- Fichiers -->
+    <div class="d-flex align-items-center mb-2">
+        <div class="h6 m-0">Fichiers</div>
+        <div class="ms-auto text-muted small">
+            <span id="filesCount"><?= count($newFiles ?? []) ?></span> fichier(s)
+        </div>
+    </div>
+
+    <?php
+    // source des fichiers à afficher :
+    $filesToShow = $isLegacy ? $legacyFiles : $newFiles;
+    ?>
+
+    <div class="row g-3" id="filesGrid">
+        <?php if (empty($filesToShow)): ?>
+            <div class="col-12"><div class="text-muted">Aucun fichier ici.</div></div>
+        <?php else: ?>
+            <?php foreach ($filesToShow as $f): ?>
+                <?php
+                $name = fileNamePicker($f);
+                $isImg = isImageRowPicker($f);
+                $url = fileUrlPicker($f, $baseUrl);
+                ?>
+                <div class="col-12 col-md-6 col-lg-3 file-item"
+                     data-name="<?= esc(strtolower($name), 'attr') ?>">
+                    <div class="card-soft file-card h-100">
+                        <?php if ($isImg): ?>
+                            <img src="<?= esc($url) ?>" class="thumb" alt="<?= esc($name) ?>">
+                        <?php else: ?>
+                            <div class="d-flex align-items-center justify-content-center" style="height:140px;">
+                                <div class="text-muted small">Document (non sélectionnable)</div>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="p-3">
+                            <div class="fw-semibold ellipsis" title="<?= esc($name) ?>"><?= esc($name) ?></div>
+                            <div class="d-flex gap-2 mt-3">
+                                <?php if ($isImg): ?>
+                                    <button type="button" class="btn btn-success btn-sm rounded-pill flex-grow-1"
+                                            onclick="selectImage('<?= esc($url) ?>','<?= esc($name) ?>')">
+                                        Utiliser
+                                    </button>
+                                <?php else: ?>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill flex-grow-1" disabled>
+                                        Non sélectionnable
+                                    </button>
+                                <?php endif; ?>
+
+                                <a class="btn btn-outline-secondary btn-sm rounded-pill"
+                                   href="<?= esc($url) ?>" target="_blank" rel="noopener">Ouvrir</a>
+                            </div>
                         </div>
                     </div>
                 </div>
             <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
+        <?php endif; ?>
+    </div>
+
+    <?php /* DEBUG RAPIDE (décommente si besoin)
+    <pre class="mt-3 small text-muted">
+isLegacy: <?= $isLegacy ? 'true' : 'false' ?>
+
+folders: <?= count($folders ?? []) ?>
+
+filesToShow: <?= count($filesToShow ?? []) ?>
+
+keys file[0]:
+<?= !empty($filesToShow) ? print_r(array_keys($filesToShow[0]), true) : '—' ?>
+</pre>
+    */ ?>
 
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
     function selectImage(absUrl, name){
@@ -118,7 +343,52 @@ $deleteUrl = $deleteUrl ?? site_url('media/delete');
     }
     function tryClose(){ try{ window.close(); }catch(e){} }
 
+    // Tri (nouveau mode seulement)
+    (() => {
+        const sel = document.getElementById('sortSelect');
+        if (!sel) return;
+        sel.addEventListener('change', () => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('sort', sel.value);
+            url.searchParams.set('picker', '1');
+            window.location.href = url.toString();
+        });
+    })();
 
+    // Recherche (filtre visuel)
+    (() => {
+        const input = document.getElementById('searchInput');
+        if (!input) return;
+
+        const folders = () => Array.from(document.querySelectorAll('.folder-item'));
+        const files   = () => Array.from(document.querySelectorAll('.file-item'));
+
+        function apply(q){
+            const query = (q || '').trim().toLowerCase();
+            let fc = 0, fic = 0;
+
+            folders().forEach(el => {
+                const ok = (el.dataset.name || '').includes(query);
+                el.style.display = ok ? '' : 'none';
+                if (ok) fc++;
+            });
+
+            files().forEach(el => {
+                const ok = (el.dataset.name || '').includes(query);
+                el.style.display = ok ? '' : 'none';
+                if (ok) fic++;
+            });
+
+            const f1 = document.getElementById('foldersCount');
+            const f2 = document.getElementById('filesCount');
+            if (f1) f1.textContent = String(fc);
+            if (f2) f2.textContent = String(fic);
+        }
+
+        input.addEventListener('input', () => apply(input.value));
+    })();
+
+    // Upload drag & drop (images only) + upload dans le dossier courant si dispo
     (() => {
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -126,15 +396,22 @@ $deleteUrl = $deleteUrl ?? site_url('media/delete');
         const btnUpload = document.getElementById('btnUpload');
         const btnClear = document.getElementById('btnClear');
         const fileCount = document.getElementById('fileCount');
-        const resultBox = document.getElementById('resultBox');
-        const progressWrap = document.getElementById('progressWrap');
-        const progressBar = document.getElementById('progressBar');
+        const resultBox = document.getElementById('uploadResult');
+        const progressWrap = document.getElementById('uploadProgressWrap');
+        const progressBar = document.getElementById('uploadProgress');
+
+        if (!dropZone || !fileInput) return;
 
         let queue = [];
-        const allowedExt = ['jpg','jpeg','png','webp','gif','pdf'];
         const maxSize = 4 * 1024 * 1024;
+        const allowedExt = ['jpg','jpeg','png','webp','gif'];
 
-        const extOf = (name) => (name.split('.').pop() || '').toLowerCase();
+        const currentFolderId = "<?= esc((string)$currentFolderId) ?>";
+
+        function extOf(name){
+            const p = name.split('.');
+            return (p.length > 1 ? p.pop() : '').toLowerCase();
+        }
 
         function setUI(){
             fileCount.textContent = `${queue.length} fichier${queue.length>1?'s':''}`;
@@ -143,20 +420,22 @@ $deleteUrl = $deleteUrl ?? site_url('media/delete');
         }
 
         function addFiles(files){
+            const added = [];
             const errs = [];
-            let added = 0;
 
-            for (const f of files){
+            for (const f of files) {
                 const ext = extOf(f.name);
                 if (!allowedExt.includes(ext)) { errs.push(`${f.name} : extension non supportée`); continue; }
                 if (f.size <= 0) { errs.push(`${f.name} : taille invalide`); continue; }
                 if (f.size > maxSize) { errs.push(`${f.name} : > 4 Mo`); continue; }
-                queue.push(f); added++;
+                added.push(f);
             }
 
+            queue = queue.concat(added);
+
             resultBox.innerHTML = '';
-            if (added) resultBox.innerHTML += `<div class="text-success">+ ${added} fichier(s) ajouté(s)</div>`;
-            if (errs.length) resultBox.innerHTML += `<div class="text-danger">${errs.map(e=>'• '+e).join('<br>')}</div>`;
+            if (added.length) resultBox.innerHTML += `<div class="text-success">+ ${added.length} fichier(s) ajouté(s)</div>`;
+            if (errs.length) resultBox.innerHTML += `<div class="text-danger">${errs.map(e => `• ${e}`).join('<br>')}</div>`;
             setUI();
         }
 
@@ -183,6 +462,7 @@ $deleteUrl = $deleteUrl ?? site_url('media/delete');
                 dropZone.classList.remove('dragover');
             });
         });
+
         dropZone.addEventListener('drop', (e) => {
             const dt = e.dataTransfer;
             if (dt && dt.files && dt.files.length) addFiles(dt.files);
@@ -204,8 +484,11 @@ $deleteUrl = $deleteUrl ?? site_url('media/delete');
             const form = new FormData();
             queue.forEach(f => form.append('files[]', f, f.name));
 
+            // Nouveau système : upload dans dossier courant
+            form.append('folder_id', currentFolderId);
+
             try {
-                const respText = await new Promise((resolve, reject) => {
+                await new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
                     xhr.open('POST', "<?= esc($uploadUrl, 'attr') ?>", true);
 

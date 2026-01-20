@@ -3,13 +3,15 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
+use App\Models\MediaFolderModel;
 use App\Models\MediaModel;
+use CodeIgniter\Exceptions\PageNotFoundException;
 
 class Media extends BaseController
 {
     protected string $uploadPath;
-
     protected MediaModel $mediaModel;
+    protected MediaFolderModel $folderModel;
 
     public function __construct()
     {
@@ -18,131 +20,228 @@ class Media extends BaseController
             @mkdir($this->uploadPath, 0775, true);
         }
 
-        $this->mediaModel = new MediaModel();
+        $this->mediaModel  = new MediaModel();
+        $this->folderModel = new MediaFolderModel();
     }
 
+    // ------------------------------------------------------------
+    // Explorer
+    // ------------------------------------------------------------
 
     public function getIndex()
     {
+        return $this->renderExplorer(null);
+    }
+
+    public function getFolder(int $folderId)
+    {
+        return $this->renderExplorer($folderId);
+    }
+
+    private function renderExplorer(?int $folderId)
+    {
         $picker = (bool) $this->request->getGet('picker');
+        $filter = (string) ($this->request->getGet('type') ?? 'all');      // all|image|document
+        $sort   = (string) ($this->request->getGet('sort') ?? 'date_desc'); // date_desc...
 
-        // ---- 1) scan dossier
-        $disk = [];
-        if (is_dir($this->uploadPath)) {
-            foreach (new \DirectoryIterator($this->uploadPath) as $fi) {
-                if (!$fi->isFile()) continue;
-
-                $ext = strtolower($fi->getExtension());
-                if (!in_array($ext, ['jpg','jpeg','png','webp','gif','pdf'], true)) continue;
-
-                $name = $fi->getFilename();
-                $rel  = 'uploads/media/' . $name;
-
-                $disk[$rel] = [
-                    'name'   => $name,
-                    'rel'    => $rel,
-                    'url'    => base_url($rel),
-                    'size'   => $fi->getSize(),
-                    'mtime'  => $fi->getMTime(),
-                    'in_db'  => false,
-                    'id'     => null,
-                ];
+        // dossier courant
+        $currentFolder = null;
+        if ($folderId !== null) {
+            $currentFolder = $this->folderModel->getById($folderId);
+            if (!$currentFolder) {
+                throw new PageNotFoundException('Dossier introuvable');
             }
         }
 
-        // ---- 2) lignes BDD
-        $db = [];
-        if (isset($this->mediaModel)) {
-            $rows = $this->mediaModel->orderBy('id', 'DESC')->findAll();
-            foreach ($rows as $r) {
-                $rel = $r['file_path'];
-                $db[$rel] = [
-                    'name'   => $r['file_name'],
-                    'rel'    => $rel,
-                    'url'    => base_url($rel),
-                    'size'   => (int)($r['file_size'] ?? 0),
-                    'mtime'  => strtotime($r['created_at'] ?? 'now'),
-                    'in_db'  => true,
-                    'id'     => (int)$r['id'],
-                ];
-            }
+        // breadcrumbs (Racine -> ... -> courant)
+        $breadcrumbs = $this->buildBreadcrumbs($currentFolder);
+
+        // sous-dossiers
+        $folders = $this->folderModel->getChildren($folderId);
+
+        // fichiers du dossier courant
+        $q = $this->mediaModel;
+
+        if ($folderId === null) $q = $q->where('folder_id', null);
+        else $q = $q->where('folder_id', $folderId);
+
+        if ($filter === 'image') {
+            $q = $q->where('kind', 'image');
+        } elseif ($filter === 'document') {
+            $q = $q->where('kind', 'document');
         }
 
-        // ---- 3) fusion : DB + disque (sans doublons)
-        // priorité à la BDD si même rel
-        $filesByRel = $disk;
-        foreach ($db as $rel => $item) {
-            $filesByRel[$rel] = array_merge($filesByRel[$rel] ?? [], $item, ['in_db' => true]);
+        switch ($sort) {
+            case 'date_asc':  $q = $q->orderBy('created_at', 'ASC'); break;
+            case 'name_asc':  $q = $q->orderBy('file_name', 'ASC'); break;
+            case 'name_desc': $q = $q->orderBy('file_name', 'DESC'); break;
+            case 'size_asc':  $q = $q->orderBy('file_size', 'ASC'); break;
+            case 'size_desc': $q = $q->orderBy('file_size', 'DESC'); break;
+            default:          $q = $q->orderBy('created_at', 'DESC'); break; // date_desc
         }
 
-        $files = array_values($filesByRel);
+        $files = $q->findAll();
 
-        usort($files, fn($a, $b) => ($b['mtime'] ?? 0) <=> ($a['mtime'] ?? 0));
+        // urls utiles (pour remonter même si breadcrumb casse)
+        $rootUrl = site_url('media') . $this->buildQueryKeep(['picker' => $picker ? '1' : null, 'type' => $filter, 'sort' => $sort]);
+        $backUrl = null;
+        if ($currentFolder && !empty($currentFolder['parent_id'])) {
+            $backUrl = site_url('media/folder/' . (int)$currentFolder['parent_id']) . $this->buildQueryKeep(['picker' => $picker ? '1' : null, 'type' => $filter, 'sort' => $sort]);
+        } else {
+            $backUrl = $rootUrl;
+        }
 
-        // ---- picker full sans layout
+        $data = [
+            'picker'        => $picker,
+            'filter'        => $filter,
+            'sort'          => $sort,
+            'currentFolder' => $currentFolder,
+            'breadcrumbs'   => $breadcrumbs,
+            'folders'       => $folders,
+            'files'         => $files,
+
+            'uploadUrl'     => site_url('media/upload'),
+            'rootUrl'       => $rootUrl,
+            'backUrl'       => $backUrl,
+        ];
+
         if ($picker) {
-            return view('front/media/index_picker', [
-                'files'     => $files,
-                'uploadUrl' => site_url('media/upload'),
-                'deleteUrl' => site_url('media/delete'), // on ajoutera /{filename} côté vue
-            ]);
+            return view('front/media/index_picker', $data);
         }
 
-        // ---- mode normal : ta page standard avec template
-        return $this->view('front/media/index', ['files' => $files, 'picker' => false], false);
+        return $this->view('front/media/index', $data, false);
     }
 
-    public function getList()
+    /**
+     * Conserve les query params courants et applique des overrides.
+     * - si valeur null => supprime la clé.
+     */
+    private function buildQueryKeep(array $override = []): string
     {
-        $dir = FCPATH . 'uploads/media/';
-        $base = rtrim(base_url(), '/');
-        $files = [];
+        $qs = [];
+        parse_str((string)($this->request->getServer('QUERY_STRING') ?? ''), $qs);
 
-        if (is_dir($dir)) {
-            foreach (new \DirectoryIterator($dir) as $fi) {
-                if ($fi->isFile()) {
-                    $ext = strtolower($fi->getExtension());
-                    if (in_array($ext, ['jpg','jpeg','png','webp','gif','pdf'], true)) {
-                        $name = $fi->getFilename();
-                        $rel  = 'uploads/media/' . $name;
-                        $url  = $base . '/' . $rel;
-                        $files[] = [
-                            'name'  => $name,
-                            'rel'   => $rel,
-                            'url'   => $url,
-                            'size'  => $fi->getSize(),
-                            'mtime' => $fi->getMTime(),
-                        ];
-                    }
-                }
-            }
+        foreach ($override as $k => $v) {
+            if ($v === null) unset($qs[$k]);
+            else $qs[$k] = $v;
         }
 
-        usort($files, fn($a,$b) => $b['mtime'] <=> $a['mtime']);
-
-        return $this->response->setJSON(['files' => $files]);
+        $q = http_build_query($qs);
+        return $q ? ('?' . $q) : '';
     }
 
-    public function getDelete(string $file)
+    private function buildBreadcrumbs(?array $currentFolder): array
     {
-        $file = basename($file);
-        $rel  = 'uploads/media/' . $file;
-        $full = $this->uploadPath . $file;
+        $trail = [['id' => null, 'name' => 'Racine']];
 
-        // supprime fichier physique
+        if (!$currentFolder) return $trail;
+
+        $stack = [];
+        $node = $currentFolder;
+
+        $guard = 0;
+        while ($node) {
+            $stack[] = ['id' => (int)$node['id'], 'name' => (string)$node['name']];
+            $pid = $node['parent_id'] ?? null;
+            if (!$pid) break;
+            $node = $this->folderModel->getById((int)$pid);
+            $guard++;
+            if ($guard > 50) break;
+        }
+
+        $stack = array_reverse($stack);
+        return array_merge($trail, $stack);
+    }
+
+    // ------------------------------------------------------------
+    // Folders
+    // ------------------------------------------------------------
+
+    public function postCreateFolder()
+    {
+        $name = trim((string) $this->request->getPost('name'));
+        $parentRaw = $this->request->getPost('parent_id');
+        $parentId = is_numeric($parentRaw) ? (int)$parentRaw : null;
+
+        if ($name === '') {
+            return redirect()->back()->with('error', 'Nom de dossier requis.');
+        }
+
+        if ($parentId !== null) {
+            $p = $this->folderModel->getById($parentId);
+            if (!$p) return redirect()->back()->with('error', 'Dossier parent introuvable.');
+        }
+
+        $this->folderModel->insert([
+            'name'       => $name,
+            'parent_id'  => $parentId,
+            'sort_order' => 0,
+        ]);
+
+        // reste dans le dossier courant
+        $redirectUrl = $parentId ? site_url('media/folder/' . $parentId) : site_url('media');
+        return redirect()->to($redirectUrl . $this->buildQueryKeep())->with('message', 'Dossier créé.');
+    }
+
+    public function postDeleteFolder(int $folderId)
+    {
+        $folder = $this->folderModel->getById($folderId);
+        if (!$folder) return redirect()->back()->with('error', 'Dossier introuvable.');
+
+        $children = $this->folderModel->where('parent_id', $folderId)->countAllResults();
+        if ($children > 0) {
+            return redirect()->back()->with('error', 'Dossier non vide : il contient des sous-dossiers.');
+        }
+
+        $files = $this->mediaModel->where('folder_id', $folderId)->countAllResults();
+        if ($files > 0) {
+            return redirect()->back()->with('error', 'Dossier non vide : il contient des fichiers.');
+        }
+
+        $parentId = $folder['parent_id'] ?? null;
+
+        $this->folderModel->delete($folderId);
+
+        $redirectUrl = $parentId ? site_url('media/folder/' . (int)$parentId) : site_url('media');
+        return redirect()->to($redirectUrl . $this->buildQueryKeep())->with('message', 'Dossier supprimé.');
+    }
+
+    public function getFoldersTree()
+    {
+        $rows = $this->folderModel
+            ->select('id, name, parent_id')
+            ->orderBy('parent_id', 'ASC')
+            ->orderBy('name', 'ASC')
+            ->findAll();
+
+        return $this->response->setJSON([
+            'folders' => array_map(fn($r) => [
+                'id'        => (int)$r['id'],
+                'name'      => (string)$r['name'],
+                'parent_id' => $r['parent_id'] !== null ? (int)$r['parent_id'] : null,
+            ], $rows)
+        ]);
+    }
+
+    // ------------------------------------------------------------
+    // Files
+    // ------------------------------------------------------------
+
+    public function postDelete(int $id)
+    {
+        $row = $this->mediaModel->getById($id);
+        if (!$row) {
+            return redirect()->back()->with('error', 'Fichier introuvable.');
+        }
+
+        $full = FCPATH . ltrim((string)$row['file_path'], '/');
         if (is_file($full)) {
             @unlink($full);
         }
 
-        // supprime entrée BDD si trouvée
-        $row = $this->mediaModel->getMediaByPath($rel);
-        if ($row) {
-            $this->mediaModel->delete((int)$row['id']);
-        }
-
-        return redirect()->back()->with('message','Image supprimée');
+        $this->mediaModel->delete($id);
+        return redirect()->back()->with('message', 'Fichier supprimé.');
     }
-
 
     public function postUpload()
     {
@@ -158,61 +257,136 @@ class Media extends BaseController
             }
         }
 
-        if (isset($uploaded['image_file'])) {
-            $res = $this->storeOne($uploaded['image_file']);
-            if ($res === true) $ok++;
-            else $errors[] = $res;
+        if ($ok === 0 && empty($errors)) {
+            $errors[] = "Aucun fichier reçu (vérifie post_max_size/upload_max_filesize).";
         }
 
-        if ($ok === 0 && empty($errors)) {
-            $errors[] = "Aucun fichier reçu (vérifie la limite PHP post_max_size/upload_max_filesize).";
-        }
+        $folderIdRaw = $this->request->getPost('folder_id');
+        $folderId    = is_numeric($folderIdRaw) ? (int)$folderIdRaw : null;
+
+        $redirectUrl = $folderId ? site_url('media/folder/' . $folderId) : site_url('media');
+
+        // conserve picker/type/sort si présent
+        $redirectUrl .= $this->buildQueryKeep();
 
         if ($ok > 0) {
-            return redirect()->to(site_url('media'))
+            return redirect()->to($redirectUrl)
                 ->with('message', "$ok fichier(s) ajouté(s).")
                 ->with('error', !empty($errors) ? implode("\n", $errors) : null);
         }
 
-        return redirect()->back()->with('error', implode("\n", $errors));
+        return redirect()->to($redirectUrl)->with('error', implode("\n", $errors));
     }
+
+    public function postMove(int $id)
+    {
+        $row = $this->mediaModel->getById($id);
+        if (!$row) return redirect()->back()->with('error', 'Fichier introuvable.');
+
+        $targetRaw = $this->request->getPost('target_folder_id');
+        $targetId  = is_numeric($targetRaw) ? (int)$targetRaw : null;
+
+        if ($targetId !== null && !$this->folderModel->getById($targetId)) {
+            return redirect()->back()->with('error', 'Dossier cible introuvable.');
+        }
+
+        $currentId = $row['folder_id'] ?? null;
+        if (($currentId === null && $targetId === null) || ((int)$currentId === (int)$targetId)) {
+            return redirect()->back()->with('message', 'Déjà dans ce dossier.');
+        }
+
+        $this->mediaModel->update($id, ['folder_id' => $targetId]);
+        return redirect()->back()->with('message', 'Fichier déplacé.');
+    }
+
+    public function postCopy(int $id)
+    {
+        $row = $this->mediaModel->getById($id);
+        if (!$row) return redirect()->back()->with('error', 'Fichier introuvable.');
+
+        $targetRaw = $this->request->getPost('target_folder_id');
+        $targetId  = is_numeric($targetRaw) ? (int)$targetRaw : null;
+
+        if ($targetId !== null && !$this->folderModel->getById($targetId)) {
+            return redirect()->back()->with('error', 'Dossier cible introuvable.');
+        }
+
+        $srcRel  = (string)$row['file_path'];
+        $srcFull = FCPATH . ltrim($srcRel, '/');
+        if (!is_file($srcFull)) {
+            return redirect()->back()->with('error', 'Fichier physique introuvable.');
+        }
+
+        $srcName = (string)$row['file_name'];
+        $base    = pathinfo($srcName, PATHINFO_FILENAME);
+        $ext     = pathinfo($srcName, PATHINFO_EXTENSION);
+        $candidate = $base . '-copy' . ($ext ? '.'.$ext : '');
+
+        $newName = $this->uniqueFilename($this->uploadPath, $candidate);
+        $newFull = $this->uploadPath . $newName;
+
+        if (!@copy($srcFull, $newFull)) {
+            return redirect()->back()->with('error', 'Impossible de copier le fichier sur le disque.');
+        }
+
+        $newRel = 'uploads/media/' . $newName;
+
+        $data = [
+            'folder_id' => $targetId,
+            'file_name' => $newName,
+            'file_path' => $newRel,
+            'mime_type' => $row['mime_type'] ?? null,
+            'file_size' => (int)($row['file_size'] ?? filesize($newFull)),
+            'kind'      => $row['kind'] ?? (str_starts_with((string)$row['mime_type'], 'image/') ? 'image' : 'document'),
+            'entity_type' => null,
+            'entity_id'   => null,
+        ];
+
+        if (!$this->mediaModel->insert($data)) {
+            @unlink($newFull);
+            $errs = $this->mediaModel->errors();
+            return redirect()->back()->with('error', 'Copie OK mais insert BDD KO: ' . (!empty($errs) ? implode(' | ', $errs) : 'erreur inconnue'));
+        }
+
+        return redirect()->back()->with('message', 'Fichier copié.');
+    }
+
+    // ------------------------------------------------------------
+    // Upload helpers
+    // ------------------------------------------------------------
 
     /**
      * @param \CodeIgniter\HTTP\Files\UploadedFile|null $file
-     * @return true|string  true si OK, sinon message d'erreur
+     * @return true|string
      */
     protected function storeOne($file)
     {
-        if (!$file) {
-            return "Aucun fichier.";
-        }
-        if (!$file->isValid()) {
-            return "Upload invalide: {$file->getErrorString()} (code {$file->getError()}).";
-        }
-        if ($file->hasMoved()) {
-            return "Fichier déjà déplacé.";
-        }
+        if (!$file) return "Aucun fichier.";
+        if (!$file->isValid()) return "Upload invalide: {$file->getErrorString()} (code {$file->getError()}).";
+        if ($file->hasMoved()) return "Fichier déjà déplacé.";
 
         $size = (int) $file->getSize();
-        if ($size <= 0) {
-            return "Taille de fichier nulle (post_max_size/upload_max_filesize ?).";
-        }
-        if ($size > 4 * 1024 * 1024) {
-            return "Fichier trop volumineux (> 4 Mo).";
-        }
+        if ($size <= 0) return "Taille de fichier nulle (post_max_size/upload_max_filesize ?).";
+        if ($size > 4 * 1024 * 1024) return "Fichier trop volumineux (> 4 Mo).";
 
         $clientMime = strtolower((string) $file->getClientMimeType());
         $realMime   = strtolower((string) $file->getMimeType());
 
         $allowedMimes = [
-            'image/jpeg'       => 'jpg',
-            'image/pjpeg'      => 'jpg',
-            'image/jpg'        => 'jpg',
-            'image/png'        => 'png',
-            'image/x-png'      => 'png',
-            'image/webp'       => 'webp',
-            'image/gif'        => 'gif',
-            'application/pdf'  => 'pdf',
+            // images
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'image/gif'  => 'gif',
+
+            // docs
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+            'application/vnd.ms-powerpoint' => 'ppt',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
         ];
 
         $targetExt = $allowedMimes[$realMime] ?? ($allowedMimes[$clientMime] ?? null);
@@ -220,7 +394,7 @@ class Media extends BaseController
             if (in_array($realMime, ['image/heic','image/heif','image/x-heic','image/x-heif'], true)) {
                 return "HEIC/HEIF non supporté. Convertis en JPG/PNG avant upload.";
             }
-            return "Type de fichier non supporté (MIME client: {$clientMime}, réel: {$realMime}).";
+            return "Type non supporté (MIME client: {$clientMime}, réel: {$realMime}).";
         }
 
         $original = $file->getClientName();
@@ -228,85 +402,61 @@ class Media extends BaseController
         $origExt  = strtolower(pathinfo($original, PATHINFO_EXTENSION));
 
         $safeBase = $this->slugifyFilename($base);
-        if ($safeBase === '') {
-            $safeBase = 'fichier';
-        }
+        if ($safeBase === '') $safeBase = 'fichier';
 
         $finalExt = $targetExt;
-        if ($targetExt === 'jpg' && in_array($origExt, ['jpg','jpeg'], true)) {
-            $finalExt = $origExt;
-        } elseif ($targetExt === 'png' && in_array($origExt, ['png'], true)) {
-            $finalExt = 'png';
-        } elseif ($targetExt === 'webp' && $origExt === 'webp') {
-            $finalExt = 'webp';
-        } elseif ($targetExt === 'gif' && $origExt === 'gif') {
-            $finalExt = 'gif';
-        } elseif ($targetExt === 'pdf' && $origExt === 'pdf') {
-            $finalExt = 'pdf';
-        }
+        if ($targetExt === 'jpg' && in_array($origExt, ['jpg','jpeg'], true)) $finalExt = $origExt;
+        if ($targetExt === 'png' && $origExt === 'png') $finalExt = 'png';
+        if ($targetExt === 'webp' && $origExt === 'webp') $finalExt = 'webp';
+        if ($targetExt === 'gif' && $origExt === 'gif') $finalExt = 'gif';
+        if ($targetExt === 'pdf' && $origExt === 'pdf') $finalExt = 'pdf';
 
-        $finalName = $safeBase . '.' . $finalExt;
-        $finalName = $this->uniqueFilename($this->uploadPath, $finalName);
+        $finalName = $this->uniqueFilename($this->uploadPath, $safeBase . '.' . $finalExt);
 
-        if (! $file->move($this->uploadPath, $finalName)) {
+        if (!$file->move($this->uploadPath, $finalName)) {
             $errStr = method_exists($file, 'getErrorString') ? $file->getErrorString() : 'erreur inconnue';
             $err    = method_exists($file, 'getError') ? $file->getError() : 0;
-            return "Échec du déplacement du fichier ({$errStr}, code {$err}).";
+            return "Échec déplacement ({$errStr}, code {$err}).";
         }
 
-        // Chemin RELATIF stocké en BDD (important pour que FCPATH + file_path fonctionne)
         $relativePath = 'uploads/media/' . $finalName;
 
-        // (option) liaison à une entité si tu veux plus tard
-        $entityType = $this->request->getPost('entity_type');
-        $entityId   = $this->request->getPost('entity_id');
+        $folderIdRaw = $this->request->getPost('folder_id');
+        $folderId    = is_numeric($folderIdRaw) ? (int) $folderIdRaw : null;
+
+        $mimeForKind = $realMime ?: $clientMime;
+        $kind = str_starts_with($mimeForKind, 'image/') ? 'image' : 'document';
 
         $data = [
-            'file_name'   => $finalName,
-            'file_path'   => $relativePath,
-            'mime_type'   => $realMime ?: $clientMime,
-            'file_size'   => $size,
-            'entity_type' => $entityType !== '' ? $entityType : null,
-            'entity_id'   => is_numeric($entityId) ? (int)$entityId : null,
+            'folder_id' => $folderId,
+            'file_name' => $finalName,
+            'file_path' => $relativePath,
+            'mime_type' => $mimeForKind,
+            'file_size' => $size,
+            'kind'      => $kind,
         ];
 
-        if (! $this->mediaModel->insert($data)) {
-            // rollback fichier si insert échoue
+        if (!$this->mediaModel->insert($data)) {
             @unlink($this->uploadPath . $finalName);
             $errs = $this->mediaModel->errors();
-            return "Fichier uploadé mais insertion BDD échouée: " . (!empty($errs) ? implode(' | ', $errs) : 'erreur inconnue');
+            return "Upload OK mais insert BDD KO: " . (!empty($errs) ? implode(' | ', $errs) : 'erreur inconnue');
         }
 
         return true;
     }
 
-    /**
-     * Slug minimal pour noms de fichiers : lettres/chiffres, tirets et underscores.
-     * Supprime accents et espaces, coupe à ~120 chars.
-     */
     private function slugifyFilename(string $name): string
     {
-        if (function_exists('iconv')) {
-            $name = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name);
-        }
+        if (function_exists('iconv')) $name = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name);
         $name = strtolower($name);
         $name = preg_replace('~[^a-z0-9-_\.]+~', '-', $name);
         $name = preg_replace('~-+~', '-', $name);
         $name = trim($name, '-_.');
-        if (strlen($name) > 120) {
-            $name = substr($name, 0, 120);
-        }
+        if (strlen($name) > 120) $name = substr($name, 0, 120);
         $reserved = ['con','prn','aux','nul','com1','lpt1'];
-        if (in_array($name, $reserved, true)) {
-            $name .= '-file';
-        }
+        if (in_array($name, $reserved, true)) $name .= '-file';
         return $name;
     }
-
-    /**
-     * Si le fichier existe déjà, ajoute -1, -2, ... avant l'extension.
-     * ex: photo.jpg -> photo-1.jpg -> photo-2.jpg
-     */
 
     private function uniqueFilename(string $dir, string $filename): string
     {
@@ -327,4 +477,3 @@ class Media extends BaseController
         return $candidate;
     }
 }
-

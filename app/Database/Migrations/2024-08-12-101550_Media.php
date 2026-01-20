@@ -14,6 +14,11 @@ class Media extends Migration
                 'unsigned'       => true,
                 'auto_increment' => true,
             ],
+            'folder_id' => [
+                'type' => 'INT',
+                'unsigned' => true,
+                'null' => true,
+            ],
             'file_name' => [
                 'type'       => 'VARCHAR',
                 'constraint' => 255,
@@ -28,6 +33,13 @@ class Media extends Migration
                 'type'       => 'VARCHAR',
                 'constraint' => 100,
                 'null'       => true,
+            ],
+            'kind' => [
+                'type' => 'VARCHAR',
+                'constraint' => 20,
+                'null' => false,
+                'default' => 'file',
+                'comment' => 'image|document|file',
             ],
             'file_size' => [
                 'type'       => 'INT',
@@ -53,6 +65,7 @@ class Media extends Migration
 
         $this->forge->addKey('id', true);
         $this->forge->addForeignKey('entity_id', 'user', 'id', 'CASCADE', 'CASCADE');
+        $this->forge->addForeignKey('folder_id', 'media_folders', 'id', 'SET NULL', 'CASCADE');
         $this->forge->createTable('media');
     }
 

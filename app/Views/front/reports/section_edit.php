@@ -180,7 +180,7 @@ $success = $success ?? session('success');
         menubar: true,
 
         plugins: [
-            'lists link table code autoresize' // <- tu peux garder image si tu veux, mais ici pas nécessaire
+            'lists link table code autoresize'
         ],
 
         toolbar: `

@@ -479,4 +479,72 @@ class Report extends BaseController
 
         return redirect()->to(site_url('report'))->with('success', 'Bilan supprimé.');
     }
+
+    public function metaEdit(int $reportId)
+    {
+        $report = $this->mustGetMyReport($reportId);
+
+        return $this->view('front/reports/meta_edit', [
+            'report'  => $report,
+            'errors'  => session('errors'),
+            'success' => session('success'),
+        ], ['saveData' => false]);
+    }
+
+    public function metaUpdate(int $reportId)
+    {
+        $report = $this->mustGetMyReport($reportId);
+
+        $status = strtolower(trim((string)$this->request->getPost('status')));
+        if ($status === '') {
+            $status = strtolower((string)($report['status'] ?? 'draft'));
+        }
+
+        $data = [
+            'title'            => $this->request->getPost('title'),
+            'application_name' => $this->request->getPost('application_name'),
+            'version'          => $this->request->getPost('version'),
+            'status'           => $status,
+            'author_name'      => $this->request->getPost('author_name'),
+            'corrector_name'   => $this->request->getPost('corrector_name'),
+            'validated_at'     => $this->request->getPost('validated_at') ?: null,
+        ];
+
+        $rules = [
+            'title'            => 'required|min_length[3]',
+            'application_name' => 'permit_empty|max_length[120]',
+            'version'          => 'permit_empty|max_length[40]',
+            'status'           => 'required|in_list[draft,in_review,validated,rejected]',
+            'author_name'      => 'permit_empty|max_length[120]',
+            'corrector_name'   => 'permit_empty|max_length[120]',
+            'validated_at'     => 'permit_empty|valid_date[Y-m-d]',
+        ];
+
+        if (! $this->validateData($data, $rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $this->reports->update($reportId, $data);
+
+        return redirect()
+            ->to(site_url('report/' . $reportId . '/meta'))
+            ->with('success', 'Infos du bilan enregistrées.');
+    }
+
+    private function mustGetMyReport(int $reportId): array
+    {
+        $report = $this->reports->find($reportId);
+
+        if (!$report) {
+            throw PageNotFoundException::forPageNotFound('Bilan introuvable');
+        }
+
+        $ownerId = (int)($report['user_id'] ?? 0);
+
+        if ($ownerId !== $this->userId()) {
+            throw new \CodeIgniter\Exceptions\PageForbiddenException('Accès refusé');
+        }
+
+        return $report;
+    }
 }

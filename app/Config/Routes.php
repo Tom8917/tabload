@@ -76,24 +76,30 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
 
     $routes->post('report/sections/upload-image', 'Report::postUploadSectionImage');
 
+    // app/Config/Routes.php (front)
+    $routes->get('report/(:num)/meta', 'Report::metaEdit/$1');
+    $routes->post('report/(:num)/meta/update', 'Report::metaUpdate/$1');
+
 
     $routes->get('tabload',         'Tabload::getIndex');
+
+    $routes->group('media', function($routes) {
+        $routes->get('/',               'Media::getIndex');
+        $routes->get('folder/(:num)',   'Media::getFolder/$1');
+
+        $routes->post('upload',         'Media::postUpload');
+
+        $routes->post('folder/create',  'Media::postCreateFolder');
+        $routes->post('folder/delete/(:num)', 'Media::postDeleteFolder/$1');
+
+        $routes->post('delete/(:num)',  'Media::postDelete/$1');
+
+        $routes->get('folders-tree',    'Media::getFoldersTree');
+        $routes->post('move/(:num)',    'Media::postMove/$1');
+        $routes->post('copy/(:num)',    'Media::postCopy/$1');
+    });
 });
 
-$routes->group('media', function($routes) {
-
-    // 📂 Bibliothèque d’images (page HTML)
-    $routes->get('/', 'Media::getIndex');
-
-    // 📤 Upload fichier(s)
-    $routes->post('upload', 'Media::postUpload');
-
-    // 🗑️ Suppression d’un fichier (par nom)
-    $routes->get('delete/(:segment)', 'Media::getDelete/$1');
-
-    // 📡 Liste JSON (AJAX / modal / picker)
-    $routes->get('list', 'Media::getList');
-});
 
 // --------------------------------------------------------------------------
 // ADMIN (admin)
@@ -148,4 +154,20 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->get('pages/(:segment)', 'Pages::getShow/$1');
 
     $routes->get('tabload', 'Tabload::getIndex');
+
+    $routes->group('media', function($routes) {
+        $routes->get('/',               'Media::getIndex');
+        $routes->get('folder/(:num)',   'Media::getFolder/$1');
+
+        $routes->post('upload',         'Media::postUpload');
+
+        $routes->post('folder/create',  'Media::postCreateFolder');
+        $routes->post('folder/delete/(:num)', 'Media::postDeleteFolder/$1');
+
+        $routes->post('delete/(:num)',  'Media::postDelete/$1');
+
+        $routes->get('folders-tree',    'Media::getFoldersTree');
+        $routes->post('move/(:num)',    'Media::postMove/$1');
+        $routes->post('copy/(:num)',    'Media::postCopy/$1');
+    });
 });

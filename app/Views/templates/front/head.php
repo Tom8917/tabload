@@ -97,8 +97,211 @@
     </script>
 
     <style>
-        body { background-color: whitesmoke; }
+        /* =========================================================
+           TABLOAD BRAND THEME (CoreUI + Bootstrap 5 + plugins)
+           Colors:
+             Blue   #13438B
+             Orange #FC9000
+           ========================================================= */
+
+        :root{
+            --tl-blue: #13438B;
+            --tl-blue-hover: #0f356f;
+            --tl-blue-active: #0c2b59;
+
+            --tl-orange: #FC9000;
+            --tl-orange-hover: #f08a00;
+
+            --tl-bg: whitesmoke;
+
+            /* Bootstrap */
+            --bs-primary: var(--tl-blue);
+            --bs-link-color: var(--tl-blue);
+            --bs-link-hover-color: var(--tl-blue-hover);
+
+            /* CoreUI */
+            --cui-primary: var(--tl-blue);
+            --cui-link-color: var(--tl-blue);
+        }
+
+        body { background-color: var(--tl-bg); }
+
+        /* ---------------------------------
+           LINKS
+        ---------------------------------- */
+        a { color: var(--tl-blue); }
+        a:hover { color: var(--tl-blue-hover); }
+
+        /* ---------------------------------
+           BUTTONS (robuste = force bg/border)
+           -> évite les pages où les variables ne s'appliquent pas
+        ---------------------------------- */
+
+        /* Bootstrap primary */
+        .btn.btn-primary{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+            color: #fff !important;
+        }
+        .btn.btn-primary:hover{
+            background-color: var(--tl-blue-hover) !important;
+            border-color: var(--tl-blue-hover) !important;
+        }
+        .btn.btn-primary:active,
+        .btn.btn-primary.active,
+        .btn.btn-primary:focus{
+            background-color: var(--tl-blue-active) !important;
+            border-color: var(--tl-blue-active) !important;
+        }
+
+        /* Bootstrap outline primary */
+        .btn.btn-outline-primary{
+            color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+        }
+        .btn.btn-outline-primary:hover{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+            color: #fff !important;
+        }
+        .btn.btn-outline-primary:active,
+        .btn.btn-outline-primary.active{
+            background-color: var(--tl-blue-hover) !important;
+            border-color: var(--tl-blue-hover) !important;
+            color: #fff !important;
+        }
+
+        /* CoreUI ghost primary (souvent utilisé dans toolbars) */
+        .btn.btn-ghost-primary{
+            color: var(--tl-blue) !important;
+            border-color: transparent !important;
+            background: transparent !important;
+        }
+        .btn.btn-ghost-primary:hover{
+            background: rgba(19,67,139,.08) !important;
+            color: var(--tl-blue) !important;
+        }
+
+        /* CTA orange */
+        .btn.btn-tl-orange{
+            background: var(--tl-orange) !important;
+            border-color: var(--tl-orange) !important;
+            color: #111 !important;
+            font-weight: 700;
+        }
+        .btn.btn-tl-orange:hover{
+            background: var(--tl-orange-hover) !important;
+            border-color: var(--tl-orange-hover) !important;
+            color: #111 !important;
+        }
+
+        .btn.btn-outline-tl-orange{
+            background: transparent !important;
+            border-color: var(--tl-orange) !important;
+            color: var(--tl-orange) !important;
+            font-weight: 700;
+        }
+        .btn.btn-outline-tl-orange:hover{
+            background: var(--tl-orange) !important;
+            border-color: var(--tl-orange) !important;
+            color: #111 !important;
+        }
+
+        /* ---------------------------------
+           FORMS (focus / checked)
+        ---------------------------------- */
+        .form-control:focus,
+        .form-select:focus,
+        textarea:focus,
+        input:focus{
+            border-color: rgba(19,67,139,.55) !important;
+            box-shadow: 0 0 0 .2rem rgba(19,67,139,.20) !important;
+        }
+
+        .form-check-input:checked{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+        }
+        .form-check-input:focus{
+            box-shadow: 0 0 0 .2rem rgba(19,67,139,.20) !important;
+            border-color: rgba(19,67,139,.55) !important;
+        }
+
+        /* Select2 (bootstrap-5-theme) */
+        .select2-container--bootstrap-5 .select2-selection{
+            min-height: calc(2.375rem + 2px);
+        }
+        .select2-container--bootstrap-5.select2-container--focus .select2-selection,
+        .select2-container--bootstrap-5 .select2-selection:focus,
+        .select2-container--bootstrap-5 .select2-selection:focus-within{
+            border-color: rgba(19,67,139,.55) !important;
+            box-shadow: 0 0 0 .2rem rgba(19,67,139,.20) !important;
+        }
+        .select2-container--bootstrap-5 .select2-dropdown .select2-results__option--highlighted{
+            background-color: rgba(19,67,139,.10) !important;
+            color: #111 !important;
+        }
+
+        /* ---------------------------------
+           BADGES / CHIPS
+        ---------------------------------- */
+        .badge.bg-primary{ background-color: var(--tl-blue) !important; }
+        .badge.bg-warning{ background-color: var(--tl-orange) !important; color: #111 !important; }
+
+        .text-tl-blue{ color: var(--tl-blue) !important; }
+        .text-tl-orange{ color: var(--tl-orange) !important; }
+        .bg-tl-blue{ background-color: var(--tl-blue) !important; color: #fff !important; }
+        .bg-tl-orange{ background-color: var(--tl-orange) !important; color: #111 !important; }
+
+        /* ---------------------------------
+           NAV / PILLS / ACTIVE
+        ---------------------------------- */
+        .nav-pills .nav-link.active,
+        .nav-link.active{
+            background-color: var(--tl-blue) !important;
+            color: #fff !important;
+        }
+
+        /* ---------------------------------
+           PAGINATION
+        ---------------------------------- */
+        .page-link{ color: var(--tl-blue); }
+        .page-link:hover{ color: var(--tl-blue-hover); }
+        .page-item.active .page-link{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+        }
+
+        /* ---------------------------------
+           DATATABLES (Buttons extension)
+           -> assure que les boutons générés suivent la charte
+        ---------------------------------- */
+        .dt-buttons .btn,
+        .dataTables_wrapper .dt-buttons .btn{
+            margin-right: .25rem;
+        }
+
+        .dt-buttons .btn.btn-primary,
+        .dataTables_wrapper .dt-buttons .btn.btn-primary{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+            color: #fff !important;
+        }
+
+        /* si DataTables te sort du btn-secondary par défaut */
+        .dt-buttons .btn.btn-secondary,
+        .dataTables_wrapper .dt-buttons .btn.btn-secondary{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+            color: #fff !important;
+        }
+
+        .sidebar .nav-link.active{
+            background: rgba(0,0,0,.06) !important;
+            color: #111 !important;
+        }
     </style>
+
 </head>
 <body>
 <?php

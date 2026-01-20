@@ -11,10 +11,12 @@ class MediaModel extends Model
     protected $returnType = 'array';
 
     protected $allowedFields = [
+        'folder_id',
         'file_name',
         'file_path',
         'mime_type',
         'file_size',
+        'kind',
         'entity_id',
         'entity_type',
         'created_at',
@@ -24,6 +26,11 @@ class MediaModel extends Model
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
+
+    public function getById(int $id): ?array
+    {
+        return $this->find($id);
+    }
 
     public function getMediaByPath(string $filePath): ?array
     {

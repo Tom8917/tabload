@@ -106,325 +106,210 @@
     </script>
 
     <style>
-        /* ================= Violet Premium — Variables ================= */
+        /* =========================================================
+           TABLOAD BRAND THEME (CoreUI + Bootstrap 5 + plugins)
+           Colors:
+             Blue   #13438B
+             Orange #FC9000
+           ========================================================= */
+
         :root{
-            /* Palette (blue) */
-            --violet-950:#0c1420;   /* quasi noir / profondeur */
-            --violet-900:#121f30;   /* très sombre (fond principal) */
-            --violet-800:#16304a;   /* sombre */
-            --violet-700:#1A365D;   /* Couleur 1 : bleu foncé principal (titres, contours) */
-            --violet-600:#105298;   /* Couleur 2 : bleu accent (brand, boutons) */
-            --violet-500:#2b6fb5;   /* hover / variante un peu plus claire */
-            --violet-400:#4a8fd0;   /* clair */
-            --violet-300:#7bb0e4;   /* très clair / surfaces */
-            --violet-200:#c6ddf6;   /* chips / fonds pâles */
+            --tl-blue: #13438B;
+            --tl-blue-hover: #0f356f;
+            --tl-blue-active: #0c2b59;
 
-            /* Jaune secondaire (accents secondaires uniquement) */
-            --yellow:#d7fa00;
+            --tl-orange: #FC9000;
+            --tl-orange-hover: #f08a00;
 
-            /* Lignes / bordures (bleu/gris neutre dérivé) */
-            --line-500:#9bb5d9;
-            --line-300:#d5e3f5;
+            --tl-bg: whitesmoke;
 
-            /* Tokens */
-            --r-sm:10px;
-            --r-md:14px;
-            --r-lg:18px;
-            --shadow-1:0 6px 18px rgba(0,0,0,.10);
-            --shadow-2:0 10px 28px rgba(0,0,0,.16);
+            /* Bootstrap */
+            --bs-primary: var(--tl-blue);
+            --bs-link-color: var(--tl-blue);
+            --bs-link-hover-color: var(--tl-blue-hover);
+
+            /* CoreUI */
+            --cui-primary: var(--tl-blue);
+            --cui-link-color: var(--tl-blue);
         }
 
-        /* ===================================================================== */
-        /* =====================  BOUTONS (Bootstrap)  ========================== */
-        /* ===================================================================== */
+        body { background-color: var(--tl-bg); }
 
-        /* .btn-primary : plein violet */
-        .btn-primary{
-            background-color:var(--violet-600) !important;
-            border-color:color-mix(in oklab, var(--violet-600) 65%, black) !important;
-            color:#ffffff !important; /* lisible sur fond violet */
-            box-shadow:inset 0 1px 0 rgba(255,255,255,.16), var(--shadow-1) !important;
-        }
-        .btn-primary:hover{
-            background-color:var(--violet-500) !important;
-            border-color:color-mix(in oklab, var(--violet-500) 65%, black) !important;
-            filter:brightness(1.02);
-        }
-        .btn-primary:active, .btn-primary:focus{
-            box-shadow:var(--shadow-1), 0 0 0 .2rem color-mix(in oklab, var(--violet-500) 25%, white) !important;
-        }
+        /* ---------------------------------
+           LINKS
+        ---------------------------------- */
+        a { color: var(--tl-blue); }
+        a:hover { color: var(--tl-blue-hover); }
 
-        /* .btn-outline-primary : contour violet */
-        .btn-outline-primary{
-            color:var(--violet-700) !important;
-            border-color:var(--violet-700) !important;
-            background:transparent !important;
+        /* ---------------------------------
+           BUTTONS (robuste = force bg/border)
+           -> évite les pages où les variables ne s'appliquent pas
+        ---------------------------------- */
+
+        /* Bootstrap primary */
+        .btn.btn-primary{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+            color: #fff !important;
         }
-        .btn-outline-primary:hover{
-            color:var(--violet-900) !important;
-            border-color:var(--violet-600) !important;
-            background:color-mix(in oklab, var(--violet-500) 12%, transparent) !important;
+        .btn.btn-primary:hover{
+            background-color: var(--tl-blue-hover) !important;
+            border-color: var(--tl-blue-hover) !important;
+        }
+        .btn.btn-primary:active,
+        .btn.btn-primary.active,
+        .btn.btn-primary:focus{
+            background-color: var(--tl-blue-active) !important;
+            border-color: var(--tl-blue-active) !important;
         }
 
-        /* .btn-link : souligné discret avec l’accent (violet) en soulignement */
-        .btn-link{
-            text-decoration:none !important;
-            box-shadow: inset 0 -2px 0 0 var(--violet-600) !important;
+        /* Bootstrap outline primary */
+        .btn.btn-outline-primary{
+            color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
         }
-        .btn-link:hover{ box-shadow: inset 0 -3px 0 0 var(--violet-500) !important; }
-
-        /* ===================================================================== */
-        /* ======================  BADGES / ALERTS  ============================= */
-        /* ===================================================================== */
-
-        .badge.bg-primary{ background-color:var(--violet-600) !important; color:#f6f2ff !important; }
-        .badge.text-bg-primary{ background-color:var(--violet-600) !important; color:#f6f2ff !important; }
-        .badge.border-primary{ border-color:var(--violet-700) !important; }
-
-        /* Alertes primary (texte par Bootstrap; on teinte fond/bord) */
-        .alert-primary{
-            background-color:color-mix(in oklab, var(--violet-400) 18%, white) !important;
-            border-color:color-mix(in oklab, var(--violet-600) 35%, white) !important;
-            color:inherit !important;
+        .btn.btn-outline-primary:hover{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+            color: #fff !important;
+        }
+        .btn.btn-outline-primary:active,
+        .btn.btn-outline-primary.active{
+            background-color: var(--tl-blue-hover) !important;
+            border-color: var(--tl-blue-hover) !important;
+            color: #fff !important;
         }
 
-        /* ===================================================================== */
-        /* ===================  CARDS / PANELS / CONTENEURS  ==================== */
-        /* ===================================================================== */
-
-        .card{
-            background:transparent !important;
-            border:1px solid color-mix(in oklab, var(--line-500) 70%, transparent) !important;
-            border-radius:var(--r-lg) !important;
-            box-shadow:none !important;
+        /* CoreUI ghost primary (souvent utilisé dans toolbars) */
+        .btn.btn-ghost-primary{
+            color: var(--tl-blue) !important;
+            border-color: transparent !important;
+            background: transparent !important;
         }
-        .card:hover{ border-color:var(--violet-600) !important; }
-        .card .card-header{
-            background:transparent !important;
-            border-bottom:1px solid color-mix(in oklab, var(--line-500) 70%, transparent) !important;
+        .btn.btn-ghost-primary:hover{
+            background: rgba(19,67,139,.08) !important;
+            color: var(--tl-blue) !important;
         }
 
-        /* (1) Panel dégradé violet → transparent */
-        .panel-gradient{
-            border-radius:var(--r-lg);
-            background: linear-gradient(135deg,
-            color-mix(in oklab, var(--violet-400) 18%, white) 0%,
-            color-mix(in oklab, var(--violet-700) 14%, transparent) 46%,
-            transparent 78%);
-            padding:1rem;
-            border:1px solid color-mix(in oklab, var(--line-500) 55%, transparent);
+        /* CTA orange */
+        .btn.btn-tl-orange{
+            background: var(--tl-orange) !important;
+            border-color: var(--tl-orange) !important;
+            color: #111 !important;
+            font-weight: 700;
         }
-        .panel-gradient--soft{
-            background: linear-gradient(135deg,
-            color-mix(in oklab, var(--violet-400) 10%, white) 0%,
-            transparent 60%);
+        .btn.btn-tl-orange:hover{
+            background: var(--tl-orange-hover) !important;
+            border-color: var(--tl-orange-hover) !important;
+            color: #111 !important;
         }
 
-        /* (2) Panel transparent + bordure dégradée */
-        .panel-border-grad{
-            padding:1px; border-radius:var(--r-lg);
-            background: linear-gradient(135deg, var(--violet-600), var(--violet-500));
+        .btn.btn-outline-tl-orange{
+            background: transparent !important;
+            border-color: var(--tl-orange) !important;
+            color: var(--tl-orange) !important;
+            font-weight: 700;
         }
-        .panel-border-grad > .inner{
-            background:transparent; border-radius:calc(var(--r-lg) - 1px); padding:1rem;
-        }
-
-        /* (3) Panel transparent + bordure pleine */
-        .panel-border-solid{
-            border-radius:var(--r-lg);
-            background:transparent;
-            border:1.5px solid var(--violet-600);
-            padding:1rem;
-        }
-        .panel-border-solid--soft{
-            background:transparent;
-            border:1.5px solid var(--violet-600);
-            padding:1rem;
+        .btn.btn-outline-tl-orange:hover{
+            background: var(--tl-orange) !important;
+            border-color: var(--tl-orange) !important;
+            color: #111 !important;
         }
 
-        /* Encadrements génériques Bootstrap */
-        .border-primary{ border-color:var(--violet-700) !important; }
-        .border-success{ border-color:var(--violet-600) !important; } /* alias si besoin */
-        .bg-primary-subtle{ background-color:color-mix(in oklab, var(--violet-300) 22%, white) !important; }
-
-        /* ===================================================================== */
-        /* =====================  NAVS / PILLS / TABS  ========================== */
-        /* ===================================================================== */
-
-        .nav-pills .nav-link.active, .nav-pills .show > .nav-link{
-            background-color:var(--violet-600) !important;
-            color:#ffffff !important;
-            border-color:color-mix(in oklab, var(--violet-600) 65%, black) !important;
-        }
-        .nav-tabs .nav-link.active{
-            border-color:var(--violet-600) !important;
-            border-bottom-color:transparent !important;
-        }
-        .nav-tabs .nav-link:hover{ border-color:color-mix(in oklab, var(--violet-600) 55%, white) !important; }
-
-        /* ===================================================================== */
-        /* =======================  FORMULAIRES  ================================ */
-        /* ===================================================================== */
-
-        .form-control:focus, .form-select:focus{
-            border-color:var(--violet-600) !important;
-            box-shadow:0 0 0 .2rem color-mix(in oklab, var(--violet-400) 28%, white) !important;
+        /* ---------------------------------
+           FORMS (focus / checked)
+        ---------------------------------- */
+        .form-control:focus,
+        .form-select:focus,
+        textarea:focus,
+        input:focus{
+            border-color: rgba(19,67,139,.55) !important;
+            box-shadow: 0 0 0 .2rem rgba(19,67,139,.20) !important;
         }
 
-        /* Checkboxes / radios */
         .form-check-input:checked{
-            background-color:var(--violet-600) !important;
-            border-color:var(--violet-600) !important;
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
         }
         .form-check-input:focus{
-            box-shadow:0 0 0 .2rem color-mix(in oklab, var(--violet-400) 28%, white) !important;
-            border-color:var(--violet-600) !important;
+            box-shadow: 0 0 0 .2rem rgba(19,67,139,.20) !important;
+            border-color: rgba(19,67,139,.55) !important;
         }
 
-        /* Switch */
-        .form-switch .form-check-input:checked{
-            background-color:var(--violet-600) !important;
-            border-color:var(--violet-600) !important;
+        /* Select2 (bootstrap-5-theme) */
+        .select2-container--bootstrap-5 .select2-selection{
+            min-height: calc(2.375rem + 2px);
+        }
+        .select2-container--bootstrap-5.select2-container--focus .select2-selection,
+        .select2-container--bootstrap-5 .select2-selection:focus,
+        .select2-container--bootstrap-5 .select2-selection:focus-within{
+            border-color: rgba(19,67,139,.55) !important;
+            box-shadow: 0 0 0 .2rem rgba(19,67,139,.20) !important;
+        }
+        .select2-container--bootstrap-5 .select2-dropdown .select2-results__option--highlighted{
+            background-color: rgba(19,67,139,.10) !important;
+            color: #111 !important;
         }
 
-        /* Range */
-        .form-range::-webkit-slider-thumb{ background:var(--violet-600); }
-        .form-range::-webkit-slider-runnable-track{ background:color-mix(in oklab, var(--violet-400) 25%, #ddd); }
-        .form-range::-moz-range-thumb{ background:var(--violet-600); }
-        .form-range::-moz-range-track{ background:color-mix(in oklab, var(--violet-400) 25%, #ddd); }
+        /* ---------------------------------
+           BADGES / CHIPS
+        ---------------------------------- */
+        .badge.bg-primary{ background-color: var(--tl-blue) !important; }
+        .badge.bg-warning{ background-color: var(--tl-orange) !important; color: #111 !important; }
 
-        /* ===================================================================== */
-        /* =============  LISTS / PAGINATION / DROPDOWN / PROGRESS  ============ */
-        /* ===================================================================== */
+        .text-tl-blue{ color: var(--tl-blue) !important; }
+        .text-tl-orange{ color: var(--tl-orange) !important; }
+        .bg-tl-blue{ background-color: var(--tl-blue) !important; color: #fff !important; }
+        .bg-tl-orange{ background-color: var(--tl-orange) !important; color: #111 !important; }
 
-        .list-group-item.active{
-            background-color:var(--violet-600) !important;
-            border-color:var(--violet-600) !important;
-            color:#ffffff !important;
-        }
-
-        .pagination .page-item.active .page-link{
-            background-color:var(--violet-600) !important;
-            border-color:var(--violet-600) !important;
-            color:#ffffff !important;
+        /* ---------------------------------
+           NAV / PILLS / ACTIVE
+        ---------------------------------- */
+        .nav-pills .nav-link.active,
+        .nav-link.active{
+            background-color: var(--tl-blue) !important;
+            color: #fff !important;
         }
 
-        .dropdown-item.active, .dropdown-item:active{
-            background-color:var(--violet-600) !important;
-            color:#ffffff !important;
+        /* ---------------------------------
+           PAGINATION
+        ---------------------------------- */
+        .page-link{ color: var(--tl-blue); }
+        .page-link:hover{ color: var(--tl-blue-hover); }
+        .page-item.active .page-link{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
         }
 
-        .progress .progress-bar{ background-color:var(--violet-600) !important; }
-
-        /* ===================================================================== */
-        /* ==========================  TABLES  ================================== */
-        /* ===================================================================== */
-
-        .table-primary{
-            --bs-table-bg: color-mix(in oklab, var(--violet-300) 16%, white) !important;
-            --bs-table-border-color: color-mix(in oklab, var(--violet-600) 35%, white) !important;
-        }
-        .table thead th{
-            border-bottom:2px solid color-mix(in oklab, var(--violet-600) 40%, white) !important;
+        /* ---------------------------------
+           DATATABLES (Buttons extension)
+           -> assure que les boutons générés suivent la charte
+        ---------------------------------- */
+        .dt-buttons .btn,
+        .dataTables_wrapper .dt-buttons .btn{
+            margin-right: .25rem;
         }
 
-        /* ===================================================================== */
-        /* =========================  ACCENTS DIVERS  =========================== */
-        /* ===================================================================== */
-
-        /* Lien souligné premium — accent violet (le jaune reste secondaire) */
-        .accent-underline{
-            text-decoration:none;
-            box-shadow: inset 0 -2px 0 0 var(--violet-600);
-            transition: box-shadow .2s ease;
-        }
-        .accent-underline:hover{ box-shadow: inset 0 -3px 0 0 var(--violet-500); }
-
-        /* Focus générique réutilisable (clavier) */
-        .focus-accent:focus-visible{
-            outline:3px solid color-mix(in oklab, var(--violet-400) 60%, white);
-            outline-offset:3px;
+        .dt-buttons .btn.btn-primary,
+        .dataTables_wrapper .dt-buttons .btn.btn-primary{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+            color: #fff !important;
         }
 
-        /* === Usage du jaune (accents secondaires uniquement) ================= */
-        .badge.bg-warning,
-        .badge.text-bg-warning{ background-color:var(--yellow) !important; color:#1d1d1d !important; }
-        .text-yellow{ color:var(--yellow) !important; }
-        .border-yellow{ border-color:var(--yellow) !important; }
-
-        /* === Breadcrumb Violet — mode clair === */
-        [data-coreui-theme="light"] .breadcrumb {
-            background:var(--line-300);
-            border:1px solid var(--violet-600);
-            box-shadow:0 2px 6px rgba(0,0,0,.05);
-        }
-        [data-coreui-theme="light"] .breadcrumb-item { color:var(--violet-900); }
-        [data-coreui-theme="light"] .breadcrumb-item+.breadcrumb-item::before { color:var(--violet-700); }
-        [data-coreui-theme="light"] .breadcrumb-item a {
-            color:var(--violet-700);
-        }
-        [data-coreui-theme="light"] .breadcrumb-item a:hover {
-            color:var(--violet-600);
-            box-shadow:inset 0 -2px 0 0 var(--violet-600);
-        }
-        [data-coreui-theme="light"] .breadcrumb-item.active {
-            color:var(--violet-900);
-            font-weight:600;
+        /* si DataTables te sort du btn-secondary par défaut */
+        .dt-buttons .btn.btn-secondary,
+        .dataTables_wrapper .dt-buttons .btn.btn-secondary{
+            background-color: var(--tl-blue) !important;
+            border-color: var(--tl-blue) !important;
+            color: #fff !important;
         }
 
-        /* === Breadcrumb Violet — mode sombre === */
-        [data-coreui-theme="dark"] .breadcrumb {
-            background:var(--violet-900);
-            border:1px solid var(--violet-600);
-            box-shadow:0 2px 6px rgba(0,0,0,.35);
-        }
-        [data-coreui-theme="dark"] .breadcrumb-item { color:#eae6f8; }
-        [data-coreui-theme="dark"] .breadcrumb-item+.breadcrumb-item::before { color:var(--violet-400); }
-        [data-coreui-theme="dark"] .breadcrumb-item a { color:var(--line-300); }
-        [data-coreui-theme="dark"] .breadcrumb-item a:hover {
-            color:var(--violet-300);
-            box-shadow:inset 0 -2px 0 0 var(--violet-300);
-        }
-        [data-coreui-theme="dark"] .breadcrumb-item.active {
-            color:#fff;
-            font-weight:600;
-        }
-
-        /* === Breadcrumb Violet (défaut) === */
-        .breadcrumb{
-            margin:0;
-            padding:.75rem 1rem;
-            border-radius:var(--r-md);
-            background:var(--violet-900);
-            border:1px solid var(--violet-600);
-            box-shadow:0 2px 6px rgba(0,0,0,.35);
-        }
-        .breadcrumb-item{
-            font-weight:500;
-            color:#eae6f8;
-        }
-        .breadcrumb-item+.breadcrumb-item::before{
-            content:"›";
-            color:var(--violet-400);
-            margin:0 .5rem;
-            font-weight:bold;
-        }
-        .breadcrumb-item a{
-            color:var(--line-300);
-            text-decoration:none;
-            transition:color .2s ease, box-shadow .2s ease;
-            box-shadow:inset 0 -2px 0 0 transparent;
-        }
-        .breadcrumb-item a:hover{
-            color:var(--violet-300);
-            box-shadow:inset 0 -2px 0 0 var(--violet-300);
-        }
-        .breadcrumb-item.active{
-            color:#fff;
-            font-weight:600;
+        .sidebar .nav-link.active{
+            background: rgba(0,0,0,.06) !important;
+            color: #111 !important;
         }
     </style>
-
 
 </head>
 <body>
