@@ -120,7 +120,7 @@ function fileIcon(string $ext): array {
 
         <div class="ms-auto d-flex gap-2">
             <button class="btn btn-outline-success rounded-pill px-3" type="button" data-bs-toggle="modal" data-bs-target="#modalFolder">
-                + Nouveau dossier
+                <i class="fa-solid fa-plus me-1"></i> Nouveau dossier
             </button>
         </div>
     </div>
@@ -161,25 +161,25 @@ function fileIcon(string $ext): array {
 
             <a class="chip <?= $filter==='all'?'active':'' ?>"
                href="<?= esc(($currentFolderId ? site_url('media/folder/'.$currentFolderId) : site_url('media')) . '?type=all&sort='.$sort) ?>">
-                📦 Tous
+                Tous
             </a>
             <a class="chip <?= $filter==='image'?'active':'' ?>"
                href="<?= esc(($currentFolderId ? site_url('media/folder/'.$currentFolderId) : site_url('media')) . '?type=image&sort='.$sort) ?>">
-                🖼️ Images
+                <i class="fa-solid fa-image"></i> Images
             </a>
             <a class="chip <?= $filter==='document'?'active':'' ?>"
                href="<?= esc(($currentFolderId ? site_url('media/folder/'.$currentFolderId) : site_url('media')) . '?type=document&sort='.$sort) ?>">
-                📄 Documents
+                <i class="fa-solid fa-file"></i> Documents
             </a>
 
             <div class="vr mx-2 d-none d-md-block"></div>
 
             <!-- Recherche -->
             <div class="input-group" style="max-width: 340px;">
-                <span class="input-group-text border-0" style="border-radius: 999px 0 0 999px;">🔎</span>
+                <span class="input-group-text border-0" style="border-radius: 999px 0 0 999px;"><i class="fa-solid fa-magnifying-glass"></i></span>
                 <input id="searchInput" type="text" class="form-control border-0"
                        style="border-radius: 0 999px 999px 0;"
-                       placeholder="Rechercher un nom…">
+                       placeholder="Rechercher...">
             </div>
 
             <div class="ms-auto d-flex gap-2">
@@ -233,7 +233,7 @@ function fileIcon(string $ext): array {
                      data-name="<?= esc(strtolower($d['name'] ?? ''), 'attr') ?>">
                     <div class="card-soft allow-overflow folder-card">
                         <div class="p-3 d-flex align-items-center gap-3">
-                            <div style="font-size:30px;">📁</div>
+                            <div style="font-size:30px;"><i class="fa-solid fa-folder-open"></i></div>
                             <div class="flex-grow-1">
                                 <div class="fw-semibold ellipsis" style="text-decoration: underline" title="<?= esc($d['name']) ?>">
                                     <a class="text-decoration-none"
@@ -241,7 +241,6 @@ function fileIcon(string $ext): array {
                                         <?= esc($d['name']) ?>
                                     </a>
                                 </div>
-                                <div class="text-muted small">Dossier</div>
                             </div>
 
                             <div class="dropdown">
@@ -357,8 +356,7 @@ function fileIcon(string $ext): array {
             <div class="modal-body">
                 <label class="form-label">Nom du dossier</label>
                 <input type="text" class="form-control" name="name" required maxlength="150"
-                       placeholder="Ex: Rapports / Janvier 2026">
-                <div class="form-text">Le dossier sera créé dans le dossier courant.</div>
+                       placeholder="Ex: Nouveau dossier">
             </div>
 
             <div class="modal-footer">
@@ -658,7 +656,7 @@ function fileIcon(string $ext): array {
     async function loadFoldersTree() {
         if (__foldersCache) return __foldersCache;
 
-        const resp = await fetch("<?= site_url('media/folders/tree') ?>", {
+        const resp = await fetch("<?= site_url('media/folders-tree') ?>", {
             headers: { 'Accept': 'application/json' }
         });
 

@@ -1,91 +1,355 @@
 <?php
-$sectionsTree = $sectionsTree ?? [];
-$canEdit = $canEdit ?? false;
+helper('html');
 
-// helpers d'indentation
-$indentClass = function(int $level): string {
+$errors  = $errors ?? (session('errors') ?? []);
+$success = $success ?? session('success');
+
+$report       = $report ?? [];
+$sectionsTree = $sectionsTree ?? [];
+$roots        = $sectionsTree;
+
+// Outils UI
+$scrollOffset = 90;
+
+$fmtDate = function ($value): string {
+    if (empty($value)) return '—';
+    try { return (new DateTime((string)$value))->format('d/m/Y'); }
+    catch (\Throwable $e) { return (string)$value; }
+};
+
+$cb = fn(bool $checked): string =>
+$checked ? '<i class="fa-regular fa-circle-check"></i>' : '<i class="fa-regular fa-circle"></i>';
+
+// Champs report utilisés dans l’aperçu
+$appName    = (string)($report['application_name'] ?? '—');
+$appVersion = (string)($report['version'] ?? '');
+$author     = (string)($report['author_name'] ?? '');
+
+$docStatus = (string)($report['doc_status'] ?? 'work');
+$modKind   = (string)($report['modification_kind'] ?? 'creation');
+
+$fileId   = (string)($report['file_media_id'] ?? '');
+$fileName = (string)($report['file_name'] ?? '');
+
+$status      = (string)($report['status'] ?? 'brouillon'); // workflow
+$statusLabel = $status !== '' ? $status : '—';
+
+$validatedAt = $report['validated_at'] ?? null;
+$validatedBy = (int)($report['validated_by'] ?? 0);
+$correctedAt = $report['corrected_at'] ?? null;
+$createdAt   = $report['created_at'] ?? null;
+$updatedAt   = $report['updated_at'] ?? null;
+
+// Helpers rendu sections
+$indentClass = function (int $level): string {
     return match (true) {
         $level <= 1 => 'ms-0',
         $level === 2 => 'ms-3',
         default => 'ms-5',
     };
 };
-
-$headingClass = function(int $level): string {
+$headingClass = function (int $level): string {
     return match ($level) {
         1 => 'h4 fw-bold mb-2',
         2 => 'h5 fw-semibold mb-2',
         default => 'h6 fw-semibold mb-2 text-body',
     };
 };
-
-$badgeLevel = function(int $level): string {
+$badgeLevel = function (int $level): string {
     return match ($level) {
         1 => 'bg-primary',
         2 => 'bg-secondary',
         default => 'bg-dark',
     };
 };
-
-// Sommaire (roots uniquement)
-$roots = $sectionsTree;
-
-// ⚠️ Ajuste si tu as un header fixe (CoreUI/Bootstrap sticky topbar)
-$scrollOffset = 90; // px
 ?>
 
-<?php helper('html'); ?>
-
 <style>
-    /* Permet aux ancres (#section-xx) de ne pas être cachées derrière un header sticky */
     [id^="section-"], #top {
         scroll-margin-top: <?= (int)$scrollOffset ?>px;
+    }
+
+    .report-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: .5rem;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .report-content p {
+        margin-bottom: .75rem;
+    }
+
+    .report-content ul, .report-content ol {
+        padding-left: 1.2rem;
+    }
+
+    .report-content blockquote {
+        border-left: 4px solid #ddd;
+        padding-left: .75rem;
+        color: #555;
+    }
+
+    .info-grid {
+        border-top: 1px solid #dee2e6;
+        border-left: 1px solid #dee2e6;
+    }
+
+    .info-cell {
+        padding: 1rem 1.25rem;
+        border-right: 1px solid #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    @media (max-width: 767.98px) {
+        .info-grid {
+            border-left: 0;
+        }
+
+        .info-cell {
+            border-right: 0;
+        }
     }
 </style>
 
 <div class="container-fluid">
     <div id="top"></div>
 
-    <?= view('front/reports/_steps', [
-        'step'     => 'preview',
-        'reportId' => $report['id'],
-        'canEdit'  => $canEdit,
+    <?= view('admin/reports/_steps', [
+        'step' => 'preview',
+        'reportId' => (int)($report['id'] ?? 0),
+        'canEdit'  => true,
     ]) ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="h3 mb-1"><?= ($report['title']) ?></h1>
-            <div class="text-muted small">
-                Application : <?= ($report['application_name']) ?>
-                <?php if (!empty($report['version'])): ?>
-                    &nbsp;·&nbsp; Version : <?= ($report['version']) ?>
-                <?php endif; ?>
-                <?php if (!empty($report['author_name'])): ?>
-                    &nbsp;·&nbsp; Auteur : <?= ($report['author_name']) ?>
-                <?php endif; ?>
-            </div>
+            <h1 class="h3 mb-1">Aperçu : <?= esc($report['title'] ?? '') ?></h1>
         </div>
 
         <div class="d-flex gap-2">
-            <a href="<?= site_url('report/' . $report['id'] . '/sections') ?>" class="btn btn-outline-secondary">
-                Retour à la rédaction
+            <a href="<?= site_url('admin/reports/' . $report['id'] . '/sections') ?>" class="btn btn-outline-primary">
+                Rédaction
+            </a>
+            <a href="<?= site_url('admin/reports') ?>" class="btn btn-outline-secondary">
+                Retour à la liste
             </a>
         </div>
     </div>
+
+    <?php if (!empty($success)): ?>
+        <div class="alert alert-success"><?= esc($success) ?></div>
+    <?php endif; ?>
+
+    <?php if (!empty($errors) && is_array($errors)): ?>
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                <?php foreach ($errors as $err): ?>
+                    <li><?= esc($err) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
+
+    <div class="row g-4 mb-5">
+
+        <!-- Card centrée et large : Bureau de l'intégration -->
+        <div class="row justify-content-center mt-4">
+            <div class="col-12 col-xl-10 col-xxl-9">
+
+                <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center justify-content-center">
+                        <h1 class="fw-semibold text-primary mb-0">Bureau de l'intégration</h1>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="col-12 text-center">
+                            <div class="fw-semibold">
+                                <h2 class="mb-1"><?= esc($appName) ?> <?= $appVersion !== '' ? esc($appVersion) : '—' ?></h2>
+                            </div>
+                        </div>
+
+                        <h2 class="mb-4 text-center"><?= esc($report['title'] ?? '') ?></h2>
+
+                        <div class="row g-4">
+                            <div class="col-12">
+                                <div class="mt-3 mb-1">
+                                    <span class="fw-bold">Version :</span>
+                                    <?= $appVersion !== '' ? esc($appVersion) : '—' ?>
+                                    du <?= esc($fmtDate($createdAt)) ?>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="mt-3 mb-1">
+                                    <span class="fw-bold">Fichier :</span>
+                                    <?= $fileName !== '' ? esc($fileName) : '—' ?>
+                                </div>
+
+                                <?php if (!empty($report['file_path'])): ?>
+                                    <div class="text-muted small"><?= esc($report['file_path']) ?></div>
+                                <?php endif; ?>
+
+                                <?php if (!empty($fileId) && !empty($report['file_path'])): ?>
+                                    <div class="mt-2">
+                                        <a class="btn btn-sm btn-outline-secondary"
+                                           href="<?= base_url(ltrim((string)$report['file_path'], '/')) ?>"
+                                           target="_blank" rel="noopener">
+                                            Ouvrir le fichier
+                                        </a>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="mt-3 mb-1">
+                                    <span class="fw-bold">Statut :</span> <?= esc($statusLabel) ?>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <?php if (!empty($report['id'])): ?>
+                                    <span class="text-muted small">Id dans la base : #<?= (int)$report['id'] ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Card centrée et large : Objectif et domaine d'application -->
+        <div class="row justify-content-center">
+            <div class="col-12 col-xl-10 col-xxl-9">
+
+                <div class="card mb-4">
+                    <div class="card-body">
+
+                        <div class="card mb-4">
+                            <div class="card-header mb-2">
+                                <h5 class="fw-semibold mb-0">Objet et domaine d'application</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="col-12 mb-4">
+                                    <p class="mb-0">
+                                        Ce document a pour objet la description des résultats obtenus lors de la
+                                        campagne
+                                        de tests de performance menée durant la campagne d'intégration sur
+                                        l'application <?= esc($appName) ?> avant sa mise en production.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="fw-semibold mb-0">Statut</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex flex-column gap-2">
+                                    <div><?= $cb($docStatus === 'validated') ?> Document validé</div>
+                                    <div><?= $cb($docStatus === 'approved') ?> Document approuvé</div>
+                                    <div><?= $cb($docStatus === 'work') ?> Document de travail</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="card-body p-0">
+                                <div class="row info-grid m-0">
+
+                                    <div class="col-12 col-md-6 info-cell">
+                                        <h5 class="fw-semibold mb-1">Rédigé par</h5>
+                                        <p class="mb-0"><?= esc($author ?: '—') ?></p>
+                                    </div>
+
+                                    <div class="col-12 col-md-6 info-cell">
+                                        <h5 class="fw-semibold mb-1">Date de dernière modification</h5>
+                                        <p class="mb-0"><?= esc($fmtDate($updatedAt)) ?></p>
+                                    </div>
+
+                                    <div class="col-12 col-md-6 info-cell">
+                                        <h5 class="fw-semibold mb-1">Validé par</h5>
+                                        <p class="mb-0"><?= esc((string)($report['validated_by'] ?? '') ?: '—') ?></p>
+                                    </div>
+
+                                    <div class="col-12 col-md-6 info-cell">
+                                        <h5 class="fw-semibold mb-1">Date de validation</h5>
+                                        <p class="mb-0"><?= esc($fmtDate($validatedAt ?? null)) ?></p>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-header mb-2">
+                                <h5 class="fw-semibold mb-0">Modification par rapport à l'existant</h5>
+                            </div>
+
+                            <div class="card-body">
+                                <div class="d-flex flex-column gap-2">
+                                    <div><?= $cb($modKind === 'creation') ?> Création</div>
+                                    <div><?= $cb($modKind === 'replace') ?> Annule et remplace la version précédente
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-header border-top mb-2">
+                                <h5 class="fw-semibold mb-0">Historique des évolutions</h5>
+                            </div>
+
+                            <div class="card-body text-center">
+                                <div class="row info-grid">
+
+                                    <div class="col-12 col-md-3 info-cell">
+                                        <h5 class="fw-semibold">Version</h5>
+                                    </div>
+                                    <div class="col-12 col-md-3 info-cell">
+                                        <h5 class="fw-semibold">Date</h5>
+                                    </div>
+                                    <div class="col-12 col-md-6 info-cell">
+                                        <h5 class="fw-semibold">Commentaires</h5>
+                                    </div>
+
+                                    <div class="col-12 col-md-3 info-cell">
+                                        <span><?= esc($appVersion ?: '—') ?></span>
+                                    </div>
+                                    <div class="col-12 col-md-3 info-cell">
+                                        <p class="mb-0"><?= esc($fmtDate($updatedAt)) ?></p>
+                                    </div>
+                                    <div class="col-12 col-md-6 info-cell">
+                                        <p class="mb-0">Version initiale</p>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
 
     <?php if (!empty($roots)): ?>
         <!-- Sommaire -->
         <div class="card mb-4">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <span class="fw-semibold">Sommaire</span>
-                <span class="text-muted small">Cliquez pour naviguer</span>
+                <span class="text-muted small">Clique pour naviguer</span>
             </div>
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2">
                     <?php foreach ($roots as $r): ?>
-                        <a class="btn btn-sm btn-outline-primary"
-                           href="#section-<?= (int)$r['id'] ?>">
-                            <?= ($r['code'] ?? '') ?>. <?= ($r['title'] ?? '') ?>
+                        <a class="btn btn-sm btn-outline-primary" href="#section-<?= (int)$r['id'] ?>">
+                            <?= esc($r['code'] ?? '') ?>. <?= esc($r['title'] ?? '') ?>
                         </a>
                     <?php endforeach; ?>
                 </div>
@@ -94,11 +358,11 @@ $scrollOffset = 90; // px
     <?php endif; ?>
 
     <?php
-    $render = function(array $node) use (&$render, $indentClass, $headingClass, $badgeLevel) {
+    $render = function (array $node) use (&$render, $indentClass, $headingClass, $badgeLevel) {
 
-        $level   = (int)($node['level'] ?? 1);
-        $code    = (string)($node['code'] ?? '');
-        $title   = (string)($node['title'] ?? '');
+        $level = (int)($node['level'] ?? 1);
+        $code = (string)($node['code'] ?? '');
+        $title = (string)($node['title'] ?? '');
         $content = (string)($node['content'] ?? '');
 
         $wrap = $indentClass($level);
@@ -114,19 +378,17 @@ $scrollOffset = 90; // px
                     <div class="d-flex align-items-start justify-content-between gap-2">
                         <div class="<?= $hCls ?>">
                             <?php if ($code !== ''): ?>
-                                <span class="badge <?= $bCls ?> me-2"><?= ($code) ?></span>
+                                <span class="badge <?= $bCls ?> me-2"><?= esc($code) ?></span>
                             <?php endif; ?>
-                            <?= ($title) ?>
+                            <?= esc($title) ?>
                         </div>
                         <a href="#top" class="btn btn-sm btn-outline-secondary" title="Revenir en haut">↑</a>
                     </div>
 
                     <?php if (trim($content) !== ''): ?>
-                        <div class="mt-2 p-3 rounded bg-light border report-content">
+                        <div class="mt-2 p-3 rounded border report-content">
                             <?= clean_html($content) ?>
                         </div>
-                    <?php else: ?>
-
                     <?php endif; ?>
 
                     <?php if (!empty($node['children'])): ?>
@@ -143,13 +405,13 @@ $scrollOffset = 90; // px
             <section class="mb-3 <?= $wrap ?>" id="section-<?= (int)$node['id'] ?>">
                 <div class="<?= $hCls ?>">
                     <?php if ($code !== ''): ?>
-                        <span class="badge <?= $bCls ?> me-2"><?= ($code) ?></span>
+                        <span class="badge <?= $bCls ?> me-2"><?= esc($code) ?></span>
                     <?php endif; ?>
-                    <?= ($title) ?>
+                    <?= esc($title) ?>
                 </div>
 
                 <?php if (trim($content) !== ''): ?>
-                    <div class="p-3 rounded bg-white border report-content">
+                    <div class="p-3 rounded border report-content">
                         <?= clean_html($content) ?>
                     </div>
                 <?php else: ?>
@@ -181,62 +443,32 @@ $scrollOffset = 90; // px
 </div>
 
 <script>
-    (function() {
+    (function () {
         const OFFSET = <?= (int)$scrollOffset ?>;
 
         function scrollToHash(hash) {
             if (!hash) return;
             const target = document.querySelector(hash);
             if (!target) return;
-
             const top = target.getBoundingClientRect().top + window.pageYOffset - OFFSET;
-            window.scrollTo({ top, behavior: 'smooth' });
+            window.scrollTo({top, behavior: 'smooth'});
         }
 
-        // Intercepte clics sur ancres internes
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             const a = e.target.closest('a[href^="#"]');
             if (!a) return;
-
             const hash = a.getAttribute('href');
             if (!hash || hash === '#') return;
 
-            // uniquement nos ancres utiles
             if (!hash.startsWith('#section-') && hash !== '#top') return;
 
             e.preventDefault();
-            history.pushState(null, '', hash); // garde l’URL avec l’ancre
+            history.pushState(null, '', hash);
             scrollToHash(hash);
         });
 
-        // Si on arrive déjà avec une ancre dans l'URL
-        window.addEventListener('load', function() {
-            if (window.location.hash) {
-                scrollToHash(window.location.hash);
-            }
+        window.addEventListener('load', function () {
+            if (window.location.hash) scrollToHash(window.location.hash);
         });
     })();
 </script>
-
-<style>
-    .report-content img {
-        max-width: 100%;
-        height: auto;
-        border-radius: .5rem;
-    }
-    .report-content p { margin-bottom: .75rem; }
-    .report-content ul, .report-content ol { padding-left: 1.2rem; }
-    .report-content blockquote {
-        border-left: 4px solid #ddd;
-        padding-left: .75rem;
-        color: #555;
-    }
-    .report-content table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .report-content th, .report-content td {
-        border: 1px solid #ddd;
-        padding: .5rem;
-    }
-</style>

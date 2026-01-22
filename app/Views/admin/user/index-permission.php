@@ -1,63 +1,44 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h4>Liste des rôles</h4>
-        <a href="<?= base_url('/admin/userpermission/new'); ?>"><i class="fa-solid fa-circle-plus"></i></a>
+        <h4 class="mb-0">Liste des rôles</h4>
+
+        <a href="<?= base_url('/admin/userpermission/new'); ?>"
+           class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-plus me-1"></i>
+            Nouveau rôle
+        </a>
     </div>
+
     <div class="card-body">
         <div class="table-responsive">
-            <table id="tablePermission" class="table table-hover">
+            <table class="table table-hover align-middle">
                 <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Nom</th>
+                    <th style="width:300px;">ID</th>
+                    <th style="width:500px;">Nom</th>
                     <th>Slug</th>
                 </tr>
                 </thead>
                 <tbody>
+
+                <?php if (!empty($permissions)): ?>
+                    <?php foreach ($permissions as $permission): ?>
+                        <tr>
+                            <td><?= esc($permission['id']) ?></td>
+                            <td><?= esc($permission['name']) ?></td>
+                            <td class="text-muted"><?= esc($permission['slug']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            Aucun rôle enregistré
+                        </td>
+                    </tr>
+                <?php endif; ?>
+
                 </tbody>
             </table>
         </div>
     </div>
 </div>
-
-
-<script>
-    $(document).ready(function () {
-        var baseUrl = "<?= base_url(); ?>";
-        var dataTable = $('#tablePermission').DataTable({
-            "responsive": true,
-            "processing": true,
-            "serverSide": true,
-            "pageLength": 10,
-            "language": {
-                url: baseUrl + 'js/datatable/datatable-2.1.4-fr-FR.json',
-            },
-            "ajax": {
-                "url": baseUrl + "admin/userpermission/SearchPermission",
-                "type": "POST"
-            },
-            "columns": [
-                {"data": "id"},
-                {"data": "name"},
-                {"data": "slug"},
-            ]
-        });
-    });
-
-</script>
-
-<style>
-    #tablePermissions th, #tablePermissions td {
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
-        max-width: 150px;
-    }
-
-    @media (max-width: 768px) {
-        #tablePermissions th, #tablePermissions td {
-            font-size: 12px;
-            max-width: 100px;
-        }
-    }
-</style>

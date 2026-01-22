@@ -60,11 +60,9 @@ class Login extends ResourceController
 
         $email = $this->request->getPost('email');
         $password = $this->request->getPost('password');
-        $job = $this->request->getPost('id_job');
         $firstname = $this->request->getPost('firstname');
         $lastname = $this->request->getPost('lastname');
 
-        // Vérifier si l'email existe déjà
         if ($userModel->where('email', $email)->first()) {
             return $this->response->setJSON(['message' => 'Cet email est déjà utilisé'])->setStatusCode(400);
         }
@@ -75,7 +73,6 @@ class Login extends ResourceController
         $data = [
             'email' => $email,
             'password' => $hashedPassword,
-            'id_job' => $job,
             'firstname' => $firstname,
             'lastname' => $lastname,
             'id_permission' => 3,

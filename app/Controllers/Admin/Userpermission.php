@@ -8,17 +8,14 @@ class Userpermission extends BaseController
 {
     protected $require_auth = true;
     protected $requiredPermissions = ['administrateur'];
-    public function getindex($id = null) {
-        if ($id == null) {
-            return $this->view('/admin/user/index-permission', [], true);
-        } else {
-            $upm = Model("/UserPermissionModel");
-            if ($id == "new") {
-                return $this->view('/admin/user/user-permission', [], true);
-            }
-            $permission = $upm->getUserPermissionById($id);
-            return $this->view('/admin/user/user-permission', ["permission" => $permission], true);
-        }
+    public function getIndex()
+    {
+        $upm = model('UserPermissionModel');
+        $permissions = $upm->findAll();
+
+        return $this->view('/admin/user/index-permission', [
+            'permissions' => $permissions
+        ], true);
     }
 
     public function postupdate() {
@@ -87,6 +84,9 @@ class Userpermission extends BaseController
             'recordsFiltered' => $filteredRecords,
             'data'            => $data,
         ];
+
+        $result['csrfHash'] = csrf_hash();
+
         return $this->response->setJSON($result);
     }
 }

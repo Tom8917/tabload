@@ -15,23 +15,16 @@ class TableUser extends Migration
                 'unsigned' => true,
                 'auto_increment' => true,
             ],
+            'id_permission' => [
+                'type' => 'INT',
+                'constraint' => 11,
+                'unsigned' => true,
+            ],
             'firstname' => [
                 'type' => 'VARCHAR',
                 'constraint' => 100,
             ],
             'lastname' => [
-                'type' => 'VARCHAR',
-                'constraint' => 100,
-            ],
-//            'username' => [
-//                'type' => 'VARCHAR',
-//                'constraint' => 100,
-//            ],
-            'sessionId' => [
-                'type' => 'VARCHAR',
-                'constraint' => 100,
-            ],
-            'sessionPassword' => [
                 'type' => 'VARCHAR',
                 'constraint' => 100,
             ],
@@ -43,19 +36,6 @@ class TableUser extends Migration
             'password' => [
                 'type' => 'VARCHAR',
                 'constraint' => 100,
-            ],
-            'uegarId' => [
-                'type' => 'VARCHAR',
-                'constraint' => 100,
-            ],
-            'uegarPassword' => [
-                'type' => 'VARCHAR',
-                'constraint' => 100,
-            ],
-            'id_permission' => [
-                'type' => 'INT',
-                'constraint' => 11,
-                'unsigned' => true,
             ],
             'counter_user' => [
                 'type' => 'INT',

@@ -1,4 +1,4 @@
-<header class="header header-sticky p-0 mb-4 breadcrumb rounded-bottom-4 rounded-top-0">
+<header class="header header-sticky p-0 mb-4 breadcrumb">
     <div class="container-fluid px-4">
         <button class="header-toggler me-4" type="button"
                 onclick="coreui.Sidebar.getInstance(document.querySelector('#sidebar')).toggle()"
@@ -48,10 +48,6 @@
         <?php endif; ?>
 
         <ul class="header-nav">
-            <li class="nav-item py-0">
-                <div class="vr h-100 mx-2 text-body text-opacity-75"></div>
-            </li>
-
             <li class="nav-item dropdown">
                 <button class="btn btn-link nav-link py-2 px-2 d-flex align-items-center" type="button"
                         aria-expanded="false" data-coreui-toggle="dropdown">

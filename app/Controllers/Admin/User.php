@@ -262,6 +262,9 @@ class User extends BaseController
             'recordsFiltered' => $filteredRecords,
             'data'            => $data,
         ];
+
+        $result['csrfHash'] = csrf_hash();
+
         return $this->response->setJSON($result);
     }
 }

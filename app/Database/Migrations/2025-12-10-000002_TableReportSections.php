@@ -23,6 +23,12 @@ class TableReportSections extends Migration
                 'unsigned' => true,
                 'null'     => true,
             ],
+            'sort_order' => [
+                'type'       => 'INT',
+                'constraint' => 11,
+                'null'       => false,
+                'default'    => 0,
+            ],
             'position' => [
                 'type'    => 'INT',
                 'default' => 1,

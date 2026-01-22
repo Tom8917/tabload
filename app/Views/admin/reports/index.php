@@ -55,12 +55,12 @@
                                 </td>
                                 <td class="d-flex gap-2">
                                     <a href="<?= site_url('admin/reports/' . $report['id']) ?>"
-                                       class="btn btn-sm btn-outline-secondary">
+                                       class="btn btn-sm btn-outline-primary">
                                         Consulter
                                     </a>
                                     <a href="<?= site_url('admin/reports/' . $report['id'] . '/sections') ?>"
-                                       class="btn btn-sm btn-outline-primary">
-                                        Plan
+                                       class="btn btn-sm btn-outline-secondary">
+                                        Rédiger
                                     </a>
                                 </td>
                             </tr>

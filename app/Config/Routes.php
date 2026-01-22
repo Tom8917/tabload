@@ -53,9 +53,6 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
     $routes->get('profile',          'Profile::getMe');
     $routes->get('profile/(:num)',   'Profile::getIndex/$1');
 
-    // Cours
-    $routes->get('media',            'Media::getIndex');
-
     // REPORTS (Front user)
     $routes->get('report',                 'Report::getIndex');          // liste
     $routes->get('report/new',             'Report::getNew');            // form création
@@ -76,10 +73,11 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
 
     $routes->post('report/sections/upload-image', 'Report::postUploadSectionImage');
 
-    // app/Config/Routes.php (front)
-    $routes->get('report/(:num)/meta', 'Report::metaEdit/$1');
-    $routes->post('report/(:num)/meta/update', 'Report::metaUpdate/$1');
+    $routes->post('report/(:num)/sections/meta', 'Report::postUpdateMetaInline/$1');
+    $routes->post('report/(:num)/sections/(:num)/move-up', 'Report::postMoveRootUp/$1/$2');
+    $routes->post('report/(:num)/sections/(:num)/move-down', 'Report::postMoveRootDown/$1/$2');
 
+    $routes->post('report/(:num)/meta', 'Reports::updateMeta/$1');
 
     $routes->get('tabload',         'Tabload::getIndex');
 
@@ -110,12 +108,30 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->get('/',         'Dashboard::getIndex');
     $routes->get('dashboard', 'Dashboard::getIndex');
 
-    // Users / permissions etc
-    $routes->get('user',         'User::getIndex');
-    $routes->get('user/(:num)',  'User::getEdit/$1');
-    $routes->post('user/(:num)', 'User::postUpdate/$1');
+    //User
+    $routes->get('user',               'User::getIndex');
+    $routes->get('user/new',           'User::getIndex/new');
+    $routes->get('user/(:num)',        'User::getIndex/$1');
+    $routes->post('user/update',       'User::postUpdate');
+    $routes->get('user/delete/(:num)', 'User::getDelete/$1');
 
+    $routes->get('user/deactivate/(:num)', 'User::getDeactivate/$1');
+    $routes->get('user/activate/(:num)',   'User::getActivate/$1');
+
+    $routes->post('user/search-user', 'User::postSearchUser');
     $routes->get('userpermission', 'UserPermission::getIndex');
+    $routes->post('userpermission/search-permission', 'Userpermission::postSearchPermission');
+
+
+// ----------------------------------------------------------------------
+// TOKENS (Admin)
+// ----------------------------------------------------------------------
+    $routes->get('token',               'Token::getIndex');        // liste
+    $routes->get('token/(:num)',        'Token::getIndex/$1');     // détail
+    $routes->post('token/update',       'Token::postUpdate');      // update (postupdate sans id dans l’URL)
+    $routes->get('token/delete/(:num)', 'Token::getDelete/$1');    // delete
+    $routes->post('token/search-token', 'Token::postSearchToken'); // DataTables Ajax
+
 
     // ----------------------------------------------------------------------
     // REPORTS (Admin)
@@ -137,6 +153,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->get('reports/(:num)/sections/(:num)/edit',    'Report::getEditSection/$1/$2');
     $routes->post('reports/(:num)/sections/(:num)/update', 'Report::postUpdateSection/$1/$2');
     $routes->post('reports/(:num)/sections/(:num)/delete', 'Report::postDeleteSection/$1/$2');
+
+    $routes->post('reports/(:num)/mark-in-review', 'Report::postMarkInReview/$1');
+    $routes->post('reports/(:num)/validate',       'Report::postValidate/$1');
+    $routes->post('reports/(:num)/assign-validator','Report::postAssignValidator/$1');
+
 
     // Upload d'image dans une section (même endpoint que front mais côté admin)
     $routes->post('reports/sections/upload-image', 'Report::postUploadSectionImage');
@@ -169,5 +190,23 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
         $routes->get('folders-tree',    'Media::getFoldersTree');
         $routes->post('move/(:num)',    'Media::postMove/$1');
         $routes->post('copy/(:num)',    'Media::postCopy/$1');
+    });
+});
+
+
+// --------------------------------------------------------------------------
+// API
+// --------------------------------------------------------------------------
+$routes->group('api', ['namespace' => 'App\Controllers\Api'], static function ($routes) {
+
+    $routes->group('login', static function ($routes) {
+        $routes->post('setAllRequestLimits', 'Login::postSetAllRequestLimits');
+        $routes->post('setRequestLimit',     'Login::postSetRequestLimit');
+
+        $routes->post('register',            'Login::postRegister');
+        $routes->post('login',               'Login::postLogin');
+
+        $routes->get('token',                'Login::getToken'); // ex: /api/login/token?userId=...
+        $routes->get('token/(:num)',         'Login::getToken/$1'); // ex: /api/login/token/12
     });
 });

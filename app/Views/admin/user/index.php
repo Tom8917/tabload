@@ -46,11 +46,6 @@
                 <p><strong>Prénom :</strong> <span id="userFirstname"></span></p>
                 <p><strong>Nom :</strong> <span id="userLastname"></span></p>
                 <p><strong>Email :</strong> <span id="userEmail"></span></p>
-                <p><strong>Mot de passe Email :</strong> <span id="userPassword"></span></p>
-                <p><strong>Identifiant de session :</strong> <span id="usersessionId"></span></p>
-                <p><strong>Mot de passe de session :</strong> <span id="usersessionPassword"></span></p>
-                <p><strong>Identifiant uÉgar :</strong> <span id="useruegarId"></span></p>
-                <p><strong>Mot de passe uÉgar :</strong> <span id="useruegarPassword"></span></p>
                 <p><strong>Rôle:</strong> <span id="userRole"></span></p>
             </div>
         </div>
@@ -61,18 +56,20 @@
 <script>
     $(document).ready(function () {
         var baseUrl = "<?= base_url(); ?>";
-        var dataTable = $('#tableUsers').DataTable({
-            responsive: false,
-            autoWidth: false,
-            processing: true,
+
+        const csrfName = "<?= csrf_token() ?>";
+        const csrfHash = "<?= csrf_hash() ?>";
+
+        $('#tableUsers').DataTable({
             serverSide: true,
-            "pageLength": 10,
-            "language": {
-                url: baseUrl + 'js/datatable/datatable-2.1.4-fr-FR.json',
-            },
-            "ajax": {
-                "url": baseUrl + "admin/user/SearchUser",
-                "type": "POST"
+            processing: true,
+            ajax: {
+                url: baseUrl + "admin/user/search-user",
+                type: "POST",
+                data: function (d) {
+                    d[csrfName] = csrfHash;
+                    return d;
+                }
             },
             "columns": [
                 {"data": "id"},
@@ -122,10 +119,6 @@
             $('#userLastname').text($(this).data('lastname'));
             $('#userEmail').text($(this).data('email'));
             $('#userPassword').text($(this).data('password'));
-            $('#usersessionId').text($(this).data('sessionId'));
-            $('#usersessionPassword').text($(this).data('sessionPassword'));
-            $('#useruegarId').text($(this).data('uegarId'));
-            $('#useruegarPassword').text($(this).data('uegarPassword'));
             $('#userRole').text($(this).data('role'));
             const avatar = $(this).find('img').attr('src') || '/assets/img/avatars/1.jpg';
             $('#userAvatar').attr('src', avatar);

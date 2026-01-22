@@ -35,7 +35,7 @@ $success      = $success ?? session('success');
             <?php else: ?>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+                        <thead class="table">
                         <tr>
                             <th style="width:60px;">ID</th>
                             <th>Titre</th>

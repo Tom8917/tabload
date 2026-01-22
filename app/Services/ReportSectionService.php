@@ -18,24 +18,26 @@ class ReportSectionService
      */
     public function createRootSection(int $reportId, array $data): int
     {
+        // Dernier root selon sort_order (fallback position si old data)
         $last = $this->sections
             ->where('report_id', $reportId)
             ->where('parent_id', null)
+            ->orderBy('sort_order', 'DESC')
             ->orderBy('position', 'DESC')
             ->first();
 
-        $nextPosition = $last ? ((int) $last['position'] + 1) : 1;
-        $code         = (string) $nextPosition;
+        $nextOrder = $last ? ((int)($last['sort_order'] ?? $last['position'] ?? 0) + 1) : 1;
 
         $insertData = array_merge($data, [
-            'report_id' => $reportId,
-            'parent_id' => null,
-            'position'  => $nextPosition,
-            'level'     => 1,
-            'code'      => $code,
+            'report_id'   => $reportId,
+            'parent_id'   => null,
+            'sort_order'  => $nextOrder, // ✅ nouveau
+            'position'    => $nextOrder, // ✅ on garde synchro pour compat
+            'level'       => 1,
+            'code'        => (string)$nextOrder, // sera recalculé si besoin
         ]);
 
-        return $this->sections->insert($insertData, true);
+        return (int)$this->sections->insert($insertData, true);
     }
 
     /**
@@ -45,29 +47,30 @@ class ReportSectionService
     {
         $parent = $this->sections->find($parentId);
 
-        if (! $parent) {
+        if (!$parent) {
             throw new \RuntimeException("Parent section not found: {$parentId}");
         }
 
         $lastChild = $this->sections
             ->where('parent_id', $parentId)
+            ->orderBy('sort_order', 'DESC')
             ->orderBy('position', 'DESC')
             ->first();
 
-        $nextPosition = $lastChild ? ((int) $lastChild['position'] + 1) : 1;
+        $nextOrder = $lastChild ? ((int)($lastChild['sort_order'] ?? $lastChild['position'] ?? 0) + 1) : 1;
 
-        $level = ((int) $parent['level']) + 1;
-        $code  = $parent['code'] . '.' . $nextPosition;
+        $level = ((int)$parent['level']) + 1;
 
         $insertData = array_merge($data, [
-            'report_id' => $parent['report_id'],
-            'parent_id' => $parentId,
-            'position'  => $nextPosition,
-            'level'     => $level,
-            'code'      => $code,
+            'report_id'   => $parent['report_id'],
+            'parent_id'   => $parentId,
+            'sort_order'  => $nextOrder, // ✅ nouveau
+            'position'    => $nextOrder, // ✅ synchro
+            'level'       => $level,
+            'code'        => $parent['code'] . '.' . $nextOrder, // sera recalculé si besoin
         ]);
 
-        return $this->sections->insert($insertData, true);
+        return (int)$this->sections->insert($insertData, true);
     }
 
     /**
@@ -79,18 +82,23 @@ class ReportSectionService
             ->where('report_id', $reportId)
             ->orderBy('level', 'ASC')
             ->orderBy('parent_id', 'ASC')
-            ->orderBy('position', 'ASC')
+            ->orderBy('sort_order', 'ASC')  // ✅
+            ->orderBy('position', 'ASC')    // fallback compat
             ->findAll();
     }
 
+    /**
+     * Recalcule code + level en se basant sur sort_order
+     * (et resynchronise aussi position = sort_order)
+     */
     public function recomputeCodes(int $reportId): void
     {
-        $sectionsModel = new \App\Models\ReportSectionModel();
+        $sectionsModel = new ReportSectionModel();
 
-        // Récupère toutes les sections du report, ordonnées par parent + position
         $all = $sectionsModel
             ->where('report_id', $reportId)
             ->orderBy('parent_id', 'ASC')
+            ->orderBy('sort_order', 'ASC')
             ->orderBy('position', 'ASC')
             ->findAll();
 
@@ -101,10 +109,9 @@ class ReportSectionService
             $byParent[$pid][] = $s;
         }
 
-        // DFS : assigne codes
         $updates = [];
 
-        // Root (parent null)
+        // Roots (parent null => 0)
         $roots = $byParent[0] ?? [];
         $rootIndex = 0;
 
@@ -112,19 +119,25 @@ class ReportSectionService
             $rootIndex++;
             $rootCode = (string)$rootIndex;
 
-            $updates[] = ['id' => (int)$root['id'], 'code' => $rootCode, 'level' => 1];
+            $updates[] = [
+                'id'        => (int)$root['id'],
+                'code'      => $rootCode,
+                'level'     => 1,
+                'sort_order'=> $rootIndex,
+                'position'  => $rootIndex,
+            ];
 
             $this->recomputeChildrenCodes((int)$root['id'], $rootCode, 2, $byParent, $updates);
         }
 
-        // Applique en DB (batch update)
-        if (!empty($updates)) {
-            foreach ($updates as $u) {
-                $sectionsModel->update($u['id'], [
-                    'code'  => $u['code'],
-                    'level' => $u['level'],
-                ]);
-            }
+        // Applique en DB
+        foreach ($updates as $u) {
+            $sectionsModel->update($u['id'], [
+                'code'       => $u['code'],
+                'level'      => $u['level'],
+                'sort_order' => $u['sort_order'],
+                'position'   => $u['position'],
+            ]);
         }
     }
 
@@ -143,7 +156,13 @@ class ReportSectionService
             $i++;
             $code = $prefix . '.' . $i;
 
-            $updates[] = ['id' => (int)$child['id'], 'code' => $code, 'level' => $level];
+            $updates[] = [
+                'id'        => (int)$child['id'],
+                'code'      => $code,
+                'level'     => $level,
+                'sort_order'=> $i,
+                'position'  => $i,
+            ];
 
             $this->recomputeChildrenCodes((int)$child['id'], $code, $level + 1, $byParent, $updates);
         }
@@ -151,10 +170,10 @@ class ReportSectionService
 
     public function getTreeForReport(int $reportId): array
     {
-        $model = new \App\Models\ReportSectionModel();
-
-        $rows = $model->where('report_id', $reportId)
+        $rows = $this->sections
+            ->where('report_id', $reportId)
             ->orderBy('parent_id', 'ASC')
+            ->orderBy('sort_order', 'ASC')
             ->orderBy('position', 'ASC')
             ->findAll();
 
@@ -178,5 +197,89 @@ class ReportSectionService
         unset($node);
 
         return $tree;
+    }
+
+    /**
+     * Supprime une section ET toutes ses sous-sections (récursif).
+     * Évite les orphelins en base.
+     */
+    public function deleteSectionWithChildren(int $reportId, int $sectionId): void
+    {
+        // sécurité : la section doit appartenir au report
+        $section = $this->sections->find($sectionId);
+        if (!$section || (int)$section['report_id'] !== $reportId) {
+            throw new \RuntimeException("Section invalide (report mismatch) : {$sectionId}");
+        }
+
+        // récupère tous les IDs descendants
+        $ids = $this->collectDescendantIds($reportId, $sectionId);
+
+        // on supprime du plus profond au plus haut (enfants d'abord)
+        // (pas obligatoire si pas de FK, mais safe)
+        $ids = array_reverse($ids);
+
+        // supprime descendants
+        foreach ($ids as $id) {
+            $this->sections->delete($id);
+        }
+
+        // supprime la section elle-même
+        $this->sections->delete($sectionId);
+    }
+
+    /**
+     * Retourne la liste de tous les IDs descendants (enfants, petits-enfants, etc.)
+     */
+    private function collectDescendantIds(int $reportId, int $parentId): array
+    {
+        $rows = $this->sections
+            ->select('id')
+            ->where('report_id', $reportId)
+            ->where('parent_id', $parentId)
+            ->findAll();
+
+        $ids = [];
+
+        foreach ($rows as $r) {
+            $childId = (int)$r['id'];
+            $ids[] = $childId;
+
+            // récursif
+            $ids = array_merge($ids, $this->collectDescendantIds($reportId, $childId));
+        }
+
+        return $ids;
+    }
+
+    public function moveRoot(int $reportId, int $sectionId, int $direction): void
+    {
+        // direction: -1 (up) ou +1 (down)
+        $section = $this->sections->find($sectionId);
+        if (!$section || (int)$section['report_id'] !== $reportId || $section['parent_id'] !== null) {
+            throw new \RuntimeException('Section racine invalide.');
+        }
+
+        $currentPos = (int)$section['position'];
+
+        // trouve la voisine : pos - 1 ou pos + 1 (root only)
+        $neighbor = $this->sections
+            ->where('report_id', $reportId)
+            ->where('parent_id', null)
+            ->where('position', $currentPos + $direction)
+            ->first();
+
+        if (!$neighbor) {
+            return; // rien à faire
+        }
+
+        $neighborId  = (int)$neighbor['id'];
+        $neighborPos = (int)$neighbor['position'];
+
+        // swap positions
+        $this->sections->update($sectionId, ['position' => $neighborPos]);
+        $this->sections->update($neighborId, ['position' => $currentPos]);
+
+        // renumérotation codes cohérente
+        $this->recomputeCodes($reportId);
     }
 }
