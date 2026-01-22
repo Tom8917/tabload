@@ -10,7 +10,7 @@ class UserModel extends Model
     protected $primaryKey = 'id';
 
     // Champs permis pour les opérations d'insertion et de mise à jour
-    protected $allowedFields = ['firstname', 'lastname', 'email', 'password', 'sessionId', 'sessionPassword', 'uegarId', 'uegarPassword', 'id_permission', 'counter_user', 'id_api_tokens', 'created_at', 'updated_at', 'deleted_at'];
+    protected $allowedFields = ['firstname', 'lastname', 'email', 'password', 'id_permission', 'counter_user', 'id_api_tokens', 'created_at', 'updated_at', 'deleted_at'];
 
     // Activer le soft delete
     protected $useSoftDeletes = true;
@@ -61,12 +61,6 @@ class UserModel extends Model
         if (isset($data['data']['password'])) {
             $data['data']['password'] = password_hash($data['data']['password'], PASSWORD_DEFAULT);
         }
-        if (isset($data['data']['sessionPassword'])) {
-            $data['data']['sessionPassword'] = password_hash($data['data']['sessionPassword'], PASSWORD_DEFAULT);
-        }
-        if (isset($data['data']['uegarPassword'])) {
-            $data['data']['uegarPassword'] = password_hash($data['data']['uegarPassword'], PASSWORD_DEFAULT);
-        }
         return $data;
     }
 
@@ -105,15 +99,6 @@ class UserModel extends Model
                 unset($data['password']);
             } else {
                 $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
-            }
-        }
-        foreach (['sessionPassword', 'uegarPassword'] as $passwordField) {
-            if (isset($data[$passwordField])) {
-                if ($data[$passwordField] == '') {
-                    unset($data[$passwordField]);
-                } else {
-                    $data[$passwordField] = password_hash($data[$passwordField], PASSWORD_DEFAULT);
-                }
             }
         }
         $builder->where('id', $id);

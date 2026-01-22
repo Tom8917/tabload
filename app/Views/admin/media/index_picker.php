@@ -1,6 +1,6 @@
 <?php
 /**
- * index_picker — version robuste (compatible ancien + nouveau controller)
+ * admin/index_picker — version robuste (compatible ancien + nouveau controller)
  *
  * Nouveau mode (recommandé) :
  *  - $folders, $files, $breadcrumbs, $currentFolder, $filter, $sort
@@ -34,6 +34,9 @@ if (!empty($newFiles) && isset($newFiles[0]) && array_key_exists('url', $newFile
 // Base url
 $baseUrl = rtrim(base_url(), '/');
 
+// Upload URL admin (si tu utilises une autre route, change ici)
+$uploadUrl = $uploadUrl ?? site_url('admin/media/upload');
+
 function isImageRowPicker(array $f): bool {
     // legacy: url/name
     if (isset($f['url'])) {
@@ -57,7 +60,7 @@ function fileNamePicker(array $f): string {
 }
 
 function currentNavUrlPicker(?int $folderId, string $filter, string $sort): string {
-    $u = $folderId ? site_url('media/folder/'.$folderId) : site_url('media');
+    $u = $folderId ? site_url('admin/media/folder/'.$folderId) : site_url('admin/media');
 
     $pick = (string)($_GET['pick'] ?? 'image');
     return $u.'?picker=1&pick='.$pick.'&type='.$filter.'&sort='.$sort;
@@ -68,7 +71,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Médiathèque — Sélection</title>
+    <title>Médiathèque — Sélection (Admin)</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
@@ -139,7 +142,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                         <?php
                         $isLast = ($i === count($breadcrumbs)-1);
                         $id = $bc['id'] ?? null;
-                        $url = $id ? site_url('media/folder/'.$id) : site_url('media');
+                        $url = $id ? site_url('admin/media/folder/'.$id) : site_url('admin/media');
                         $url .= '?picker=1&pick=' . esc($pick, 'url') . '&type=' . esc($filter, 'url') . '&sort=' . esc($sort, 'url');
                         ?>
                         <li class="breadcrumb-item <?= $isLast ? 'active' : '' ?>">
@@ -188,34 +191,34 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
 
     <!-- Upload (picker = images only) -->
     <?php if (!$isFilePicker): ?>
-    <div class="card-soft mb-3">
-        <div class="p-3">
-            <div id="dropZone" class="dropzone text-center">
-                <div class="fw-semibold">Glisse-dépose tes images ici</div>
-                <div class="text-muted small mb-2">ou clique pour sélectionner — 4 Mo max / fichier</div>
+        <div class="card-soft mb-3">
+            <div class="p-3">
+                <div id="dropZone" class="dropzone text-center">
+                    <div class="fw-semibold">Glisse-dépose tes images ici</div>
+                    <div class="text-muted small mb-2">ou clique pour sélectionner — 4 Mo max / fichier</div>
 
-                <input id="fileInput" type="file" class="d-none" multiple accept=".jpg,.jpeg,.png,.webp,.gif">
-                <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">Choisir des images</button>
-            </div>
+                    <input id="fileInput" type="file" class="d-none" multiple accept=".jpg,.jpeg,.png,.webp,.gif">
+                    <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">Choisir des images</button>
+                </div>
 
-            <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
-                <div class="text-muted small" id="fileCount">0 fichier</div>
-                <div class="ms-auto d-flex gap-2">
-                    <button id="btnClear" type="button" class="btn btn-outline-secondary rounded-pill" disabled>Vider</button>
-                    <button id="btnUpload" type="button" class="btn btn-success rounded-pill" disabled>Uploader</button>
+                <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
+                    <div class="text-muted small" id="fileCount">0 fichier</div>
+                    <div class="ms-auto d-flex gap-2">
+                        <button id="btnClear" type="button" class="btn btn-outline-secondary rounded-pill" disabled>Vider</button>
+                        <button id="btnUpload" type="button" class="btn btn-success rounded-pill" disabled>Uploader</button>
+                    </div>
+                </div>
+
+                <div class="progress mt-3 d-none" id="uploadProgressWrap" style="height: 10px;">
+                    <div class="progress-bar" id="uploadProgress" role="progressbar" style="width: 0%"></div>
+                </div>
+
+                <div class="mt-2">
+                    <div id="uploadResult" class="small"></div>
                 </div>
             </div>
-
-            <div class="progress mt-3 d-none" id="uploadProgressWrap" style="height: 10px;">
-                <div class="progress-bar" id="uploadProgress" role="progressbar" style="width: 0%"></div>
-            </div>
-
-            <div class="mt-2">
-                <div id="uploadResult" class="small"></div>
-            </div>
         </div>
-    </div>
-<?php endif ?>
+    <?php endif ?>
 
     <!-- Dossiers (nouveau mode seulement) -->
     <?php if (!$isLegacy): ?>
@@ -237,7 +240,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                                 <div class="flex-grow-1">
                                     <div class="fw-semibold ellipsis" title="<?= esc($d['name']) ?>">
                                         <?php
-                                        $folderUrl = site_url('media/folder/'.$d['id'])
+                                        $folderUrl = site_url('admin/media/folder/'.$d['id'])
                                             . '?picker=1&pick=' . esc($pick, 'url')
                                             . '&type=' . esc($filter, 'url')
                                             . '&sort=' . esc($sort, 'url');
@@ -247,15 +250,6 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                                         </a>
                                     </div>
                                 </div>
-                                <?php
-                                $folderUrl = site_url('media/folder/'.$d['id'])
-                                    . '?picker=1&pick=' . esc($pick, 'url')
-                                    . '&type=' . esc($filter, 'url')
-                                    . '&sort=' . esc($sort, 'url');
-                                ?>
-                                <a class="text-decoration-none" href="<?= esc($folderUrl) ?>">
-                                    <?= esc($d['name']) ?>
-                                </a>
                             </div>
                         </div>
                     </div>
@@ -273,7 +267,6 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
     </div>
 
     <?php
-    // source des fichiers à afficher :
     $filesToShow = $isLegacy ? $legacyFiles : $newFiles;
     ?>
 
@@ -302,7 +295,6 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                             <div class="fw-semibold ellipsis" title="<?= esc($name) ?>"><?= esc($name) ?></div>
                             <div class="d-flex gap-2 mt-3">
                                 <?php if (!$isFilePicker): ?>
-                                    <!-- Mode image (comportement actuel) -->
                                     <?php if ($isImg): ?>
                                         <button type="button" class="btn btn-success btn-sm rounded-pill flex-grow-1"
                                                 onclick="selectImage('<?= esc($url) ?>','<?= esc($name) ?>')">
@@ -337,42 +329,26 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
     /**
      * MEDIA PICKER (iframe/modal)
      * - Envoie toujours: { type:'MEDIA_PICKED', media:{ id,name,path,url,kind } }
-     * - Le parent DOIT écouter l'event "message" et traiter type === 'MEDIA_PICKED'
      */
     (function () {
-        // Origin de sécurité : en général identique, mais on garde un fallback
         const TARGET_ORIGIN = window.location.origin;
 
         function postToParent(payload) {
-            // debug utile
-            console.log('[picker] postMessage ->', payload);
-
-            // iframe
+            console.log('[admin picker] postMessage ->', payload);
             if (window.parent && window.parent !== window) {
                 window.parent.postMessage(payload, TARGET_ORIGIN);
             }
-
-            // popup window.open
             if (window.opener && !window.opener.closed) {
                 window.opener.postMessage(payload, TARGET_ORIGIN);
             }
         }
 
-        function tryClose() {
-            try { window.close(); } catch(e) {}
-        }
+        function tryClose() { try { window.close(); } catch(e) {} }
 
-        // Expose global (appelé depuis onclick)
         window.selectImage = function (absUrl, name) {
             const payload = {
                 type: 'MEDIA_PICKED',
-                media: {
-                    id: null,
-                    name: name || '',
-                    path: '',
-                    url: absUrl || '',
-                    kind: 'image'
-                }
+                media: { id: null, name: name || '', path: '', url: absUrl || '', kind: 'image' }
             };
             postToParent(payload);
             tryClose();
@@ -381,21 +357,13 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
         window.selectFile = function (id, name, path, url) {
             const payload = {
                 type: 'MEDIA_PICKED',
-                media: {
-                    id: Number(id || 0),
-                    name: name || '',
-                    path: path || '',
-                    url: url || '',
-                    kind: 'document'
-                }
+                media: { id: Number(id || 0), name: name || '', path: path || '', url: url || '', kind: 'document' }
             };
             postToParent(payload);
             tryClose();
         };
 
-        // -----------------------------
         // Sort
-        // -----------------------------
         (function () {
             const sel = document.getElementById('sortSelect');
             if (!sel) return;
@@ -409,9 +377,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
             });
         })();
 
-        // -----------------------------
         // Search filter
-        // -----------------------------
         (function () {
             const input = document.getElementById('searchInput');
             if (!input) return;
@@ -444,12 +410,10 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
             input.addEventListener('input', () => apply(input.value));
         })();
 
-        // -----------------------------
         // Upload (uniquement pick=image)
-        // -----------------------------
         (function () {
             const IS_FILE_PICKER = "<?= esc($pick, 'js') ?>" === 'file';
-            if (IS_FILE_PICKER) return; // pas d'upload en mode fichier
+            if (IS_FILE_PICKER) return;
 
             const dropZone = document.getElementById('dropZone');
             const fileInput = document.getElementById('fileInput');

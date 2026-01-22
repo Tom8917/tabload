@@ -2,6 +2,7 @@
     <div class="col">
         <form action="<?= isset($utilisateur) ? base_url("/admin/user/update") : base_url("/admin/user/create") ?>"
               method="POST" enctype="multipart/form-data">
+            <?= csrf_field() ?>
             <div class="card">
                 <div class="table-responsive">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -61,12 +62,6 @@
                                 <button class="nav-link" id="onglet-tab" data-bs-toggle="tab"
                                         data-bs-target="#messagerie" type="button" role="tab" aria-controls="onglet"
                                         aria-selected="false">Messagerie
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="onglet-tab" data-bs-toggle="tab"
-                                        data-bs-target="#code" type="button" role="tab" aria-controls="onglet"
-                                        aria-selected="false">Code d'accès
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -141,34 +136,6 @@
                                 </div>
                             </div>
 
-                            <div class="tab-pane" id="code" role="tabpanel" aria-labelledby="code-tab" tabindex="0">
-                                <h4 class="text-center">Codes d'Accès</h4>
-                                <div class="mb-3">
-                                    <label for="sessionId" class="form-label">Identifiant de session</label>
-                                    <input type="text" class="form-control" id="sessionId" placeholder="Votre nom"
-                                           value="<?= isset($utilisateur) ? $utilisateur['sessionId'] : ""; ?>"
-                                           name="sessionId">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="sessionPassword" class="form-label">Mot de passe de session</label>
-                                    <input type="password" class="form-control" id="sessionPassword"
-                                           placeholder="Votre mot de passe de session" value="" name="sessionPassword">
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="uegarId" class="form-label">Identifiant uÉgar</label>
-                                    <input type="text" class="form-control" id="uegarId" placeholder="Votre nom"
-                                           value="<?= isset($utilisateur) ? $utilisateur['uegarId'] : ""; ?>"
-                                           name="uegarId">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="uegarPassword" class="form-label">Mot de passe uÉgar</label>
-                                    <input type="password" class="form-control" id="uegarPassword"
-                                           placeholder="Votre mot de passe d'uÉgar'" value="" name="uegarPassword">
-                                </div>
-                            </div>
-
-
                             <div class="tab-pane" id="token" role="tabpanel" aria-labelledby="token-tab" tabindex="0">
                                 <h4 class="text-center">Token</h4>
                                 <div class="mb-3">
@@ -184,12 +151,22 @@
                                 <?php if (isset($utilisateur) && empty($utilisateur['id_api_tokens'])): ?>
                                     <button
                                             type="button"
-                                            class="btn btn-primary"
+                                            class="btn btn-primary mb-3"
                                             id="generateTokenButton"
                                     >
                                         Générer un Token
                                     </button>
                                 <?php endif; ?>
+                                <div class="mb-3">
+                                    <label for="counter_user" class="form-label">Compteur</label>
+                                    <input
+                                            type="text"
+                                            class="form-control"
+                                            id="counter_user"
+                                            placeholder="Aucun Token"
+                                            value="<?= isset($utilisateur) ? $utilisateur['counter_user'] : "" ?>"
+                                            readonly>
+                                </div>
                             </div>
                         </div>
                     </div>

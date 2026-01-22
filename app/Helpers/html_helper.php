@@ -12,24 +12,21 @@ if (! function_exists('clean_html')) {
         if ($purifier === null) {
             $config = \HTMLPurifier_Config::createDefault();
 
-            // Cache (important en prod)
             $cachePath = WRITEPATH . 'cache/htmlpurifier';
             if (!is_dir($cachePath)) {
                 @mkdir($cachePath, 0755, true);
             }
             $config->set('Cache.SerializerPath', $cachePath);
 
-            // ✅ Autoriser les balises + attributs nécessaires, y compris style
             $config->set('HTML.Allowed',
-                'h1,h2,h3,h4,h5,h6,' .
-                'p,div,span[style],strong,em,b,i,u,s,' .
+                'h1[style|class],h2[style|class],h3[style|class],h4[style|class],h5[style|class],h6[style|class],' .
+                'p[style|class],div[style|class],span[style|class],strong,em,b,i,u,s,' .
                 'ul,ol,li,br,hr,blockquote,pre,code,' .
-                'a[href|title|target|rel|style],' .
-                'img[src|alt|width|height|style],' .
-                'table,thead,tbody,tr,th[style],td[style]'
+                'a[href|title|target|rel|style|class],' .
+                'img[src|alt|width|height|style|class],' .
+                'table,thead,tbody,tr,th[style|class],td[style|class]'
             );
 
-            // ✅ Autoriser uniquement certaines propriétés CSS inline (couleurs/tailles/alignements)
             $config->set('CSS.AllowedProperties', [
                 'color',
                 'background-color',
@@ -38,15 +35,16 @@ if (! function_exists('clean_html')) {
                 'font-weight',
                 'font-style',
                 'text-decoration',
+                'margin',
+                'padding',
                 'width',
                 'height'
             ]);
 
-            // Sécurité liens
             $config->set('Attr.AllowedFrameTargets', ['_blank']);
             $config->set('HTML.TargetBlank', true);
+            $config->set('CSS.AllowImportant', true);
 
-            // Schémas autorisés
             $config->set('URI.AllowedSchemes', [
                 'http'   => true,
                 'https'  => true,

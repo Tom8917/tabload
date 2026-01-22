@@ -55,18 +55,11 @@ class TableUserPermission extends Migration
                 ]
             ]);
         }
-
-        // Ajouter la clé étrangère entre 'user' et 'user_permission'
-        $this->db->query('ALTER TABLE user ADD CONSTRAINT fk_id_permission FOREIGN KEY (id_permission) REFERENCES user_permission(id) ON DELETE CASCADE ON UPDATE CASCADE');
     }
 
     public function down()
     {
-        // Supprimer la clé étrangère et la colonne 'id_permission' de la table 'user'
-        $this->db->query('ALTER TABLE user DROP FOREIGN KEY fk_id_permission');
         $this->forge->dropColumn('user', 'id_permission');
-
-        // Supprimer la table 'user_permission'
         $this->forge->dropTable('user_permission');
     }
 }

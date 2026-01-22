@@ -32,41 +32,41 @@ class TableReports extends Migration
                 'constraint' => 50,
                 'null'       => true,
             ],
-
-            // Auteur (rédacteur) - ne doit JAMAIS être écrasé par admin
             'author_name' => [
                 'type'       => 'VARCHAR',
                 'constraint' => 255,
                 'null'       => true,
             ],
-
-            // Statut technique existant
             'status' => [
                 'type'       => 'ENUM',
                 'constraint' => ['brouillon', 'en_relecture', 'final'],
                 'default'    => 'brouillon',
             ],
-
-            // Statut "métier" piloté par admin
             'doc_status' => [
                 'type'       => 'ENUM',
                 'constraint' => ['work', 'approved', 'validated'],
                 'default'    => 'work',
             ],
-
-            // Date affichée dans le tableau d'intro (date de version/rédaction)
+            'modification_kind' => [
+                'type'       => 'ENUM',
+                'constraint' => ['creation', 'replace'],
+                'default'    => 'creation',
+                'null'       => false,
+            ],
+            'file_media_id' => [
+                'type'       => 'INT',
+                'constraint' => 10,
+                'unsigned'   => true,
+                'null'       => true,
+            ],
             'version_date' => [
                 'type' => 'DATETIME',
                 'null' => true,
             ],
-
-            // Dernière modif par l'auteur (front)
             'author_updated_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
             ],
-
-            // Correcteur (admin)
             'corrected_by' => [
                 'type'       => 'INT',
                 'constraint' => 11,
@@ -77,8 +77,6 @@ class TableReports extends Migration
                 'type' => 'DATETIME',
                 'null' => true,
             ],
-
-            // Validateur (admin)
             'validated_by' => [
                 'type'       => 'INT',
                 'constraint' => 11,
@@ -89,7 +87,6 @@ class TableReports extends Migration
                 'type' => 'DATETIME',
                 'null' => true,
             ],
-
             'created_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
@@ -106,12 +103,8 @@ class TableReports extends Migration
         $this->forge->addKey('corrected_by');
         $this->forge->addKey('validated_by');
 
-        // ✅ Foreign keys vers ta table `user`
-        // user_id : si un user est supprimé, tu peux choisir CASCADE ou RESTRICT.
-        // Ici je mets CASCADE (supprimer l'auteur supprime ses reports)
         $this->forge->addForeignKey('user_id', 'user', 'id', 'CASCADE', 'CASCADE');
 
-        // corrected_by / validated_by : si l'admin est supprimé, on garde le report mais on null les champs
         $this->forge->addForeignKey('corrected_by', 'user', 'id', 'SET NULL', 'CASCADE');
         $this->forge->addForeignKey('validated_by', 'user', 'id', 'SET NULL', 'CASCADE');
 

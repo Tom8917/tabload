@@ -23,9 +23,9 @@ class ReportModel extends Model
         'version',
         'author_name',
         'status',
-
-        // nouveaux champs
         'doc_status',
+        'modification_kind',
+        'file_media_id',
         'version_date',
         'author_updated_at',
         'corrected_by',
@@ -33,6 +33,19 @@ class ReportModel extends Model
         'validated_by',
         'validated_at',
     ];
+
+    public function findWithUsers(int $reportId): ?array
+    {
+        return $this->select('
+            reports.*,
+            CONCAT(vu.firstname, " ", vu.lastname) AS validated_by_name,
+            CONCAT(cu.firstname, " ", cu.lastname) AS corrected_by_name
+        ')
+            ->join('user vu', 'vu.id = reports.validated_by', 'left')
+            ->join('user cu', 'cu.id = reports.corrected_by', 'left')
+            ->where('reports.id', $reportId)
+            ->first();
+    }
 
     public function findAllForUser(int $userId): array
     {

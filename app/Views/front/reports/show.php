@@ -32,6 +32,14 @@ $roots = $sectionsTree;
 
 // ⚠️ Ajuste si tu as un header fixe (CoreUI/Bootstrap sticky topbar)
 $scrollOffset = 90; // px
+
+$docStatus = (string)($report['doc_status'] ?? 'work');
+$modKind = (string)($report['modification_kind'] ?? 'creation');
+
+// Petit helper d'affichage
+$cb = function (bool $checked): string {
+    return $checked ? '<i class="fa-regular fa-circle-check"></i>' : '<i class="fa-regular fa-circle"></i>';
+};
 ?>
 
 <?php helper('html'); ?>
@@ -70,29 +78,31 @@ $scrollOffset = 90; // px
         'in_review', 'review', 'à corriger' => 'bg-warning text-dark',
         'validated', 'validé', 'conforme' => 'bg-success',
         'rejected', 'refusé', 'non conforme' => 'bg-danger',
-        default => 'bg-info text-dark',
+        default => 'bg-secondary',
     };
 
     $appName = (string)($report['application_name'] ?? '—');
     $appVersion = (string)($report['version'] ?? '');
     $author = (string)($report['author_name'] ?? '');
-    $corrector = (string)($report['corrector_name'] ?? '');
+    $fileId = (string)($report['file_media_id'] ?? '');
+    $fileName = (string)($report['file_name'] ?? '');
+    $corrector = (string)($report['corrected_by'] ?? '');
+    $validator = (string)($report['validated_by'] ?? '');
+    $validatedAt = $report['validated_at'] ?? null;
     $createdAt = $report['created_at'] ?? null;
     $updatedAt = $report['updated_at'] ?? null;
     ?>
 
     <?php if ($canEdit): ?>
-        <a href="<?= site_url('report/' . $report['id'] . '/meta') ?>" class="btn btn-primary">
-            Éditer les infos du bilan
-        </a>
-    <?php endif; ?>
-
-    <!-- Actions (bouton ailleurs) -->
-    <div class="d-flex justify-content-end mb-3">
+    <div class="d-flex justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-1">Aperçu : <?= esc($report['title'] ?? '') ?></h1>
+        </div>
         <a href="<?= site_url('report/' . $report['id'] . '/sections') ?>" class="btn btn-outline-secondary">
             Retour à la rédaction
         </a>
     </div>
+<?php endif ?>
 
     <!-- Card centrée et large : Bureau de l'intégration -->
     <div class="row justify-content-center">
@@ -121,13 +131,21 @@ $scrollOffset = 90; // px
                         </div>
 
                         <div class="col-12">
-                            <div class="mt-3 mb-1"><span class="fw-bold">Fichier :</span></div>
+                            <div class="mt-3 mb-1"><span class="fw-bold">Fichier : </span><?= ($fileName) ?></div>
+                            <?php if (!empty($fileId) && !empty($report['file_path'])): ?>
+                                <div class="mt-2">
+                                    <a class="btn btn-sm btn-outline-secondary"
+                                       href="<?= base_url(ltrim((string)$report['file_path'], '/')) ?>"
+                                       target="_blank" rel="noopener">
+                                        Ouvrir le fichier
+                                    </a>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                         <div class="col-12">
-                            <div class="mt-3 mb-1"><span class="fw-bold">Statut :</span>
-                                <span class="badge <?= $statusBadge ?>"><?= ($statusLabel) ?></span>
-                            </div>
+                            <div class="mt-3 mb-1"><span
+                                        class="fw-bold">Statut :</span> <?= ($statusLabel) ?></div>
                         </div>
 
                         <div class="col-12">
@@ -153,7 +171,7 @@ $scrollOffset = 90; // px
 
                     <div class="card mb-4">
                         <div class="card-header mb-2">
-                            <h5 class="fw-semibold">Bureau de l'intégration</h5>
+                            <h5 class="fw-semibold">Objet et domaine d'application</h5>
                         </div>
                         <div class="card-body">
                             <div class="col-12 mb-4">
@@ -169,18 +187,14 @@ $scrollOffset = 90; // px
 
                     <div class="card mb-4">
                         <div class="card-header">
-                            <h5 class="fw-semibold">Statut</h5>
+                            <h5 class="fw-semibold mb-0">Statut</h5>
                         </div>
 
                         <div class="card-body">
-                            <div class="col-12">
-
-                                <div>
-                                    <span class="badge <?= $statusBadge ?>"><?= ($statusLabel) ?></span>
-                                </div>
-                                <div>
-                                    <p>Document validé<br>Document approuvé<br>Document de travail</p>
-                                </div>
+                            <div class="d-flex flex-column gap-2">
+                                <div><?= $cb($docStatus === 'validated') ?> Document validé</div>
+                                <div><?= $cb($docStatus === 'approved') ?> Document approuvé</div>
+                                <div><?= $cb($docStatus === 'work') ?> Document de travail</div>
                             </div>
                         </div>
                     </div>
@@ -203,8 +217,7 @@ $scrollOffset = 90; // px
                                 <!-- Case 3 : Validé par -->
                                 <div class="col-12 col-md-6 info-cell info-cell-top">
                                     <h5 class="fw-semibold mb-1">Validé par</h5>
-                                    <span class="text-muted small">Correcteur</span><br>
-                                    <span class="fw-semibold"><?= ($corrector ?: '—') ?></span>
+                                    <span><?= ($validator ?: '—') ?></span>
                                 </div>
 
                                 <!-- Case 4 : Date de validation -->
@@ -220,48 +233,49 @@ $scrollOffset = 90; // px
 
                     <div class="card mb-4">
                         <div class="card-header mb-2">
-                            <h5 class="fw-semibold">Modification par rapport à l'existant</h5>
+                            <h5 class="fw-semibold mb-0">Modification par rapport à l'existant</h5>
                         </div>
+
                         <div class="card-body">
-                            <div class="col-12 mb-4">
-                                <div>
-                                    <p>Création<br>Annule et remplace la version précédente</p>
-                                </div>
+                            <div class="d-flex flex-column gap-2">
+                                <div><?= $cb($modKind === 'creation') ?> Création</div>
+                                <div><?= $cb($modKind === 'replace') ?> Annule et remplace la version précédente</div>
                             </div>
                         </div>
+
                         <div class="card-header border-top mb-2">
-                            <h5 class="fw-semibold">Historique des évolutions</h5>
+                            <h5 class="fw-semibold mb-0">Historique des évolutions</h5>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body text-center">
                             <div class="row info-grid">
                                 <!-- Case 1 -->
                                 <div class="col-12 col-md-3 info-cell">
-                                    <h5 class="fw-semibold text-center">Version</h5>
+                                    <h5 class="fw-semibold">Version</h5>
                                 </div>
 
                                 <!-- Case 2 -->
                                 <div class="col-12 col-md-3 info-cell">
-                                    <h5 class="fw-semibold text-center">Date</h5>
+                                    <h5 class="fw-semibold">Date</h5>
                                 </div>
 
                                 <!-- Case 3 -->
                                 <div class="col-12 col-md-6 info-cell">
-                                    <h5 class="fw-semibold text-center">Commentaires</h5>
+                                    <h5 class="fw-semibold">Commentaires</h5>
                                 </div>
 
                                 <!-- Case 4 -->
                                 <div class="col-12 col-md-3 info-cell">
-                                    <span class="fw-semibold text-center"><?= ($appVersion ?: '—') ?></span>
+                                    <span class=><?= ($appVersion ?: '—') ?></span>
                                 </div>
 
                                 <!-- Case 5 -->
-                                <div class="col-12 col-md-3 info-cell info-cell-top">
-                                    <p class="mb-0 text-center"><?= ($fmtDate($updatedAt)) ?></p>
+                                <div class="col-12 col-md-3 info-cell">
+                                    <p class="mb-0"><?= ($fmtDate($updatedAt)) ?></p>
                                 </div>
 
                                 <!-- Case 6 -->
                                 <div class="col-12 col-md-6 info-cell">
-                                    <p class="mb-0 text-center">Version initiale</p>
+                                    <p class="mb-0">Version initiale</p>
                                 </div>
                             </div>
                         </div>
@@ -321,7 +335,7 @@ $render = function (array $node) use (&$render, $indentClass, $headingClass, $ba
                 </div>
 
                 <?php if (trim($content) !== ''): ?>
-                    <div class="mt-2 p-3 rounded bg-light border report-content">
+                    <div class="mt-2 p-3 rounded border report-content">
                         <?= clean_html($content) ?>
                     </div>
                 <?php else: ?>
@@ -348,7 +362,7 @@ $render = function (array $node) use (&$render, $indentClass, $headingClass, $ba
             </div>
 
             <?php if (trim($content) !== ''): ?>
-                <div class="p-3 rounded bg-white border report-content">
+                <div class="p-3 rounded border report-content">
                     <?= clean_html($content) ?>
                 </div>
             <?php else: ?>
@@ -420,6 +434,9 @@ $render = function (array $node) use (&$render, $indentClass, $headingClass, $ba
         max-width: 100%;
         height: auto;
         border-radius: .5rem;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .report-content p {

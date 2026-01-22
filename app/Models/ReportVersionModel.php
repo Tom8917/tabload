@@ -9,7 +9,7 @@ class ReportVersionModel extends Model
     protected $table          = 'report_versions';
     protected $primaryKey     = 'id';
     protected $returnType     = 'array';
-    protected $useTimestamps  = false; // on gère created_at nous-mêmes
+    protected $useTimestamps  = false;
 
     protected $allowedFields = [
         'report_id',

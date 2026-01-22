@@ -22,6 +22,8 @@ class Media extends BaseController
 
         $this->mediaModel  = new MediaModel();
         $this->folderModel = new MediaFolderModel();
+        $this->title = 'Médias';
+        $this->menu  = 'media';
     }
 
     // ------------------------------------------------------------
@@ -41,10 +43,9 @@ class Media extends BaseController
     private function renderExplorer(?int $folderId)
     {
         $picker = (bool) $this->request->getGet('picker');
-        $filter = (string) ($this->request->getGet('type') ?? 'all');      // all|image|document
-        $sort   = (string) ($this->request->getGet('sort') ?? 'date_desc'); // date_desc...
+        $filter = (string) ($this->request->getGet('type') ?? 'all');        // all|image|document
+        $sort   = (string) ($this->request->getGet('sort') ?? 'date_desc');  // date_desc...
 
-        // dossier courant
         $currentFolder = null;
         if ($folderId !== null) {
             $currentFolder = $this->folderModel->getById($folderId);
@@ -53,17 +54,11 @@ class Media extends BaseController
             }
         }
 
-        // breadcrumbs (Racine -> ... -> courant)
         $breadcrumbs = $this->buildBreadcrumbs($currentFolder);
+        $folders     = $this->folderModel->getChildren($folderId);
 
-        // sous-dossiers
-        $folders = $this->folderModel->getChildren($folderId);
-
-        // fichiers du dossier courant
         $q = $this->mediaModel;
-
-        if ($folderId === null) $q = $q->where('folder_id', null);
-        else $q = $q->where('folder_id', $folderId);
+        $q = ($folderId === null) ? $q->where('folder_id', null) : $q->where('folder_id', $folderId);
 
         if ($filter === 'image') {
             $q = $q->where('kind', 'image');
@@ -77,16 +72,23 @@ class Media extends BaseController
             case 'name_desc': $q = $q->orderBy('file_name', 'DESC'); break;
             case 'size_asc':  $q = $q->orderBy('file_size', 'ASC'); break;
             case 'size_desc': $q = $q->orderBy('file_size', 'DESC'); break;
-            default:          $q = $q->orderBy('created_at', 'DESC'); break; // date_desc
+            default:          $q = $q->orderBy('created_at', 'DESC'); break;
         }
 
         $files = $q->findAll();
 
-        // urls utiles (pour remonter même si breadcrumb casse)
-        $rootUrl = site_url('admin/media') . $this->buildQueryKeep(['picker' => $picker ? '1' : null, 'type' => $filter, 'sort' => $sort]);
-        $backUrl = null;
+        $rootUrl = site_url('admin/media') . $this->buildQueryKeep([
+                'picker' => $picker ? '1' : null,
+                'type'   => $filter,
+                'sort'   => $sort
+            ]);
+
         if ($currentFolder && !empty($currentFolder['parent_id'])) {
-            $backUrl = site_url('admin/media/folder/' . (int)$currentFolder['parent_id']) . $this->buildQueryKeep(['picker' => $picker ? '1' : null, 'type' => $filter, 'sort' => $sort]);
+            $backUrl = site_url('admin/media/folder/' . (int)$currentFolder['parent_id']) . $this->buildQueryKeep([
+                    'picker' => $picker ? '1' : null,
+                    'type'   => $filter,
+                    'sort'   => $sort
+                ]);
         } else {
             $backUrl = $rootUrl;
         }
@@ -106,10 +108,10 @@ class Media extends BaseController
         ];
 
         if ($picker) {
-            return view('admin//media/index_picker', $data);
+            return view('admin/media/index_picker', $data);
         }
 
-        return $this->view('admin//media/index', $data, false);
+        return $this->view('admin/media/index', $data, true);
     }
 
     /**

@@ -11,13 +11,10 @@ class AddAdminUser extends Migration
         $data = [
                 'firstname' => 'admin',
                 'lastname' => 'admin',
-                'sessionId' => 'admin',
-                'sessionPassword' => 'admin',
                 'email' => 'admin@admin.fr',
                 'password' => password_hash('admin', PASSWORD_DEFAULT),
-                'uegarId' => 'admin',
-                'uegarPassword' => 'admin',
                 'id_permission' => 1,
+                'counter_user' => 3,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
         ];
@@ -25,13 +22,10 @@ class AddAdminUser extends Migration
         $data3 = [
                 'firstname' => 'user',
                 'lastname' => 'user',
-                'sessionId' => 'user',
-                'sessionPassword' => 'user',
                 'email' => 'user@user.fr',
                 'password' => password_hash('user', PASSWORD_DEFAULT),
-                'uegarId' => 'user',
-                'uegarPassword' => 'user',
                 'id_permission' => 3,
+                'counter_user' => 3,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
         ];
@@ -39,14 +33,12 @@ class AddAdminUser extends Migration
         $data4 = [
             'firstname' => 'test',
             'lastname' => 'test',
-            'sessionId' => 't.test',
-            'sessionPassword' => 'test',
             'email' => 'test@test.fr',
             'password' => password_hash('test', PASSWORD_DEFAULT),
-            'uegarId' => 't.test',
-            'uegarPassword' => 'test',
             'id_permission' => 3,
             'counter_user' => 3,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
         ];
 
         $this->db->table('user')->insert($data);

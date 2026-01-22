@@ -1,10 +1,12 @@
 <?php
 
 namespace App\Controllers;
+use CodeIgniter\HTTP\ResponseInterface;
 
 use App\Controllers\BaseController;
 use App\Models\ReportModel;
 use App\Models\ReportSectionModel;
+use App\Models\UserModel;
 use App\Services\ReportSectionService;
 use App\Services\ReportTemplateService;
 use CodeIgniter\Exceptions\PageNotFoundException;
@@ -15,7 +17,6 @@ class Report extends BaseController
     protected ReportSectionService $sectionsService;
     protected ReportSectionModel $sections;
 
-    // Si ton front a besoin d’être connecté
     protected $require_auth = true;
 
     public function __construct()
@@ -25,6 +26,11 @@ class Report extends BaseController
         $this->sections        = new ReportSectionModel();
     }
 
+    private function userId(): int
+    {
+        $user = session()->get('user');
+        return (int)($user->id ?? 0);
+    }
 
     private function currentUserFullName(): string
     {
@@ -32,167 +38,156 @@ class Report extends BaseController
 
         $first = trim((string)($user->firstname ?? ''));
         $last  = trim((string)($user->lastname ?? ''));
+        $full  = trim($first . ' ' . $last);
 
-        $full = trim($first . ' ' . $last);
-
-        // fallback si jamais firstname/lastname pas dispo
-        if ($full === '') {
-            $full = trim((string)($user->name ?? ''));
-        }
-        if ($full === '') {
-            $full = 'Utilisateur';
-        }
+        if ($full === '') $full = trim((string)($user->name ?? ''));
+        if ($full === '') $full = 'Utilisateur';
 
         return $full;
     }
 
-    /**
-     * Petit helper : récupère l’id user connecté (à adapter à ton auth)
-     */
-    private function userId(): int
-    {
-        $user = session()->get('user');
-        return (int) ($user->id ?? 0);
-    }
-
-// à adapter selon ton système (id_permission, role, etc.)
     private function isAdmin(): bool
     {
         $user = session('user');
-        return (int) ($user->id_permission ?? 0) === 1; // exemple
+        return (int)($user->id_permission ?? 0) === 1;
     }
 
-    private function findReportOr404(int $reportId): array
+    /**
+     * ✅ Récupère un report + noms users
+     * - validated_by (string) = "Prénom Nom"
+     * - validated_by_id (int|null) = id original
+     * - corrected_by (string) = "Prénom Nom" (optionnel)
+     * - corrected_by_id (int|null)
+     */
+    private function findReportWithUsersOr404(int $reportId): array
     {
-        $report = $this->reports->find($reportId);
-        if (! $report) {
+        $row = $this->reports
+            ->select('
+            reports.*,
+
+            reports.validated_by AS validated_by_id,
+            CONCAT(vu.firstname, " ", vu.lastname) AS validated_by,
+
+            reports.corrected_by AS corrected_by_id,
+            CONCAT(cu.firstname, " ", cu.lastname) AS corrected_by,
+
+            m.id        AS file_media_id_join,
+            m.file_name AS file_name,
+            m.file_path AS file_path
+        ')
+            ->join('user vu', 'vu.id = reports.validated_by', 'left')
+            ->join('user cu', 'cu.id = reports.corrected_by', 'left')
+            ->join('media m', 'm.id = reports.file_media_id', 'left')
+            ->where('reports.id', $reportId)
+            ->first();
+
+        if (!$row) {
             throw PageNotFoundException::forPageNotFound("Report {$reportId} not found");
         }
-        return $report;
-    }
 
-    private function isOwner(array $report): bool
-    {
-        return (int)($report['user_id'] ?? 0) === $this->userId();
+        return $row;
     }
 
     private function requireOwnerOrAdmin(array $report): void
     {
-        if (! $this->isOwner($report) && ! $this->isAdmin()) {
-            // 403 propre (pas 404) : l’objet existe mais tu n’as pas le droit
-            throw new \CodeIgniter\Exceptions\PageForbiddenException("Forbidden");
+        $ownerId = (int)($report['user_id'] ?? 0);
+        if ($ownerId !== $this->userId() && !$this->isAdmin()) {
+            throw new PageForbiddenException('Accès refusé');
         }
     }
 
-
-    /**
-     * Helper : récupère un report du user, sinon 404
-     */
-    private function findOwnedReportOr404(int $reportId): array
+    private function requireOwner(array $report): void
     {
-        $report = $this->reports->find($reportId);
-
-        if (! $report) {
-            throw PageNotFoundException::forPageNotFound("Report {$reportId} not found");
+        $ownerId = (int)($report['user_id'] ?? 0);
+        if ($ownerId !== $this->userId()) {
+            // en front: on peut choisir 404 pour ne pas révéler, mais tu utilises parfois 403
+            throw new PageForbiddenException('Accès refusé');
         }
-
-        if ((int) ($report['user_id'] ?? 0) !== $this->userId()) {
-            // On évite de révéler l’existence d’un report qui n’appartient pas au user
-            throw PageNotFoundException::forPageNotFound("Report {$reportId} not found");
-        }
-
-        return $report;
     }
 
-    /**
-     * Helper : récupère une section du report, sinon 404
-     */
-    private function findOwnedSectionOr404(int $reportId, int $sectionId): array
+    private function findSectionOr404(int $reportId, int $sectionId): array
     {
         $section = $this->sections->find($sectionId);
-
-        if (! $section || (int) $section['report_id'] !== $reportId) {
+        if (!$section || (int)$section['report_id'] !== $reportId) {
             throw PageNotFoundException::forPageNotFound("Section {$sectionId} not found");
         }
-
-        // Vérifie aussi que le report appartient au user
-        $this->findOwnedReportOr404($reportId);
-
         return $section;
     }
 
     /**
-     * GET /reports
+     * GET /report
      */
     public function getIndex()
     {
         $uid = $this->userId();
 
-        $data = [
-            'myReports' => $this->reports
-                ->where('user_id', $uid)
-                ->orderBy('created_at', 'DESC')
-                ->findAll(),
-
-            'otherReports' => $this->reports
-                ->where('user_id !=', $uid)
-                ->orderBy('created_at', 'DESC')
-                ->findAll(),
-        ];
-
-        return $this->view('front/reports/index', $data, false);
+        return $this->view('front/reports/index', [
+            'myReports' => $this->reports->where('user_id', $uid)->orderBy('created_at', 'DESC')->findAll(),
+            'otherReports' => $this->reports->where('user_id !=', $uid)->orderBy('created_at', 'DESC')->findAll(),
+        ], ['saveData' => false]);
     }
 
     /**
-     * GET /reports/new
+     * GET /report/new
      */
     public function getNew()
     {
-        $data = [
+        return $this->view('front/reports/new', [
             'errors'  => session('errors') ?? [],
             'success' => session('success'),
-        ];
-
-        return $this->view('front/reports/new', $data, false);
+        ], ['saveData' => false]);
     }
 
+    /**
+     * GET /report/{id}
+     */
     public function getShow(int $id)
     {
-        $report = $this->findReportOr404($id);
+        $report = $this->findReportWithUsersOr404($id);
 
-        // lecture autorisée pour tous
-        $canEdit = $this->isOwner($report) || $this->isAdmin(); // si tu veux l’afficher
+        // lecture autorisée pour tous (comme tu l’avais)
+        $canEdit = ((int)($report['user_id'] ?? 0) === $this->userId()) || $this->isAdmin();
 
-        // ✅ Tree trié (parents -> enfants) pour l’ordre parfait
         $sectionsTree = $this->sectionsService->getTreeForReport($id);
 
         return $this->view('front/reports/show', [
             'report'       => $report,
             'sectionsTree' => $sectionsTree,
             'canEdit'      => $canEdit,
-        ], false);
+        ], ['saveData' => false]);
     }
 
+    /**
+     * GET /report/{id}/edit
+     */
     public function getEdit(int $id)
     {
-        $report = $this->findReportOr404($id);
-        $this->requireOwnerOrAdmin($report); // en front, ça revient à owner (admin n’est pas censé passer ici)
+        $report = $this->findReportWithUsersOr404($id);
+        $this->requireOwnerOrAdmin($report);
 
         return $this->view('front/reports/edit', [
             'report'  => $report,
             'errors'  => session('errors') ?? [],
             'success' => session('success'),
-        ], false);
+        ], ['saveData' => false]);
     }
 
     /**
-     * POST /reports
+     * POST /report
      */
     public function postCreate()
     {
         $post = $this->request->getPost();
 
-        // ... validation title/application/version
+        $rules = [
+            'title'            => 'required|min_length[3]',
+            'application_name' => 'required|min_length[2]',
+            'version'          => 'permit_empty|max_length[50]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
 
         $id = $this->reports->insert([
             'user_id'          => $this->userId(),
@@ -203,7 +198,6 @@ class Report extends BaseController
             'status'           => 'brouillon',
         ], true);
 
-        // config template
         $config = [
             'tests' => [
                 'target' => [
@@ -216,15 +210,14 @@ class Report extends BaseController
             ],
         ];
 
-        $tpl = new ReportTemplateService(
-            new ReportSectionModel(),
-            $this->sectionsService
-        );
+        $tpl = new ReportTemplateService(new ReportSectionModel(), $this->sectionsService);
         $tpl->buildReportSkeleton((int)$id, $config);
 
+        $now = date('Y-m-d H:i:s');
+
         $this->reports->update((int)$id, [
-            'version_date'       => date('Y-m-d H:i:s'),
-            'author_updated_at'  => date('Y-m-d H:i:s'),
+            'version_date'      => $now,
+            'author_updated_at' => $now,
         ]);
 
         $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
@@ -234,9 +227,12 @@ class Report extends BaseController
             ->with('success', 'Bilan créé avec son squelette. Vous pouvez commencer la rédaction.');
     }
 
+    /**
+     * POST /report/{id}/update
+     */
     public function postUpdate(int $id)
     {
-        $report = $this->findReportOr404($id);
+        $report = $this->findReportWithUsersOr404($id);
         $this->requireOwnerOrAdmin($report);
 
         $post = $this->request->getPost();
@@ -248,7 +244,7 @@ class Report extends BaseController
             'status'           => 'permit_empty|in_list[brouillon,en_relecture,final]',
         ];
 
-        if (! $this->validate($rules)) {
+        if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
@@ -264,71 +260,38 @@ class Report extends BaseController
     }
 
     /**
-     * GET /reports/{id}/sections
+     * GET /report/{id}/sections
      */
     public function getSections(int $id)
     {
-        $report   = $this->findReportOr404($id);
+        $report = $this->findReportWithUsersOr404($id);
 
-        $canEdit = $this->isOwner($report);
+        $canEdit = ((int)($report['user_id'] ?? 0) === $this->userId()); // front : seulement owner
+        $tree    = $this->sectionsService->getTreeForReport($id);
 
-        $tree  = $this->sectionsService->getTreeForReport($id);
-        $roots = $tree;
+        // (si tu n’en as plus besoin, tu peux enlever)
+        $users = (new UserModel())
+            ->select('id, firstname, lastname, email')
+            ->orderBy('firstname', 'ASC')
+            ->findAll();
 
         return $this->view('front/reports/sections', [
             'report'       => $report,
+            'users'        => $users,
             'sectionsTree' => $tree,
-            'roots'        => $roots,
+            'roots'        => $tree,
             'canEdit'      => $canEdit,
             'errors'       => session('errors') ?? [],
             'success'      => session('success'),
-        ], false);
+        ], ['saveData' => false]);
     }
 
     /**
-     * POST /reports/{id}/sections/root
+     * POST /report/{id}/sections/root
      */
     public function postSectionsRoot(int $reportId)
     {
-        $report = $this->findReportOr404($reportId);
-        $this->requireOwnerOrAdmin($report);
-
-        $post = $this->request->getPost();
-        $title = trim($post['title'] ?? '');
-        $content = $post['content'] ?? '';
-
-        if ($title === '') {
-            return redirect()->back()
-                ->withInput()
-                ->with('errors', ['title_root' => 'Le titre de la partie est obligatoire.']);
-        }
-
-        $this->sectionsService->createRootSection($reportId, [
-            'title'   => $title,
-            'content' => $content,
-        ]);
-
-        return redirect()->to(site_url('report/' . $reportId . '/sections'))
-            ->with('success', 'Partie ajoutée.');
-    }
-
-
-    private function findSectionOr404(int $reportId, int $sectionId): array
-    {
-        $section = $this->sections->find($sectionId);
-
-        if (! $section || (int)$section['report_id'] !== $reportId) {
-            throw PageNotFoundException::forPageNotFound("Section {$sectionId} not found");
-        }
-        return $section;
-    }
-
-    /**
-     * POST /reports/{id}/sections/{parentId}/child
-     */
-    public function postSectionsChild(int $reportId, int $parentId)
-    {
-        $report = $this->findReportOr404($reportId);
+        $report = $this->findReportWithUsersOr404($reportId);
         $this->requireOwnerOrAdmin($report);
 
         $post    = $this->request->getPost();
@@ -336,50 +299,78 @@ class Report extends BaseController
         $content = $post['content'] ?? '';
 
         if ($title === '') {
-            return redirect()->back()
-                ->withInput()
-                ->with('errors', ['title_child_' . $parentId => 'Le titre de la sous-partie est obligatoire.']);
+            return redirect()->back()->withInput()->with('errors', [
+                'title_root' => 'Le titre de la partie est obligatoire.',
+            ]);
         }
 
-        $parent = $this->findSectionOr404($reportId, $parentId);
+        $this->sectionsService->createRootSection($reportId, [
+            'title'   => $title,
+            'content' => $content,
+        ]);
+
+        $this->sectionsService->recomputeCodes($reportId);
+
+        return redirect()->to(site_url('report/' . $reportId . '/sections'))->with('success', 'Partie ajoutée.');
+    }
+
+    /**
+     * POST /report/{id}/sections/{parentId}/child
+     */
+    public function postSectionsChild(int $reportId, int $parentId)
+    {
+        $report = $this->findReportWithUsersOr404($reportId);
+        $this->requireOwnerOrAdmin($report);
+
+        $post    = $this->request->getPost();
+        $title   = trim($post['title'] ?? '');
+        $content = $post['content'] ?? '';
+
+        if ($title === '') {
+            return redirect()->back()->withInput()->with('errors', [
+                'title_child_' . $parentId => 'Le titre de la sous-partie est obligatoire.',
+            ]);
+        }
+
+        $this->findSectionOr404($reportId, $parentId);
 
         $this->sectionsService->createChildSection($parentId, [
             'title'   => $title,
             'content' => $content,
         ]);
 
-        // ✅ renumérote tout
         $this->sectionsService->recomputeCodes($reportId);
 
-        return redirect()->to(site_url('report/' . $reportId . '/sections'))
-            ->with('success', 'Sous-partie ajoutée.');
+        return redirect()->to(site_url('report/' . $reportId . '/sections'))->with('success', 'Sous-partie ajoutée.');
     }
 
     /**
-     * GET /reports/{reportId}/sections/{sectionId}/edit
+     * GET /report/{reportId}/sections/{sectionId}/edit
      */
     public function getEditSection(int $reportId, int $sectionId)
     {
-        $report  = $this->findOwnedReportOr404($reportId);
-        $section = $this->findOwnedSectionOr404($reportId, $sectionId);
+        $report = $this->findReportWithUsersOr404($reportId);
+        $this->requireOwner($report); // front : uniquement le owner modifie les sections
 
-        $data = [
+        $section = $this->findSectionOr404($reportId, $sectionId);
+
+        return $this->view('front/reports/section_edit', [
             'report'  => $report,
             'section' => $section,
             'errors'  => session('errors') ?? [],
             'success' => session('success'),
-        ];
-
-        return $this->view('front/reports/section_edit', $data, false);
+        ], ['saveData' => false]);
     }
 
     /**
-     * POST /reports/{reportId}/sections/{sectionId}/update
+     * POST /report/{reportId}/sections/{sectionId}/update
      */
     public function postUpdateSection(int $reportId, int $sectionId)
     {
-        $this->findOwnedReportOr404($reportId);
-        $section = $this->findOwnedSectionOr404($reportId, $sectionId);
+        $report = $this->findReportWithUsersOr404($reportId);
+        $this->requireOwner($report);
+
+        $this->findSectionOr404($reportId, $sectionId);
 
         $post = $this->request->getPost();
 
@@ -394,10 +385,8 @@ class Report extends BaseController
             'compliance_status' => 'permit_empty|in_list[conforme,non_conforme,partiel,non_applicable]',
         ];
 
-        if (! $this->validate($rules)) {
-            return redirect()->back()
-                ->withInput()
-                ->with('errors', $this->validator->getErrors());
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $this->sections->update($sectionId, [
@@ -423,17 +412,16 @@ class Report extends BaseController
     }
 
     /**
-     * POST /reports/{reportId}/sections/{sectionId}/delete
+     * POST /report/{reportId}/sections/{sectionId}/delete
      */
     public function postDeleteSection(int $reportId, int $sectionId)
     {
-        $report = $this->findReportOr404($reportId);
+        $report = $this->findReportWithUsersOr404($reportId);
         $this->requireOwnerOrAdmin($report);
 
         $this->findSectionOr404($reportId, $sectionId);
 
         $this->sections->delete($sectionId);
-
         $this->sectionsService->recomputeCodes($reportId);
 
         return redirect()->to(site_url('report/' . $reportId . '/sections'))
@@ -442,36 +430,38 @@ class Report extends BaseController
 
     public function postUploadSectionImage()
     {
-        // user doit être connecté (ton BaseController le gère)
         $file = $this->request->getFile('image');
+
         if (!$file || !$file->isValid()) {
             return $this->response->setJSON(['error' => 'Fichier invalide'])->setStatusCode(400);
         }
 
-        // sécurité : types + taille
-        $allowed = ['image/png','image/jpeg','image/webp','image/gif'];
+        $allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
         if (!in_array($file->getMimeType(), $allowed, true)) {
             return $this->response->setJSON(['error' => 'Type non autorisé'])->setStatusCode(400);
         }
+
         if ($file->getSizeByUnit('mb') > 5) {
             return $this->response->setJSON(['error' => 'Trop volumineux (max 5MB)'])->setStatusCode(400);
         }
 
-        // stockage
         $newName = $file->getRandomName();
-        $path = FCPATH . 'uploads/report_sections/';
+        $path    = FCPATH . 'uploads/report_sections/';
         if (!is_dir($path)) mkdir($path, 0755, true);
 
         $file->move($path, $newName);
 
-        $url = base_url('uploads/report_sections/' . $newName);
-
-        return $this->response->setJSON(['url' => $url]);
+        return $this->response->setJSON([
+            'url' => base_url('uploads/report_sections/' . $newName),
+        ]);
     }
 
+    /**
+     * POST /report/{id}/delete
+     */
     public function postDelete(int $id)
     {
-        $report = $this->findReportOr404($id);
+        $report = $this->findReportWithUsersOr404($id);
         $this->requireOwnerOrAdmin($report);
 
         $this->sections->where('report_id', $id)->delete();
@@ -480,71 +470,110 @@ class Report extends BaseController
         return redirect()->to(site_url('report'))->with('success', 'Bilan supprimé.');
     }
 
-    public function metaEdit(int $reportId)
+    /**
+     * POST /report/{id}/sections/meta
+     *
+     * 🔒 FRONT :
+     * - l'auteur peut changer title/application/version/status/author_name
+     * - il NE PEUT PAS changer validated_by / validated_at
+     */
+    public function postUpdateMetaInline(int $reportId)
     {
-        $report = $this->mustGetMyReport($reportId);
-
-        return $this->view('front/reports/meta_edit', [
-            'report'  => $report,
-            'errors'  => session('errors'),
-            'success' => session('success'),
-        ], ['saveData' => false]);
-    }
-
-    public function metaUpdate(int $reportId)
-    {
-        $report = $this->mustGetMyReport($reportId);
-
-        $status = strtolower(trim((string)$this->request->getPost('status')));
-        if ($status === '') {
-            $status = strtolower((string)($report['status'] ?? 'draft'));
-        }
+        $report = $this->findReportWithUsersOr404($reportId);
+        $this->requireOwnerOrAdmin($report);
 
         $data = [
-            'title'            => $this->request->getPost('title'),
-            'application_name' => $this->request->getPost('application_name'),
-            'version'          => $this->request->getPost('version'),
-            'status'           => $status,
-            'author_name'      => $this->request->getPost('author_name'),
-            'corrector_name'   => $this->request->getPost('corrector_name'),
-            'validated_at'     => $this->request->getPost('validated_at') ?: null,
+            'title'             => trim((string)$this->request->getPost('title')),
+            'application_name'  => trim((string)$this->request->getPost('application_name')),
+            'version'           => trim((string)$this->request->getPost('version')),
+            'status'            => trim((string)$this->request->getPost('status')) ?: (string)($report['status'] ?? 'brouillon'),
+            'author_name'       => trim((string)$this->request->getPost('author_name')) ?: (string)($report['author_name'] ?? ''),
+            'doc_status'        => trim((string)$this->request->getPost('doc_status')) ?: (string)($report['doc_status'] ?? 'work'),
+            'modification_kind' => trim((string)$this->request->getPost('modification_kind')) ?: (string)($report['modification_kind'] ?? 'creation'),
+            'author_updated_at' => date('Y-m-d H:i:s'),
+            'file_media_id' => $this->request->getPost('file_media_id') !== null && $this->request->getPost('file_media_id') !== ''
+                ? (int)$this->request->getPost('file_media_id')
+                : null,
         ];
 
         $rules = [
-            'title'            => 'required|min_length[3]',
-            'application_name' => 'permit_empty|max_length[120]',
-            'version'          => 'permit_empty|max_length[40]',
-            'status'           => 'required|in_list[draft,in_review,validated,rejected]',
-            'author_name'      => 'permit_empty|max_length[120]',
-            'corrector_name'   => 'permit_empty|max_length[120]',
-            'validated_at'     => 'permit_empty|valid_date[Y-m-d]',
+            'title'             => 'required|min_length[3]',
+            'application_name'  => 'required|min_length[2]',
+            'version'           => 'permit_empty|max_length[50]',
+            'status'            => 'permit_empty|in_list[brouillon,en_relecture,final]',
+            'author_name'       => 'permit_empty|max_length[120]',
+            'doc_status'        => 'required|in_list[work,approved,validated]',
+            'modification_kind' => 'required|in_list[creation,replace]',
+            'file_media_id' => 'permit_empty|is_natural_no_zero',
         ];
 
-        if (! $this->validateData($data, $rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        $prevDoc = (string)($report['doc_status'] ?? 'work');
+        $newDoc  = (string)$data['doc_status'];
+
+        if ($prevDoc !== 'validated' && $newDoc === 'validated') {
+            $data['validated_by'] = $this->userId();
+            $data['validated_at'] = date('Y-m-d H:i:s');
         }
+
+        if (! $this->validateData($data, $rules)) {
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', $this->validator->getErrors());
+        }
+
+        unset($data['validated_by'], $data['validated_at']);
 
         $this->reports->update($reportId, $data);
 
-        return redirect()
-            ->to(site_url('report/' . $reportId . '/meta'))
-            ->with('success', 'Infos du bilan enregistrées.');
+        return redirect()->to(site_url('report/' . $reportId . '/sections'))
+            ->with('success', 'Informations du bilan enregistrées.');
     }
 
-    private function mustGetMyReport(int $reportId): array
+    public function postMoveRootUp(int $reportId, int $sectionId)
     {
-        $report = $this->reports->find($reportId);
+        $report = $this->findReportWithUsersOr404($reportId);
+        $this->requireOwner($report);
 
-        if (!$report) {
-            throw PageNotFoundException::forPageNotFound('Bilan introuvable');
+        $this->sectionsService->moveRoot($reportId, $sectionId, -1);
+
+        return redirect()->to(site_url('report/' . $reportId . '/sections'))
+            ->with('success', 'Ordre mis à jour.');
+    }
+
+    public function postMoveRootDown(int $reportId, int $sectionId)
+    {
+        $report = $this->findReportWithUsersOr404($reportId);
+        $this->requireOwner($report);
+
+        $this->sectionsService->moveRoot($reportId, $sectionId, +1);
+
+        return redirect()->to(site_url('report/' . $reportId . '/sections'))
+            ->with('success', 'Ordre mis à jour.');
+    }
+
+    public function updateMeta(int $reportId)
+    {
+        $report = $this->mustGetMyReport($reportId); // ta méthode de sécurité
+
+        $docStatus = (string) $this->request->getPost('doc_status');
+        $modKind   = (string) $this->request->getPost('modification_kind');
+
+        // Validation simple (tu peux passer en validation service si tu veux)
+        $allowedDoc = ['work', 'approved', 'validated'];
+        $allowedMod = ['creation', 'replace'];
+
+        if (!in_array($docStatus, $allowedDoc, true) || !in_array($modKind, $allowedMod, true)) {
+            $this->error('Valeurs invalides.');
+            return $this->redirect()->back();
         }
 
-        $ownerId = (int)($report['user_id'] ?? 0);
+        $this->reports->update($reportId, [
+            'doc_status'         => $docStatus,
+            'modification_kind'  => $modKind,
+            'updated_at'         => date('Y-m-d H:i:s'), // si pas géré auto
+        ]);
 
-        if ($ownerId !== $this->userId()) {
-            throw new \CodeIgniter\Exceptions\PageForbiddenException('Accès refusé');
-        }
-
-        return $report;
+        $this->success('Informations mises à jour.');
+        return $this->redirect()->back();
     }
 }
