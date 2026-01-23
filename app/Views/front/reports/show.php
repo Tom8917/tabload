@@ -2,7 +2,6 @@
 $sectionsTree = $sectionsTree ?? [];
 $canEdit = $canEdit ?? false;
 
-// helpers d'indentation
 $indentClass = function (int $level): string {
     return match (true) {
         $level <= 1 => 'ms-0',
@@ -27,16 +26,13 @@ $badgeLevel = function (int $level): string {
     };
 };
 
-// Sommaire (roots uniquement)
 $roots = $sectionsTree;
 
-// ⚠️ Ajuste si tu as un header fixe (CoreUI/Bootstrap sticky topbar)
-$scrollOffset = 90; // px
+$scrollOffset = 90;
 
 $docStatus = (string)($report['doc_status'] ?? 'work');
 $modKind = (string)($report['modification_kind'] ?? 'creation');
 
-// Petit helper d'affichage
 $cb = function (bool $checked): string {
     return $checked ? '<i class="fa-regular fa-circle-check"></i>' : '<i class="fa-regular fa-circle"></i>';
 };
@@ -45,7 +41,6 @@ $cb = function (bool $checked): string {
 <?php helper('html'); ?>
 
 <style>
-    /* Permet aux ancres (#section-xx) de ne pas être cachées derrière un header sticky */
     [id^="section-"], #top {
         scroll-margin-top: <?= (int)$scrollOffset ?>px;
     }
@@ -100,6 +95,12 @@ $cb = function (bool $checked): string {
         </div>
         <a href="<?= site_url('report/' . $report['id'] . '/sections') ?>" class="btn btn-outline-secondary">
             Retour à la rédaction
+        </a>
+    </div>
+    <?php else: ?>
+    <div class="d-flex justify-content-end mb-4">
+    <a href="<?= site_url('report/') ?>" class="btn btn-outline-secondary">
+            Retour à la liste
         </a>
     </div>
 <?php endif ?>

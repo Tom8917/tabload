@@ -5,10 +5,6 @@ $sectionsTree = $sectionsTree ?? [];
 $roots = $roots ?? $sectionsTree;
 $canEdit = $canEdit ?? false;
 
-/**
- * Rendu récursif du plan : garantit que les sous-parties
- * s'affichent sous le bon parent (children).
- */
 $renderNode = function (array $node) use (&$renderNode, $report, $canEdit, $errors) {
 
     $level = (int)($node['level'] ?? 1);
@@ -21,7 +17,6 @@ $renderNode = function (array $node) use (&$renderNode, $report, $canEdit, $erro
     $code = (string)($node['code'] ?? '');
     $title = (string)($node['title'] ?? '');
 
-    // Badge conformité (optionnel)
     $comp = (string)($node['compliance_status'] ?? 'non_applicable');
     $showComp = ($comp !== '' && $comp !== 'non_applicable');
 
@@ -365,11 +360,11 @@ $renderNode = function (array $node) use (&$renderNode, $report, $canEdit, $erro
                             const modal = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
 
                             function setSelected(media) {
-                                const id   = media?.id ? String(media.id) : '';
+                                const id = media?.id ? String(media.id) : '';
                                 const name = media?.name ? String(media.name) : '';
                                 const path = media?.path ? String(media.path) : '';
 
-                                document.getElementById('file_media_id').value   = id;
+                                document.getElementById('file_media_id').value = id;
                                 document.getElementById('file_media_name').value = name;
 
                                 if (!id) {
@@ -417,81 +412,104 @@ $renderNode = function (array $node) use (&$renderNode, $report, $canEdit, $erro
         </div>
     <?php endif; ?>
 
-    <?php if ($canEdit): ?>
-        <!-- Ajouter une PARTIE (niveau 1) -->
+    <hr class="mt-4 mb-4">
+
+    <?php $comments = trim((string)($report['comments'] ?? '')); ?>
+
+    <?php if ($comments !== ''): ?>
         <div class="card mb-4">
-            <div class="card-header">Ajouter une partie (niveau 1)</div>
-            <div class="card-body">
-                <form method="post" action="<?= site_url('report/' . $report['id'] . '/sections/root') ?>">
-                    <?= csrf_field() ?>
-
-                    <div class="mb-3">
-                        <label class="form-label">Titre de la partie <span class="text-danger">*</span></label>
-                        <input type="text"
-                               name="title"
-                               class="form-control <?= isset($errors['title_root']) ? 'is-invalid' : '' ?>"
-                               value="<?= old('title') ?>">
-                        <?php if (isset($errors['title_root'])): ?>
-                            <div class="invalid-feedback"><?= esc($errors['title_root']) ?></div>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Contenu (optionnel)</label>
-                        <textarea name="content" rows="3" class="form-control"><?= old('content') ?></textarea>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary">Ajouter la partie</button>
-                </form>
+            <div class="card-header fw-semibold text-danger">
+                <h5><i class="fa-solid fa-triangle-exclamation"></i> Commentaire</h5>
             </div>
-        </div>
-
-        <?php if (!empty($roots)): ?>
-            <div class="card mb-4">
-                <div class="card-header">Étapes de rédaction</div>
-                <div class="card-body d-flex flex-column gap-2">
-
-                    <?php foreach ($roots as $index => $r): ?>
-                        <div class="d-flex align-items-center justify-content-between gap-2 border rounded p-2">
-
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <a class="btn btn-outline-primary btn-sm"
-                                   href="<?= site_url('report/' . $report['id'] . '/sections/' . $r['id'] . '/edit') ?>">
-                                    <?= esc($r['code']) ?>. <?= esc($r['title']) ?>
-                                </a>
-<!--                                <span class="text-muted small">Position: --><?php //= (int)($r['position'] ?? 0) ?><!--</span>-->
-                            </div>
-
-                            <?php if ($canEdit): ?>
-                                <div class="btn-group">
-                                    <form method="post"
-                                          action="<?= site_url('report/' . $report['id'] . '/sections/' . $r['id'] . '/move-up') ?>">
-                                        <?= csrf_field() ?>
-                                        <button class="btn btn-sm btn-outline-secondary"
-                                                type="submit" <?= $index === 0 ? 'disabled' : '' ?>>
-                                            ↑
-                                        </button>
-                                    </form>
-
-                                    <form method="post"
-                                          action="<?= site_url('report/' . $report['id'] . '/sections/' . $r['id'] . '/move-down') ?>">
-                                        <?= csrf_field() ?>
-                                        <button class="btn btn-sm btn-outline-secondary"
-                                                type="submit" <?= $index === count($roots) - 1 ? 'disabled' : '' ?>>
-                                            ↓
-                                        </button>
-                                    </form>
-                                </div>
-                            <?php endif; ?>
-
-                        </div>
-                    <?php endforeach; ?>
-
+            <div class="card-body">
+                <div>
+                    <?= nl2br(esc($comments)) ?>
                 </div>
             </div>
-        <?php endif; ?>
-
+        </div>
+        <hr class="mt-4 mb-4">
     <?php endif; ?>
+
+    <div class="row">
+        <?php if ($canEdit): ?>
+            <div class="col-md-6">
+
+                <!-- Ajouter une PARTIE (niveau 1) -->
+                <div class="card mb-4">
+                    <div class="card-header">Ajouter une partie (niveau 1)</div>
+                    <div class="card-body">
+                        <form method="post" action="<?= site_url('report/' . $report['id'] . '/sections/root') ?>">
+                            <?= csrf_field() ?>
+
+                            <div class="mb-3">
+                                <label class="form-label">Titre de la partie <span class="text-danger">*</span></label>
+                                <input type="text"
+                                       name="title"
+                                       class="form-control <?= isset($errors['title_root']) ? 'is-invalid' : '' ?>"
+                                       value="<?= old('title') ?>">
+                                <?php if (isset($errors['title_root'])): ?>
+                                    <div class="invalid-feedback"><?= esc($errors['title_root']) ?></div>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Contenu (optionnel)</label>
+                                <textarea name="content" rows="3" class="form-control"><?= old('content') ?></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Ajouter la partie</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <?php if (!empty($roots)): ?>
+                    <div class="card mb-4">
+                        <div class="card-header">Étapes de rédaction</div>
+                        <div class="card-body d-flex flex-column gap-2">
+
+                            <?php foreach ($roots as $index => $r): ?>
+                                <div class="d-flex align-items-center justify-content-between gap-2 border rounded p-2">
+
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <a class="btn btn-outline-primary btn-sm"
+                                           href="<?= site_url('report/' . $report['id'] . '/sections/' . $r['id'] . '/edit') ?>">
+                                            <?= esc($r['code']) ?>. <?= esc($r['title']) ?>
+                                        </a>
+                                        <!--                                <span class="text-muted small">Position: -->
+                                        <?php //= (int)($r['position'] ?? 0) ?><!--</span>-->
+                                    </div>
+
+                                    <?php if ($canEdit): ?>
+                                        <div class="btn-group">
+                                            <form method="post"
+                                                  action="<?= site_url('report/' . $report['id'] . '/sections/' . $r['id'] . '/move-up') ?>">
+                                                <?= csrf_field() ?>
+                                                <button class="btn btn-sm btn-outline-secondary"
+                                                        type="submit" <?= $index === 0 ? 'disabled' : '' ?>>
+                                                    ↑
+                                                </button>
+                                            </form>
+
+                                            <form method="post"
+                                                  action="<?= site_url('report/' . $report['id'] . '/sections/' . $r['id'] . '/move-down') ?>">
+                                                <?= csrf_field() ?>
+                                                <button class="btn btn-sm btn-outline-secondary"
+                                                        type="submit" <?= $index === count($roots) - 1 ? 'disabled' : '' ?>>
+                                                    ↓
+                                                </button>
+                                            </form>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    </div>
 
     <!-- Plan du bilan -->
     <div class="card">

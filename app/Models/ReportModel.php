@@ -32,6 +32,7 @@ class ReportModel extends Model
         'corrected_at',
         'validated_by',
         'validated_at',
+        'comments',
     ];
 
     public function findWithUsers(int $reportId): ?array

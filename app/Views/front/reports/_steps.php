@@ -9,20 +9,20 @@ $step     = $step ?? 'config';
 $reportId = $reportId ?? null;
 $canEdit  = $canEdit ?? null;
 
-// liens
 $configUrl  = site_url('report/new');
 $writeUrl   = $reportId ? site_url('report/' . $reportId . '/sections') : '#';
 $previewUrl = $reportId ? site_url('report/' . $reportId) : '#';
 
-// règles simples
 $configLocked = ($reportId !== null);
 $writeDisabled = ($reportId === null) || ($canEdit === false);
 $prevDisabled  = ($reportId === null);
 ?>
 
+<?php if ($writeDisabled): ?>
+
+<?php else: ?>
 <ul class="nav nav-pills mb-4">
 
-    <!-- CONFIGURATION -->
     <li class="nav-item">
         <?php if ($configLocked): ?>
             <span class="nav-link disabled">
@@ -36,7 +36,6 @@ $prevDisabled  = ($reportId === null);
         <?php endif; ?>
     </li>
 
-    <!-- RÉDACTION -->
     <li class="nav-item">
         <?php if ($writeDisabled): ?>
             <span class="nav-link disabled">
@@ -50,7 +49,6 @@ $prevDisabled  = ($reportId === null);
         <?php endif; ?>
     </li>
 
-    <!-- APERÇU -->
     <li class="nav-item">
         <?php if ($prevDisabled): ?>
             <span class="nav-link disabled">
@@ -65,3 +63,4 @@ $prevDisabled  = ($reportId === null);
     </li>
 
 </ul>
+<?php endif; ?>

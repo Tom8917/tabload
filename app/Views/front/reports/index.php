@@ -1,7 +1,7 @@
 <?php
-$myReports    = $myReports ?? [];
+$myReports = $myReports ?? [];
 $otherReports = $otherReports ?? [];
-$success      = $success ?? session('success');
+$success = $success ?? session('success');
 ?>
 
 <div class="container-fluid">
@@ -22,6 +22,7 @@ $success      = $success ?? session('success');
             Aucun bilan pour le moment. Cliquez sur <strong>Nouveau bilan</strong> pour en créer un.
         </div>
     <?php endif; ?>
+
 
     <!-- Mes bilans -->
     <div class="card mb-4">
@@ -90,6 +91,7 @@ $success      = $success ?? session('success');
         </div>
     </div>
 
+
     <!-- Bilans des autres -->
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -102,7 +104,7 @@ $success      = $success ?? session('success');
             <?php else: ?>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+                        <thead class="table">
                         <tr>
                             <th style="width:60px;">ID</th>
                             <th>Titre</th>
@@ -135,4 +137,54 @@ $success      = $success ?? session('success');
         </div>
     </div>
 
+
+    <hr class="mt-5 mb-5">
+
+
+    <!-- Bilans des autres (card) -->
+    <div class="d-flex justify-content-end align-items-center mb-3">
+        <strong>Bilans des autres en card :</strong>
+        <span class="text-muted small ms-1"><?= count($otherReports) ?> élément(s)</span>
+    </div>
+    <?php if (empty($otherReports)): ?>
+        <div class="p-2 text-center text-muted">Aucun autre bilan pour le moment.</div>
+    <?php else: ?>
+        <div class="row g-3">
+            <?php foreach ($otherReports as $report): ?>
+                <div class="col-3">
+                    <div class="card rounded-4">
+                        <div class="card-header d-flex justify-content-between align-items-center p-2">
+                            <strong><?= esc($report['title']) ?></strong> Dans la base : #<?= esc($report['id']) ?><br>
+                        </div>
+                        <div class="card-body p-2">
+                            <div class="text-center">
+                                <strong><h4><?= esc($report['application_name']) ?></h4></strong><br>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Version : </strong><?= esc($report['version']) ?><br>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Rédigé par : </strong><?= esc($report['author_name']) ?><br>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Statut de rédaction : </strong><?= esc($report['status']) ?><br>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Statut du document : </strong><?= esc($report['doc_status']) ?><br>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Dernière correction : </strong><?= esc($report['updated_at']) ?><br>
+                            </div>
+                            <span class="d-flex justify-content-end">
+                            <a class="btn btn-sm btn-outline-primary mt-2 mb-1"
+                               href="<?= site_url('report/' . $report['id']) ?>">
+                                Consulter
+                            </a>
+                        </span>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif ?>
 </div>

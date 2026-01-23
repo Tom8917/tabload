@@ -13,7 +13,6 @@ class Events extends BaseController
         ], ['saveData' => true]);
     }
 
-    /** JSON public pour FullCalendar front: /events/list */
     public function getList()
     {
         $start = $this->request->getGet('start') ?? date('Y-m-01');

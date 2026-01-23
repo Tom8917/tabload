@@ -8,6 +8,8 @@ use App\Models\ReportSectionModel;
 use App\Services\ReportSectionService;
 use App\Services\ReportTemplateService;
 use CodeIgniter\Exceptions\PageNotFoundException;
+use CodeIgniter\HTTP\Exceptions\HTTPException;
+use CodeIgniter\HTTP\ResponseInterface;
 
 class Report extends BaseController
 {
@@ -23,9 +25,20 @@ class Report extends BaseController
         $this->sectionsService = new ReportSectionService();
         $this->sections        = new ReportSectionModel();
 
-        // Optionnel : si ton BaseController gère ça
         $this->title = 'Bilans';
         $this->menu  = 'reports';
+    }
+
+    private function userId(): int
+    {
+        $user = session('user');
+        return (int)($user->id ?? 0);
+    }
+
+    private function isAdmin(): bool
+    {
+        $user = session('user');
+        return (int)($user->id_permission ?? 0) === 1;
     }
 
     private function currentUserFullName(): string
@@ -34,41 +47,30 @@ class Report extends BaseController
 
         $first = trim((string)($user->firstname ?? ''));
         $last  = trim((string)($user->lastname ?? ''));
+        $full  = trim($first . ' ' . $last);
 
-        $full = trim($first . ' ' . $last);
-
-        if ($full === '') {
-            $full = trim((string)($user->name ?? ''));
-        }
-        if ($full === '') {
-            $full = 'Utilisateur';
-        }
+        if ($full === '') $full = trim((string)($user->name ?? ''));
+        if ($full === '') $full = 'Utilisateur';
 
         return $full;
-    }
-
-    private function userId(): int
-    {
-        $user = session()->get('user');
-        return (int)($user->id ?? 0);
     }
 
     private function findReportWithUsersOr404(int $reportId): array
     {
         $row = $this->reports
             ->select('
-            reports.*,
+                reports.*,
 
-            reports.validated_by AS validated_by_id,
-            CONCAT(vu.firstname, " ", vu.lastname) AS validated_by,
+                reports.validated_by AS validated_by_id,
+                CONCAT(vu.firstname, " ", vu.lastname) AS validated_by,
 
-            reports.corrected_by AS corrected_by_id,
-            CONCAT(cu.firstname, " ", cu.lastname) AS corrected_by,
+                reports.corrected_by AS corrected_by_id,
+                CONCAT(cu.firstname, " ", cu.lastname) AS corrected_by,
 
-            m.id        AS file_media_id_join,
-            m.file_name AS file_name,
-            m.file_path AS file_path
-        ')
+                m.id        AS file_media_id_join,
+                m.file_name AS file_name,
+                m.file_path AS file_path
+            ')
             ->join('user vu', 'vu.id = reports.validated_by', 'left')
             ->join('user cu', 'cu.id = reports.corrected_by', 'left')
             ->join('media m', 'm.id = reports.file_media_id', 'left')
@@ -85,15 +87,29 @@ class Report extends BaseController
     private function findSectionOr404(int $reportId, int $sectionId): array
     {
         $section = $this->sections->find($sectionId);
-        if (!$section || (int)$section['report_id'] !== $reportId) {
+        if (!$section || (int)($section['report_id'] ?? 0) !== $reportId) {
             throw PageNotFoundException::forPageNotFound("Section {$sectionId} not found");
         }
         return $section;
     }
 
     /**
-     * GET admin/reports
+     * (Optionnel) Si un jour tu autorises un accès admin à des non-admin,
+     * tu peux garder cette sécurité.
+     * Avec ton group filter adminOnly, ça ne sert normalement pas.
      */
+    private function requireOwnerOrAdmin(array $report): void
+    {
+        $ownerId = (int)($report['user_id'] ?? 0);
+        if ($ownerId !== $this->userId() && !$this->isAdmin()) {
+            throw HTTPException::forbidden('Accès refusé');
+        }
+    }
+
+    // ------------------------------------------------------------
+    // REPORTS CRUD
+    // ------------------------------------------------------------
+
     public function getIndex()
     {
         return $this->view('admin/reports/index', [
@@ -103,9 +119,6 @@ class Report extends BaseController
         ], true);
     }
 
-    /**
-     * GET admin/reports/new
-     */
     public function getNew()
     {
         return $this->view('admin/reports/new', [
@@ -114,9 +127,6 @@ class Report extends BaseController
         ], true);
     }
 
-    /**
-     * POST admin/reports
-     */
     public function postCreate()
     {
         $post = $this->request->getPost();
@@ -132,19 +142,17 @@ class Report extends BaseController
         }
 
         $authorName = trim((string)($post['author_name'] ?? ''));
-        if ($authorName === '') {
-            $authorName = $this->currentUserFullName();
-        }
+        if ($authorName === '') $authorName = $this->currentUserFullName();
 
         $id = $this->reports->insert([
-            'user_id'          => $this->userId(),
-            'title'            => $post['title'],
-            'application_name' => $post['application_name'],
-            'version'          => $post['version'] ?? null,
-            'author_name'      => $authorName,
-            'status'           => 'brouillon',
-            'doc_status'       => 'work',      // si tu veux forcer une base
-            'modification_kind'=> 'creation',  // si tu veux forcer une base
+            'user_id'           => $this->userId(),
+            'title'             => $post['title'],
+            'application_name'  => $post['application_name'],
+            'version'           => $post['version'] ?? null,
+            'author_name'       => $authorName,
+            'status'            => 'brouillon',
+            'doc_status'        => 'work',
+            'modification_kind' => 'creation',
         ], true);
 
         $config = [
@@ -163,7 +171,6 @@ class Report extends BaseController
         $tpl->buildReportSkeleton((int)$id, $config);
 
         $now = date('Y-m-d H:i:s');
-
         $this->reports->update((int)$id, [
             'version_date'      => $now,
             'author_updated_at' => $now,
@@ -176,12 +183,9 @@ class Report extends BaseController
             ->with('success', 'Bilan créé avec son squelette. Vous pouvez commencer la rédaction.');
     }
 
-    /**
-     * GET admin/reports/{id}
-     */
     public function getShow(int $id)
     {
-        $report = $this->findReportWithUsersOr404($id);
+        $report       = $this->findReportWithUsersOr404($id);
         $sectionsTree = $this->sectionsService->getTreeForReport($id);
 
         $admins = model(\App\Models\UserModel::class)
@@ -199,9 +203,6 @@ class Report extends BaseController
         ], true);
     }
 
-    /**
-     * GET admin/reports/{id}/edit
-     */
     public function getEdit(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
@@ -213,47 +214,43 @@ class Report extends BaseController
         ], true);
     }
 
-    /**
-     * POST admin/reports/{id}/update
-     */
     public function postUpdate(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
         $post   = $this->request->getPost();
 
         $rules = [
-            'title'            => 'required|min_length[3]',
-            'application_name' => 'required|min_length[2]',
-            'version'          => 'permit_empty|max_length[50]',
-            'status'           => 'permit_empty|in_list[brouillon,en_relecture,final]',
-            'doc_status'       => 'permit_empty|in_list[work,approved,validated]',
-            'version_date'     => 'permit_empty', // si tu veux laisser l’admin la modifier
-            'file_media_id'    => 'permit_empty|is_natural_no_zero',
-            'modification_kind'=> 'permit_empty|in_list[creation,replace]',
-            'author_name'      => 'permit_empty|max_length[120]',
+            'title'             => 'required|min_length[3]',
+            'application_name'  => 'required|min_length[2]',
+            'version'           => 'permit_empty|max_length[50]',
+            'status'            => 'permit_empty|in_list[brouillon,en_relecture,final]',
+            'doc_status'        => 'permit_empty|in_list[work,approved,validated]',
+            'file_media_id'     => 'permit_empty|is_natural_no_zero',
+            'modification_kind' => 'permit_empty|in_list[creation,replace]',
+            'author_name'       => 'permit_empty|max_length[120]',
+            'version_date'      => 'permit_empty',
+            'comments'          => 'permit_empty|max_length[5000]',
         ];
 
-        if (! $this->validate($rules)) {
+        if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $now = date('Y-m-d H:i:s');
 
         $update = [
-            'title'            => $post['title'],
-            'application_name' => $post['application_name'],
-            'version'          => $post['version'] ?? null,
-            'status'           => $post['status'] ?? ($report['status'] ?? 'brouillon'),
-            'doc_status'       => $post['doc_status'] ?? ($report['doc_status'] ?? 'work'),
+            'title'             => $post['title'],
+            'application_name'  => $post['application_name'],
+            'version'           => $post['version'] ?? null,
+            'status'            => $post['status'] ?? ($report['status'] ?? 'brouillon'),
+            'doc_status'        => $post['doc_status'] ?? ($report['doc_status'] ?? 'work'),
             'author_name'       => isset($post['author_name']) ? trim((string)$post['author_name']) : ($report['author_name'] ?? null),
             'modification_kind' => isset($post['modification_kind']) ? (string)$post['modification_kind'] : ($report['modification_kind'] ?? null),
+            'version_date'      => !empty($post['version_date']) ? $post['version_date'] : ($report['version_date'] ?? null),
+            'comments'          => isset($post['comments']) ? trim((string)$post['comments']) : ($report['comments'] ?? null),
 
-            'version_date' => !empty($post['version_date'])
-                ? $post['version_date']
-                : ($report['version_date'] ?? null),
-
-            'corrected_by' => $this->userId(),
-            'corrected_at' => $now,
+            'corrected_by'      => $this->userId(),
+            'corrected_at'      => $now,
         ];
 
         if (array_key_exists('file_media_id', $post) && $post['file_media_id'] !== '') {
@@ -275,12 +272,41 @@ class Report extends BaseController
             ->with('success', 'Bilan mis à jour.');
     }
 
-    /**
-     * POST admin/reports/{id}/delete
-     */
-    public function postDelete(int $id)
+    public function postUpdateComments(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
+
+        $rules = [
+            'comments' => 'permit_empty|max_length[5000]',
+        ];
+
+        $data = [
+            'comments' => trim((string)$this->request->getPost('comments')),
+        ];
+
+        if (! $this->validateData($data, $rules)) {
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', $this->validator->getErrors());
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        $this->reports->update($id, [
+            'comments'     => $data['comments'] !== '' ? $data['comments'] : null,
+            'corrected_by' => $this->userId(),
+            'corrected_at' => $now,
+        ]);
+
+        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
+        $history->add($id, 'comment', $this->userId(), 'Commentaire admin', $report['version'] ?? null);
+
+        return redirect()->back()->with('success', 'Commentaire enregistré.');
+    }
+
+    public function postDelete(int $id)
+    {
+        $this->findReportWithUsersOr404($id);
 
         $this->sections->where('report_id', $id)->delete();
         $this->reports->delete($id);
@@ -289,9 +315,10 @@ class Report extends BaseController
             ->with('success', 'Bilan supprimé.');
     }
 
-    /**
-     * GET admin/reports/{id}/sections
-     */
+    // ------------------------------------------------------------
+    // SECTIONS
+    // ------------------------------------------------------------
+
     public function getSections(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
@@ -307,26 +334,23 @@ class Report extends BaseController
             'report'       => $report,
             'sectionsTree' => $tree,
             'roots'        => $tree,
-            'admins'       => $admins, // ✅
+            'admins'       => $admins,
             'errors'       => session('errors') ?? [],
             'success'      => session('success'),
         ], true);
     }
 
-    /**
-     * POST admin/reports/{id}/sections/root
-     */
     public function postSectionsRoot(int $reportId)
     {
-        $report = $this->findReportWithUsersOr404($reportId);
+        $this->findReportWithUsersOr404($reportId);
 
         $post    = $this->request->getPost();
-        $title   = trim($post['title'] ?? '');
-        $content = $post['content'] ?? '';
+        $title   = trim((string)($post['title'] ?? ''));
+        $content = (string)($post['content'] ?? '');
 
         if ($title === '') {
             return redirect()->back()->withInput()->with('errors', [
-                'title_root' => 'Le titre de la partie est obligatoire.'
+                'title_root' => 'Le titre de la partie est obligatoire.',
             ]);
         }
 
@@ -335,32 +359,26 @@ class Report extends BaseController
             'content' => $content,
         ]);
 
-        // si tu veux des codes toujours nickel même après ajout root :
         $this->sectionsService->recomputeCodes($reportId);
 
         return redirect()->to(site_url('admin/reports/' . $reportId . '/sections'))
             ->with('success', 'Partie ajoutée.');
     }
 
-    /**
-     * POST admin/reports/{id}/sections/{parentId}/child
-     */
     public function postSectionsChild(int $reportId, int $parentId)
     {
-        $report = $this->findReportWithUsersOr404($reportId);
+        $this->findReportWithUsersOr404($reportId);
+        $this->findSectionOr404($reportId, $parentId);
 
         $post    = $this->request->getPost();
-        $title   = trim($post['title'] ?? '');
-        $content = $post['content'] ?? '';
+        $title   = trim((string)($post['title'] ?? ''));
+        $content = (string)($post['content'] ?? '');
 
         if ($title === '') {
             return redirect()->back()->withInput()->with('errors', [
-                'title_child_' . $parentId => 'Le titre de la sous-partie est obligatoire.'
+                'title_child_' . $parentId => 'Le titre de la sous-partie est obligatoire.',
             ]);
         }
-
-        // Vérifie parent appartient bien à ce report
-        $this->findSectionOr404($reportId, $parentId);
 
         $this->sectionsService->createChildSection($parentId, [
             'title'   => $title,
@@ -373,12 +391,9 @@ class Report extends BaseController
             ->with('success', 'Sous-partie ajoutée.');
     }
 
-    /**
-     * GET admin/reports/{reportId}/sections/{sectionId}/edit
-     */
     public function getEditSection(int $reportId, int $sectionId)
     {
-        $report = $this->findReportWithUsersOr404($reportId);
+        $report  = $this->findReportWithUsersOr404($reportId);
         $section = $this->findSectionOr404($reportId, $sectionId);
 
         return $this->view('admin/reports/section_edit', [
@@ -389,9 +404,6 @@ class Report extends BaseController
         ], true);
     }
 
-    /**
-     * POST admin/reports/{reportId}/sections/{sectionId}/update
-     */
     public function postUpdateSection(int $reportId, int $sectionId)
     {
         $report = $this->findReportWithUsersOr404($reportId);
@@ -437,28 +449,38 @@ class Report extends BaseController
             ->with('success', 'Section mise à jour.');
     }
 
-    /**
-     * POST admin/reports/{reportId}/sections/{sectionId}/delete
-     */
-    /**
-     * POST admin/reports/{reportId}/sections/{sectionId}/delete
-     */
     public function postDeleteSection(int $reportId, int $sectionId)
     {
         $this->findReportWithUsersOr404($reportId);
         $this->findSectionOr404($reportId, $sectionId);
 
         $this->sectionsService->deleteSectionWithChildren($reportId, $sectionId);
-
         $this->sectionsService->recomputeCodes($reportId);
 
         return redirect()->to(site_url('admin/reports/' . $reportId . '/sections'))
             ->with('success', 'Section supprimée (ainsi que ses sous-sections).');
     }
 
-    /**
-     * POST admin/reports/sections/upload-image
-     */
+    public function postMoveRootUp(int $reportId, int $sectionId)
+    {
+        $this->findReportWithUsersOr404($reportId);
+
+        $this->sectionsService->moveRoot($reportId, $sectionId, -1);
+
+        return redirect()->to(site_url('admin/reports/' . $reportId . '/sections'))
+            ->with('success', 'Ordre mis à jour.');
+    }
+
+    public function postMoveRootDown(int $reportId, int $sectionId)
+    {
+        $this->findReportWithUsersOr404($reportId);
+
+        $this->sectionsService->moveRoot($reportId, $sectionId, +1);
+
+        return redirect()->to(site_url('admin/reports/' . $reportId . '/sections'))
+            ->with('success', 'Ordre mis à jour.');
+    }
+
     public function postUploadSectionImage()
     {
         $file = $this->request->getFile('image');
@@ -490,12 +512,16 @@ class Report extends BaseController
         ]);
     }
 
+    // ------------------------------------------------------------
+    // WORKFLOW
+    // ------------------------------------------------------------
+
     public function postMarkInReview(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
 
         $this->reports->update($id, [
-            'status' => 'en_relecture',
+            'status'       => 'en_relecture',
             'corrected_by' => $this->userId(),
             'corrected_at' => date('Y-m-d H:i:s'),
         ]);
@@ -503,14 +529,13 @@ class Report extends BaseController
         $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
         $history->add($id, 'in_review', $this->userId(), 'Passage en relecture', $report['version'] ?? null);
 
-        return redirect()->to(site_url('admin/reports/' . $id))
+        return redirect()->to(site_url('admin/reports/' . $id . '/sections'))
             ->with('success', 'Bilan passé en relecture.');
     }
 
-
     public function postAssignValidator(int $id)
     {
-        $report = $this->findReportWithUsersOr404($id);
+        $this->findReportWithUsersOr404($id);
 
         $validatorId = (int)$this->request->getPost('validated_by');
         if ($validatorId <= 0) {
@@ -540,9 +565,7 @@ class Report extends BaseController
 
         $now = date('Y-m-d H:i:s');
         $validatorId = (int)($report['validated_by_id'] ?? 0);
-        if ($validatorId <= 0) {
-            $validatorId = $this->userId();
-        }
+        if ($validatorId <= 0) $validatorId = $this->userId();
 
         $this->reports->update($id, [
             'status'       => 'final',

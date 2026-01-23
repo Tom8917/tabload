@@ -9,33 +9,22 @@ class UserModel extends Model
     protected $table = 'user';
     protected $primaryKey = 'id';
 
-    // Champs permis pour les opérations d'insertion et de mise à jour
     protected $allowedFields = ['firstname', 'lastname', 'email', 'password', 'id_permission', 'counter_user', 'id_api_tokens', 'created_at', 'updated_at', 'deleted_at'];
 
-    // Activer le soft delete
     protected $useSoftDeletes = true;
 
-    // Champs de gestion des dates
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
     protected $deletedField  = 'deleted_at';
 
-    // Validation
     protected $validationRules = [
-//        'username' => 'required|is_unique[user.username,id,{id}]|min_length[3]|max_length[100]',
         'email'    => 'required|valid_email|is_unique[user.email,id,{id}]',
         'password' => 'required|min_length[8]',
         'id_permission' => 'required|is_natural_no_zero',
     ];
 
     protected $validationMessages = [
-//        'username' => [
-//            'required'   => 'Le nom d\'utilisateur est requis.',
-//            'min_length' => 'Le nom d\'utilisateur doit comporter au moins 3 caractères.',
-//            'max_length' => 'Le nom d\'utilisateur ne doit pas dépasser 100 caractères.',
-//            'is_unique'   => 'Ce nom d\'utilisateur est déja utilisé.',
-//        ],
         'email' => [
             'required'   => 'L\'email est requis.',
             'valid_email' => 'L\'email doit être valide.',
@@ -51,7 +40,6 @@ class UserModel extends Model
         ],
     ];
 
-    // Callbacks pour le hachage du mot de passe
     protected $beforeInsert = ['hashPassword'];
     protected $beforeUpdate = ['hashPassword'];
 
@@ -64,8 +52,6 @@ class UserModel extends Model
         return $data;
     }
 
-
-    // Relations avec les permissions
     public function getPermissions()
     {
         return $this->join('user_permission', 'user.id_permission = user_permission.id')
@@ -113,17 +99,16 @@ class UserModel extends Model
         return $builder->get()->getResultArray();
     }
 
-//actif
     public function activateUser($id) {
         $builder = $this->builder();
-        $builder->set('deleted_at', NULL); // Efface la valeur de soft delete
+        $builder->set('deleted_at', NULL);
         $builder->where('id', $id);
         return $builder->update();
     }
 
     public function deactivateUser($id) {
         $builder = $this->builder();
-        $builder->set('deleted_at', date('Y-m-d H:i:s')); // Met à jour le champ `deleted_at` avec la date/heure actuelle
+        $builder->set('deleted_at', date('Y-m-d H:i:s'));
         $builder->where('id', $id);
         return $builder->update();
     }
@@ -132,22 +117,18 @@ class UserModel extends Model
     public function deleteUser($id) {
         return $this->builder()
             ->where('id', $id)
-            ->delete(); // Suppression définitive
+            ->delete();
     }
 
 
     public function verifyLogin($email, $password)
     {
-        // Rechercher l'utilisateur par email
         $user = $this->withDeleted()->where('email', $email)->first();
 
-        // Si l'utilisateur existe, vérifier le mot de passe
         if ($user && password_verify($password, $user['password'])) {
-            // Le mot de passe est correct, retourner les informations de l'utilisateur
             return $user;
         }
 
-        // Si l'utilisateur n'existe pas ou si le mot de passe est incorrect, retourner false
         return false;
     }
 
@@ -158,14 +139,12 @@ class UserModel extends Model
         $builder->join('media', 'user.id = media.entity_id AND media.entity_type = "user"', 'left');
         $builder->select('user.*, user_permission.name as permission_name, media.file_path as avatar_url');
 
-        // Recherche
         if ($searchValue != null) {
             $builder->like('firstname', $searchValue);
             $builder->orLike('email', $searchValue);
             $builder->orLike('user_permission.name', $searchValue);
         }
 
-        // Tri
         if ($orderColumnName && $orderDirection) {
             $builder->orderBy($orderColumnName, $orderDirection);
         }
@@ -184,22 +163,18 @@ class UserModel extends Model
     {
         $builder = $this->builder();
 
-        // Ajout des jointures pour récupérer les données des autres tables
         $builder->join('user_permission', 'user.id_permission = user_permission.id', 'left');
         $builder->join('media', 'user.id = media.entity_id AND media.entity_type = "user"', 'left');
         $builder->join('user_blacklist', 'user.id = user_blacklist.id_user', 'left');
         $builder->select('user.*, user_permission.name as permission_name, media.file_path as avatar_url');
 
-        // @phpstan-ignore-next-line
         if (! empty($searchValue)) {
-            // Recherche sur plusieurs colonnes
             $builder->like('firstname', $searchValue);
             $builder->orLike('lastname', $searchValue);
             $builder->orLike('email', $searchValue);
             $builder->orLike('user_permission.name', $searchValue);
         }
 
-        // Retourne le nombre d'enregistrements filtrés
         return $builder->countAllResults();
     }
 

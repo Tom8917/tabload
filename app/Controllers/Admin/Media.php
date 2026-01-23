@@ -26,10 +26,6 @@ class Media extends BaseController
         $this->menu  = 'media';
     }
 
-    // ------------------------------------------------------------
-    // Explorer
-    // ------------------------------------------------------------
-
     public function getIndex()
     {
         return $this->renderExplorer(null);
@@ -43,8 +39,8 @@ class Media extends BaseController
     private function renderExplorer(?int $folderId)
     {
         $picker = (bool) $this->request->getGet('picker');
-        $filter = (string) ($this->request->getGet('type') ?? 'all');        // all|image|document
-        $sort   = (string) ($this->request->getGet('sort') ?? 'date_desc');  // date_desc...
+        $filter = (string) ($this->request->getGet('type') ?? 'all');
+        $sort   = (string) ($this->request->getGet('sort') ?? 'date_desc');
 
         $currentFolder = null;
         if ($folderId !== null) {
@@ -114,10 +110,6 @@ class Media extends BaseController
         return $this->view('admin/media/index', $data, true);
     }
 
-    /**
-     * Conserve les query params courants et applique des overrides.
-     * - si valeur null => supprime la clé.
-     */
     private function buildQueryKeep(array $override = []): string
     {
         $qs = [];
@@ -155,10 +147,6 @@ class Media extends BaseController
         return array_merge($trail, $stack);
     }
 
-    // ------------------------------------------------------------
-    // Folders
-    // ------------------------------------------------------------
-
     public function postCreateFolder()
     {
         $name = trim((string) $this->request->getPost('name'));
@@ -180,7 +168,6 @@ class Media extends BaseController
             'sort_order' => 0,
         ]);
 
-        // reste dans le dossier courant
         $redirectUrl = $parentId ? site_url('admin/media/folder/' . $parentId) : site_url('admin/media');
         return redirect()->to($redirectUrl . $this->buildQueryKeep())->with('message', 'Dossier créé.');
     }
@@ -225,10 +212,6 @@ class Media extends BaseController
         ]);
     }
 
-    // ------------------------------------------------------------
-    // Files
-    // ------------------------------------------------------------
-
     public function postDelete(int $id)
     {
         $row = $this->mediaModel->getById($id);
@@ -251,8 +234,15 @@ class Media extends BaseController
         $ok = 0;
         $errors = [];
 
-        if (isset($uploaded['files'])) {
-            foreach ($uploaded['files'] as $file) {
+        // ✅ IMPORTANT : getFiles() peut renvoyer UploadedFile direct ou array
+        $files = $uploaded['files'] ?? null;
+
+        if ($files instanceof \CodeIgniter\HTTP\Files\UploadedFile) {
+            $files = [$files];
+        }
+
+        if (is_array($files)) {
+            foreach ($files as $file) {
                 $res = $this->storeOne($file);
                 if ($res === true) $ok++;
                 else $errors[] = $res;
@@ -263,12 +253,21 @@ class Media extends BaseController
             $errors[] = "Aucun fichier reçu (vérifie post_max_size/upload_max_filesize).";
         }
 
+        // ✅ AJAX => JSON (pour ton picker)
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'ok'     => $ok,
+                'errors' => $errors,
+            ]);
+        }
+
+        // sinon comportement normal (redirect)
         $folderIdRaw = $this->request->getPost('folder_id');
         $folderId    = is_numeric($folderIdRaw) ? (int)$folderIdRaw : null;
 
-        $redirectUrl = $folderId ? site_url('admin/media/folder/' . $folderId) : site_url('admin/media');
+        $redirectUrl = $folderId ? site_url(($this->router->controllerName() === 'Media' ? 'media' : 'admin/media') . '/folder/' . $folderId)
+            : site_url(($this->router->controllerName() === 'Media' ? 'media' : 'admin/media'));
 
-        // conserve picker/type/sort si présent
         $redirectUrl .= $this->buildQueryKeep();
 
         if ($ok > 0) {
@@ -353,14 +352,6 @@ class Media extends BaseController
         return redirect()->back()->with('message', 'Fichier copié.');
     }
 
-    // ------------------------------------------------------------
-    // Upload helpers
-    // ------------------------------------------------------------
-
-    /**
-     * @param \CodeIgniter\HTTP\Files\UploadedFile|null $file
-     * @return true|string
-     */
     protected function storeOne($file)
     {
         if (!$file) return "Aucun fichier.";
@@ -375,13 +366,11 @@ class Media extends BaseController
         $realMime   = strtolower((string) $file->getMimeType());
 
         $allowedMimes = [
-            // images
             'image/jpeg' => 'jpg',
             'image/png'  => 'png',
             'image/webp' => 'webp',
             'image/gif'  => 'gif',
 
-            // docs
             'application/pdf' => 'pdf',
             'application/msword' => 'doc',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',

@@ -9,7 +9,7 @@ class User extends BaseController
     protected $requiredPermissions = ['administrateur', 'collaborateur'];
 //    protected $breadcrumb =  [['text' => 'Tableau de Bord','url' => '/admin/dashboard'],['text'=> 'Gestion des utilisateurs', 'url' => '/admin/user']];
 
-    public function getindex($id = null)
+    public function getIndex($id = null)
     {
         $um = Model("UserModel");
         $bm = Model("BlacklistModel");
@@ -40,7 +40,8 @@ class User extends BaseController
 
         $utilisateur = $um->getUserById($id);
         if ($utilisateur) {
-            // Récupérer le token utilisateur
+
+            // Récupérer le token
             $tokenData = $atm->where('id_user', $id)->first();
             $utilisateur['id_api_tokens'] = $tokenData['token'] ?? '';
 
@@ -56,9 +57,10 @@ class User extends BaseController
         }
     }
 
-    public function postupdate()
+    public function postUpdate()
     {
         $data = $this->request->getPost();
+        unset($data['csrf_test_name']);
         $um = Model("UserModel");
 
         $file = $this->request->getFile('profile_image');
@@ -94,7 +96,7 @@ class User extends BaseController
         return $this->redirect("/admin/user");
     }
 
-    public function getblacklist($id)
+    public function getBlacklist($id)
     {
         $bm = Model("BlacklistModel");
 
@@ -110,7 +112,7 @@ class User extends BaseController
         return $this->redirect("/admin/user");
     }
 
-    public function getremoveblacklist($id)
+    public function getRemoveBlacklist($id)
     {
         $bm = Model("BlacklistModel");
 
@@ -127,7 +129,7 @@ class User extends BaseController
     }
 
 
-    public function postcreate()
+    public function postCreate()
     {
         $data = $this->request->getPost();
         $um = model("UserModel");
@@ -164,7 +166,7 @@ class User extends BaseController
     }
 
 
-    public function getdelete($id){
+    public function getDelete($id){
         $um = Model('UserModel');
         if ($id == 1) {
             $this->error("L'utilisateur admin ne peut pas être supprimé.");
@@ -178,8 +180,7 @@ class User extends BaseController
         $this->redirect('/admin/user');
     }
 
-    // Activer / désactiver utilisateur
-    public function getdeactivate($id){
+    public function getDeactivate($id){
         $um = Model('UserModel');
         if ($id == 1) {
             $this->error("L'utilisateur admin ne peut pas être supprimé.");
@@ -193,7 +194,7 @@ class User extends BaseController
         $this->redirect('/admin/user');
     }
 
-    public function getactivate($id){
+    public function getActivate($id){
         $um = Model('UserModel');
         if ($um->activateUser($id)) {
             $this->success("Utilisateur activé");
@@ -203,7 +204,7 @@ class User extends BaseController
         $this->redirect('/admin/user');
     }
 
-    public function getdeactivate2($id){
+    public function getDeactivate2($id){
         $um = Model('UserModel');
         if ($id == 1) {
             $this->error("L'utilisateur admin ne peut pas être supprimé.");
@@ -217,7 +218,7 @@ class User extends BaseController
         $this->redirect('/admin/user');
     }
 
-    public function getactivate2($id){
+    public function getActivate2($id){
         $um = Model('UserModel');
         if ($um->activateUser($id)) {
             $this->success("Utilisateur banni");
@@ -236,24 +237,19 @@ class User extends BaseController
     {
         $UserModel = model('App\Models\UserModel');
 
-        // Paramètres de pagination et de recherche envoyés par DataTables
         $draw        = $this->request->getPost('draw');
         $start       = $this->request->getPost('start');
         $length      = $this->request->getPost('length');
         $searchValue = $this->request->getPost('search')['value'];
 
-        // Obtenez les informations sur le tri envoyées par DataTables
         $orderColumnIndex = $this->request->getPost('order')[0]['column'] ?? 0;
         $orderDirection = $this->request->getPost('order')[0]['dir'] ?? 'asc';
         $orderColumnName = $this->request->getPost('columns')[$orderColumnIndex]['data'] ?? 'id';
 
-        // Obtenez les données triées et filtrées
         $data = $UserModel->getPaginatedUser($start, $length, $searchValue, $orderColumnName, $orderDirection);
 
-        // Obtenez le nombre total de lignes sans filtre
         $totalRecords = $UserModel->getTotalUser();
 
-        // Obtenez le nombre total de lignes filtrées pour la recherche
         $filteredRecords = $UserModel->getFilteredUser($searchValue);
 
         $result = [

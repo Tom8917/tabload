@@ -18,7 +18,7 @@ class Userpermission extends BaseController
         ], true);
     }
 
-    public function postupdate() {
+    public function postUpdate() {
         $data = $this->request->getPost();
         $upm = Model("/UserPermissionModel");
         if ($upm->updatePermission($data['id'], $data)) {
@@ -29,7 +29,7 @@ class Userpermission extends BaseController
         $this->redirect("/admin/userpermission");
     }
 
-    public function postcreate() {
+    public function postCreate() {
         $data = $this->request->getPost();
         $upm = Model("UserPermissionModel");
         if ($upm->createPermission($data)) {
@@ -44,7 +44,7 @@ class Userpermission extends BaseController
         }
     }
 
-    public function getdelete($id){
+    public function getDelete($id){
         $upm = Model('UserPermissionModel');
         if ($upm->deletePermission($id)) {
             $this->success("Rôle supprimé");
@@ -58,24 +58,19 @@ class Userpermission extends BaseController
     {
         $UserModel = model('App\Models\UserPermissionModel');
 
-        // Paramètres de pagination et de recherche envoyés par DataTables
         $draw        = $this->request->getPost('draw');
         $start       = $this->request->getPost('start');
         $length      = $this->request->getPost('length');
         $searchValue = $this->request->getPost('search')['value'];
 
-        // Obtenez les informations sur le tri envoyées par DataTables
         $orderColumnIndex = $this->request->getPost('order')[0]['column'];
         $orderDirection = $this->request->getPost('order')[0]['dir'];
         $orderColumnName = $this->request->getPost('columns')[$orderColumnIndex]['data'];
 
-        // Obtenez les données triées et filtrées
         $data = $UserModel->getPaginatedPermission($start, $length, $searchValue, $orderColumnName, $orderDirection);
 
-        // Obtenez le nombre total de lignes sans filtre
         $totalRecords = $UserModel->getTotalPermission();
 
-        // Obtenez le nombre total de lignes filtrées pour la recherche
         $filteredRecords = $UserModel->getFilteredPermission($searchValue);
 
         $result = [
