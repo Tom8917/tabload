@@ -87,6 +87,10 @@ class TableReports extends Migration
                 'type' => 'DATETIME',
                 'null' => true,
             ],
+            'comments' => [
+                'type' => 'TEXT',
+                'null' => true,
+            ],
             'created_at' => [
                 'type' => 'DATETIME',
                 'null' => true,

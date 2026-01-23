@@ -1,4 +1,3 @@
-<!-- Carte des utilisateurs -->
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h4>Liste des utilisateurs</h4>
@@ -52,7 +51,6 @@
     </div>
 </div>
 
-<!-- Script -->
 <script>
     $(document).ready(function () {
         var baseUrl = "<?= base_url(); ?>";
@@ -125,7 +123,6 @@
         });
     });
 
-    // JavaScript + PHP : Intégration complète pour modifier la limite de requêtes API et mettre à jour le 'counter' dans la table api_token
 
     document.addEventListener('DOMContentLoaded', function () {
         const button = document.getElementById('btnsetAllRequestLimits');

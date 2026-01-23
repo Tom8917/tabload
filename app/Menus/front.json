@@ -22,21 +22,7 @@
     "title": "Évènements",
     "url": "/events",
     "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
-    "class": "main-menu-accueil"
-  },
-  "cours": {
-    "title": "Cours",
-    "url": "/cours",
-    "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
-    "class": "main-menu-accueil"
-  },
-  "pages": {
-    "title": "RP",
-    "url": "/pages",
-    "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
+    "icon": "<i class=\"nav-icon fa-solid fa-calendar\"></i>",
     "class": "main-menu-accueil"
   },
   "media": {

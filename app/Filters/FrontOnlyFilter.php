@@ -12,13 +12,10 @@ class FrontOnlyFilter implements FilterInterface
     {
         $user = session()->get('user');
 
-        // Si ton filter "auth" est déjà là, ce cas arrivera rarement,
-        // mais on sécurise quand même.
         if (!$user) {
             return redirect()->to('/login');
         }
 
-        // Admin => interdit en front
         if ((int)($user->id_permission ?? 0) === 1) {
             return redirect()->to('/admin')->with('error', "Section réservée aux utilisateurs (non-admin).");
         }

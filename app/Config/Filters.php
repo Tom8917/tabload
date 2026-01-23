@@ -35,7 +35,6 @@ class Filters extends BaseFilters
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
         'auth'  => \App\Filters\AuthFilter::class,
-        'admin' => \App\Filters\AdminFilter::class,
         'adminOnly' => \App\Filters\AdminOnlyFilter::class,
         'frontOnly' => \App\Filters\FrontOnlyFilter::class,
     ];
@@ -73,12 +72,7 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
-            'csrf' => [
-                'except' => [
-                    'media/upload',
-                    'admin/media/upload',
-                ],
-            ],
+            //
         ],
         'after' => [
             // 'honeypot',

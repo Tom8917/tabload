@@ -34,6 +34,8 @@ if (!empty($newFiles) && isset($newFiles[0]) && array_key_exists('url', $newFile
 // Base url
 $baseUrl = rtrim(base_url(), '/');
 
+$uploadUrl = $uploadUrl ?? site_url('media/upload');
+
 function isImageRowPicker(array $f): bool {
     // legacy: url/name
     if (isset($f['url'])) {
@@ -71,6 +73,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
     <title>Médiathèque — Sélection</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
     <style>
         .media-toolbar{
@@ -160,12 +163,13 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <?php if (!$isLegacy): ?>
                 <a class="chip <?= $filter==='all'?'active':'' ?>" href="<?= esc(currentNavUrlPicker($currentFolderId,'all',$sort)) ?>">Tous</a>
-                <a class="chip <?= $filter==='image'?'active':'' ?>" href="<?= esc(currentNavUrlPicker($currentFolderId,'image',$sort)) ?>">Images</a>
-                <a class="chip <?= $filter==='document'?'active':'' ?>" href="<?= esc(currentNavUrlPicker($currentFolderId,'document',$sort)) ?>">Documents</a>
+                <a class="chip <?= $filter==='image'?'active':'' ?>" href="<?= esc(currentNavUrlPicker($currentFolderId,'image',$sort)) ?>"><i class="fa-solid fa-image"></i> Images</a>
+                <a class="chip <?= $filter==='document'?'active':'' ?>" href="<?= esc(currentNavUrlPicker($currentFolderId,'document',$sort)) ?>"><i class="fa-solid fa-file"></i> Documents</a>
                 <div class="vr mx-2 d-none d-md-block"></div>
             <?php endif; ?>
 
             <div class="input-group" style="max-width: 340px;">
+                <span class="input-group-text border-0" style="border-radius: 999px 0 0 999px;"><i class="fa-solid fa-magnifying-glass"></i></span>
                 <input id="searchInput" type="text" class="form-control border-0"
                        style="border-radius: 999px 999px;"
                        placeholder="Rechercher un nom…">
@@ -195,7 +199,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                 <div class="text-muted small mb-2">ou clique pour sélectionner — 4 Mo max / fichier</div>
 
                 <input id="fileInput" type="file" class="d-none" multiple accept=".jpg,.jpeg,.png,.webp,.gif">
-                <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">Choisir des images</button>
+                <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">Choisir des fichiers</button>
             </div>
 
             <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
@@ -242,17 +246,8 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                                             . '&type=' . esc($filter, 'url')
                                             . '&sort=' . esc($sort, 'url');
                                         ?>
-                                        <a class="text-decoration-none" href="<?= esc($folderUrl) ?>">
-                                            <?= esc($d['name']) ?>
-                                        </a>
                                     </div>
                                 </div>
-                                <?php
-                                $folderUrl = site_url('media/folder/'.$d['id'])
-                                    . '?picker=1&pick=' . esc($pick, 'url')
-                                    . '&type=' . esc($filter, 'url')
-                                    . '&sort=' . esc($sort, 'url');
-                                ?>
                                 <a class="text-decoration-none" href="<?= esc($folderUrl) ?>">
                                     <?= esc($d['name']) ?>
                                 </a>
@@ -299,22 +294,37 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                         <?php endif; ?>
 
                         <div class="p-3">
-                            <div class="fw-semibold ellipsis" title="<?= esc($name) ?>"><?= esc($name) ?></div>
+                            <div class="fw-semibold ellipsis" title="<?= esc($name) ?>">
+                                <?php if (!$isImg): ?>
+                                    <i class="fa-solid fa-arrow-up-right-from-square ms-1 small text-muted"></i>
+                                    <a href="<?= esc($url) ?>"
+                                       target="_blank"
+                                       rel="noopener"
+                                       class="text-decoration-none">
+                                        <?= esc($name) ?>
+                                    </a>
+                                <?php else: ?>
+                                    <?= esc($name) ?>
+                                <?php endif; ?>
+                            </div>
                             <div class="d-flex gap-2 mt-3">
                                 <?php if (!$isFilePicker): ?>
-                                    <!-- Mode image (comportement actuel) -->
                                     <?php if ($isImg): ?>
-                                        <button type="button" class="btn btn-success btn-sm rounded-pill flex-grow-1"
+                                        <button type="button"
+                                                class="btn btn-success btn-sm rounded-pill flex-grow-1"
                                                 onclick="selectImage('<?= esc($url) ?>','<?= esc($name) ?>')">
                                             Utiliser
                                         </button>
                                     <?php else: ?>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill flex-grow-1" disabled>
-                                            Non sélectionnable
+                                        <button type="button"
+                                                class="btn btn-primary btn-sm rounded-pill flex-grow-1"
+                                                onclick="selectFile(<?= (int)($f['id'] ?? 0) ?>,'<?= esc($name, 'attr') ?>','<?= esc(($f['file_path'] ?? ''), 'attr') ?>','<?= esc($url, 'attr') ?>')">
+                                            Utiliser
                                         </button>
                                     <?php endif; ?>
                                 <?php else: ?>
-                                    <button type="button" class="btn btn-primary btn-sm rounded-pill flex-grow-1"
+                                    <button type="button"
+                                            class="btn btn-primary btn-sm rounded-pill flex-grow-1"
                                             onclick="selectFile(<?= (int)($f['id'] ?? 0) ?>,'<?= esc($name, 'attr') ?>','<?= esc(($f['file_path'] ?? ''), 'attr') ?>','<?= esc($url, 'attr') ?>')">
                                         Choisir
                                     </button>
@@ -465,7 +475,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
 
             let queue = [];
             const maxSize = 4 * 1024 * 1024;
-            const allowedExt = ['jpg','jpeg','png','webp','gif'];
+            const allowedExt = ['jpg','jpeg','png','webp','gif','pdf','doc','docx','csv','xls','xlsx'];
 
             const currentFolderId = "<?= esc((string)$currentFolderId) ?>";
 
@@ -546,13 +556,19 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                 if (progressBar) progressBar.style.width = '0%';
 
                 const form = new FormData();
-                queue.forEach(f => form.append('files[]', f, f.name));
+                queue.forEach(f => form.append('files', f, f.name));
                 form.append('folder_id', currentFolderId);
 
+                form.append("<?= csrf_token() ?>", "<?= csrf_hash() ?>");
+
                 try {
-                    await new Promise((resolve, reject) => {
+                    const responseText = await new Promise((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
-                        xhr.open('POST', "<?= esc($uploadUrl, 'attr') ?>", true);
+                        const UPLOAD_URL = <?= json_encode($uploadUrl) ?>;
+                        xhr.open('POST', UPLOAD_URL, true);
+
+                        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                        xhr.setRequestHeader('Accept', 'application/json');
 
                         xhr.upload.onprogress = (evt) => {
                             if (evt.lengthComputable && progressBar) {
@@ -561,10 +577,24 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                             }
                         };
 
-                        xhr.onload = () => (xhr.status >= 200 && xhr.status < 400) ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) return resolve(xhr.responseText);
+                            reject(new Error('HTTP ' + xhr.status + ' - ' + (xhr.responseText || '')));
+                        };
                         xhr.onerror = () => reject(new Error('Network error'));
+
                         xhr.send(form);
                     });
+
+// maintenant responseText existe ✅
+                    let res = {};
+                    try { res = JSON.parse(responseText || '{}'); } catch(e) {}
+
+                    if (!res.ok || res.ok <= 0) {
+                        const msg = (res.errors && res.errors.length) ? res.errors.join('<br>') : 'Upload KO';
+                        if (resultBox) resultBox.innerHTML = `<div class="text-danger">${msg}</div>`;
+                        throw new Error('Upload KO');
+                    }
 
                     if (resultBox) resultBox.innerHTML = `<div class="text-success">Upload terminé. Actualisation…</div>`;
                     queue = [];

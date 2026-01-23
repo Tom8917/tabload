@@ -1,188 +1,241 @@
 <!DOCTYPE html>
-<html lang="fr-FR">
+<html lang="fr-FR" data-coreui-theme="auto">
 <head>
     <base href="<?= base_url('./') ?>">
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="">
-    <meta name="keyword" content="">
-    <!--    <title>--><?php //= $page_title ?><!--</title>-->
-    <link rel="apple-touch-icon" sizes="57x57" href="<?= base_url('/assets/favicon/apple-icon-57x57.png') ?>">
-    <link rel="apple-touch-icon" sizes="60x60" href="<?= base_url('/assets/favicon/apple-icon-60x60.png') ?>">
-    <link rel="apple-touch-icon" sizes="72x72" href="<?= base_url('/assets/favicon/apple-icon-72x72.png') ?>">
-    <link rel="apple-touch-icon" sizes="76x76" href="<?= base_url('/assets/favicon/apple-icon-76x76.png') ?>">
-    <link rel="apple-touch-icon" sizes="114x114" href="<?= base_url('/assets/favicon/apple-icon-114x114.png') ?>">
-    <link rel="apple-touch-icon" sizes="120x120" href="<?= base_url('/assets/favicon/apple-icon-120x120.png') ?>">
-    <link rel="apple-touch-icon" sizes="144x144" href="<?= base_url('/assets/favicon/apple-icon-144x144.png') ?>">
-    <link rel="apple-touch-icon" sizes="152x152" href="<?= base_url('/assets/favicon/apple-icon-152x152.png') ?>">
-    <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url('/assets/favicon/apple-icon-180x180.png') ?>">
-    <link rel="icon" type="image/png" sizes="192x192"
-          href="<?= base_url('/assets/favicon/android-icon-192x192.png') ?>">
-    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('/assets/favicon/favicon-32x32.png') ?>">
-    <link rel="icon" type="image/png" sizes="96x96" href="<?= base_url('/assets/favicon/favicon-96x96.png') ?>">
-    <link rel="icon" type="image/png" sizes="16x16" href="<?= base_url('/assets/favicon/favicon-16x16.png') ?>">
-    <link rel="manifest" href="<?= base_url('/assets/favicon/manifest.json') ?>">
-    <meta name="msapplication-TileColor" content="#ffffff">
-    <meta name="msapplication-TileImage" content="/assets/favicon/ms-icon-144x144.png">
-    <meta name="theme-color" content="#ffffff">
-    <!-- CSS-->
+
+    <!-- Bootstrap/CoreUI & Vendor CSS habituels -->
     <link rel="stylesheet" href="<?= base_url('/vendors/simplebar/css/simplebar.css') ?>">
     <link rel="stylesheet" href="<?= base_url('/css/vendors/simplebar.css') ?>">
     <link href="<?= base_url('/css/style.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('/vendors/@coreui/chartjs/css/coreui-chartjs.css') ?>" rel="stylesheet">
     <link rel="stylesheet" href="<?= base_url('/css/toastr.min.css') ?>">
 
-
-    <!-- Javascript -->
-    <script src="<?= base_url('/js/jquery-3.7.1.min.js') ?>"></script>
-    <script src="<?= base_url('/js/config.js') ?>"></script>
-    <script src="<?= base_url('/js/color-modes.js') ?>"></script>
-    <script src="<?= base_url('/vendors/@coreui/coreui/js/coreui.bundle.min.js') ?>"></script>
-    <script src="<?= base_url('/vendors/simplebar/js/simplebar.min.js') ?>"></script>
-    <script src="<?= base_url('/vendors/@coreui/utils/js/index.js') ?>"></script>
-    <script src="<?= base_url('/js/main.js') ?>"></script>
-    <script src="<?= base_url('/js/toastr.min.js') ?>"></script>
-    <script>
-        const header = document.querySelector('header.header');
-
-        document.addEventListener('scroll', () => {
-            if (header) {
-                header.classList.toggle('shadow-sm', document.documentElement.scrollTop > 0);
-            }
-        });
-    </script>
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-          integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
-          crossorigin="anonymous" referrerpolicy="no-referrer"/>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"
-            integrity="sha512-GWzVrcGlo0TxTRvz9ttioyYJ+Wwk9Ck0G81D+eO63BaqHaJ3YZX9wuqjwgfcV/MrB2PhaVX9DkYVhbFpStnqpQ=="
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <!-- Datatable -->
-    <link href="https://cdn.datatables.net/v/bs5/jq-3.7.0/dt-2.0.0/b-3.0.0/b-html5-3.0.0/fh-4.0.0/sp-2.3.0/datatables.min.css"
-          rel="stylesheet">
-    <script src="https://cdn.datatables.net/v/bs5/jq-3.7.0/dt-2.0.0/b-3.0.0/b-html5-3.0.0/fh-4.0.0/sp-2.3.0/datatables.min.js"></script>
-
+    <!-- Fallback Violet Premium (supprime si déjà défini globalement) -->
     <style>
-        body {
-            background: radial-gradient(circle at top, #1f1f1f, #0a0a0a);
+        :root{
+            /* Palette (blue) */
+            --violet-950:#0c1420;   /* quasi noir / profondeur */
+            --violet-900:#121f30;   /* très sombre (fond principal) */
+            --violet-800:#16304a;   /* sombre */
+            --violet-700:#1A365D;   /* Couleur 1 : bleu foncé principal (titres, contours) */
+            --violet-600:#105298;   /* Couleur 2 : bleu accent (brand, boutons) */
+            --violet-500:#2b6fb5;   /* hover / variante un peu plus claire */
+            --violet-400:#4a8fd0;   /* clair */
+            --violet-300:#7bb0e4;   /* très clair / surfaces */
+            --violet-200:#c6ddf6;   /* chips / fonds pâles */
+
+            /* Jaune secondaire (accents secondaires uniquement) */
+            --yellow:#d7fa00;
+
+            /* Lignes / bordures (bleu/gris neutre dérivé) */
+            --line-500:#9bb5d9;
+            --line-300:#d5e3f5;
+
+            /* Tokens */
+            --r-sm:10px;
+            --r-md:14px;
+            --r-lg:18px;
+            --shadow-1:0 6px 18px rgba(0,0,0,.10);
+            --shadow-2:0 10px 28px rgba(0,0,0,.16);
+        }
+
+        /* ===== Fond selon thème ===== */
+        [data-coreui-theme="light"] body.login-page {
+            background: radial-gradient(1200px 600px at 20% -10%, #fff 0%, #ffffff 35%, var(--violet-200) 100%);
+            background-color: var(--violet-200);
+            color: inherit;
+        }
+
+        [data-coreui-theme="dark"] body.login-page {
+            background: radial-gradient(1100px 600px at 80% -20%, var(--violet-900) 0%, var(--violet-900) 45%, var(--violet-700) 100%);
+            background-color: var(--violet-900);
+            color: inherit;
+        }
+
+        /* ===== Carte (transparente + encadré dégradé) ===== */
+        .login-card.panel-border-grad {
+            padding: 1px;
+            border-radius: var(--r-lg);
+            background: linear-gradient(135deg, var(--violet-600), var(--violet-500));
+            box-shadow: var(--shadow-2);
+            max-width: 520px; /* un peu plus large pour 2 colonnes */
+            width: 100%;
+        }
+        .login-card .inner {
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(6px);
+            border-radius: calc(var(--r-lg) - 1px);
+            padding: 24px 22px;
+        }
+        [data-coreui-theme="dark"] .login-card .inner {
+            background: rgba(29, 14, 47, 0.35);
+            backdrop-filter: blur(6px);
+            color: inherit;
+        }
+
+        /* ===== Titres ===== */
+        .login-title {
+            text-align: center;
+            margin: 8px 0 2px;
+            font-weight: 700;
+        }
+        .login-sub {
+            text-align: center;
+            margin-bottom: 18px;
+            opacity: .8;
+        }
+
+        /* ===== Inputs & boutons ===== */
+        .form-control {
+            border-radius: 12px;
+            border: 1px solid var(--line-500);
+            background: rgba(255, 255, 255, .85);
+        }
+        [data-coreui-theme="dark"] .form-control {
+            background: rgba(29, 14, 47, .35);
+            color: inherit;
+            border-color: color-mix(in oklab, var(--line-500) 70%, transparent);
+        }
+        .form-control:focus {
+            border-color: var(--violet-600);
+            box-shadow: 0 0 0 .2rem color-mix(in oklab, var(--violet-400) 28%, white);
+        }
+
+        .btn-primary {
+            background-color: var(--violet-600);
+            border-color: color-mix(in oklab, var(--violet-600) 65%, black);
+            color: #fff;
+            border-radius: 12px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.20), var(--shadow-1);
+        }
+        .btn-primary:hover {
+            background-color: var(--violet-500);
+            border-color: color-mix(in oklab, var(--violet-500) 65%, black);
+            filter: brightness(1.02);
+        }
+        .btn-primary:focus {
+            box-shadow: var(--shadow-1), 0 0 0 .2rem color-mix(in oklab, var(--violet-400) 25%, white);
+        }
+
+        a, a:visited {
+            color: inherit;
+            text-decoration: none;
+        }
+        a:hover, a:focus {
+            color: var(--violet-600);
+            text-decoration: underline;
+        }
+        a:active {
+            color: var(--violet-500);
+        }
+        .link-violet {
+            text-decoration: none;
+            box-shadow: inset 0 -2px 0 0 var(--violet-600);
+            transition: box-shadow .2s ease, color .2s ease;
+        }
+        .link-violet:hover {
+            box-shadow: inset 0 -3px 0 0 var(--violet-500);
+            color: var(--violet-600);
+        }
+
+        /* Layout centré */
+        .login-wrap {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: 'Segoe UI', sans-serif;
-            color: #fff;
-            overflow: hidden;
-        }
-
-        .vape-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 2rem;
-            max-width: 500px;
-            width: 100%;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
-        }
-
-        h1.neon-text {
-            text-align: center;
-            font-size: 2rem;
-            color: #00ffff;
-            text-shadow: 0 0 5px #00ffff;
-        }
-
-        .form-control, .form-select {
-            background-color: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: #fff;
-        }
-
-        .form-control::placeholder {
-            color: #bbb;
-        }
-
-        .btn-vape {
-            background: linear-gradient(135deg, #00ffff, #6f00ff);
-            border: none;
-            color: #fff;
-            font-weight: bold;
-            width: 100%;
-            border-radius: 12px;
-            transition: 0.3s ease;
-        }
-
-        .btn-vape:hover {
-            background: linear-gradient(135deg, #6f00ff, #00ffff);
-        }
-
-        .btn-outline-light {
-            border-color: #aaa;
-            color: #aaa;
-        }
-
-        .alert {
-            background-color: rgba(255, 0, 0, 0.2);
-            border: 1px solid red;
-            color: white;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #ccc;
-            margin-bottom: 1.5rem;
+            padding: 24px;
         }
     </style>
 </head>
-<body>
-<div class="vape-card">
-    <h1 class="neon-text">Créer un compte</h1>
-    <p class="subtitle">Rejoignez tabload</p>
 
-    <?php if (isset($errors)) : ?>
-        <div class="mb-3">
-            <?php foreach ($errors as $error) : ?>
-                <div class="alert alert-danger text-center"><?= esc($error) ?></div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
+<body class="login-page">
+<div class="login-wrap">
+    <div class="login-card panel-border-grad">
+        <div class="inner">
+            <h1 class="login-title">TABLOAD</h1>
+            <h2 class="login-title">Créer un compte</h2>
+            <p class="login-sub"></p>
 
-    <form action="<?= base_url('/login/register'); ?>" method="POST">
-        <div class="mb-3">
-            <div class="input-group">
-                <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
-                <input class="form-control" type="text" name="firstname" placeholder="Prénom" required>
+            <?php if (!empty($errors)) : ?>
+                <div class="alert alert-danger py-2 mb-3" role="alert">
+                    <?php if (is_array($errors)) : ?>
+                        <ul class="mb-0 ps-3">
+                            <?php foreach ($errors as $err) : ?>
+                                <li><?= esc($err) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else : ?>
+                        <?= esc((string)$errors) ?>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
+            <form action="<?= base_url('/login/register'); ?>" method="POST" novalidate>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="firstname">Prénom</label>
+                        <input id="firstname" type="text" name="firstname" class="form-control"
+                               value="<?= esc(old('firstname')) ?>" placeholder="Prénom" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="lastname">Nom</label>
+                        <input id="lastname" type="text" name="lastname" class="form-control"
+                               value="<?= esc(old('lastname')) ?>" placeholder="Nom" required>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <label class="form-label" for="email">Adresse e-mail</label>
+                    <input id="email" type="email" name="email" class="form-control"
+                           value="<?= esc(old('email')) ?>" placeholder="adresse@mail.com" required>
+                </div>
+
+                <div class="mt-3">
+                    <label class="form-label" for="password">Mot de passe</label>
+                    <input id="password" type="password" name="password" class="form-control"
+                           placeholder="********" required>
+                </div>
+
+                <div class="mt-3">
+                    <label class="form-label" for="password_confirm">Confirmer le mot de passe</label>
+                    <input id="password_confirm" type="password" name="password_confirm" class="form-control"
+                           placeholder="********" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 mt-4">Créer mon compte</button>
+            </form>
+
+            <div class="text-center mt-3">
+                <a href="<?= base_url('/login'); ?>" class="link-violet">Déjà inscrit ? Se connecter</a>
             </div>
         </div>
-        <div class="mb-3">
-            <div class="input-group">
-                <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
-                <input class="form-control" type="text" name="lastname" placeholder="Nom" required>
-            </div>
-        </div>
-        <div class="mb-3">
-            <div class="input-group">
-                <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
-                <input class="form-control" type="email" name="email" placeholder="Adresse e-mail" required>
-            </div>
-        </div>
-        <div class="mb-3">
-            <div class="input-group">
-                <span class="input-group-text"><i class="fa-solid fa-key"></i></span>
-                <input class="form-control" type="password" name="password" placeholder="Mot de passe" required>
-            </div>
-        </div>
-
-        <div class="d-grid gap-2 mb-3">
-            <button class="btn btn-vape" type="submit">Créer mon compte</button>
-        </div>
-
-        <div class="text-center">
-            <a href="<?= base_url('/login'); ?>" class="btn btn-outline-light btn-sm">Déjà inscrit ? Se connecter</a>
-        </div>
-    </form>
+    </div>
 </div>
+
+<!-- JS habituels -->
+<script src="<?= base_url('/js/jquery-3.7.1.min.js') ?>"></script>
+<script src="<?= base_url('/js/config.js') ?>"></script>
+<script src="<?= base_url('/js/color-modes.js') ?>"></script>
+<script src="<?= base_url('/vendors/@coreui/coreui/js/coreui.bundle.min.js') ?>"></script>
+<script src="<?= base_url('/vendors/simplebar/js/simplebar.min.js') ?>"></script>
+<script src="<?= base_url('/vendors/@coreui/utils/js/index.js') ?>"></script>
+<script src="<?= base_url('/js/toastr.min.js') ?>"></script>
+
+<!-- Toastr erreurs (optionnel) -->
+<script>
+    <?php if (!empty($errors)) : ?>
+    <?php if (is_array($errors)) : ?>
+    <?php foreach ($errors as $err) : ?>
+    toastr.error("<?= addslashes((string)$err) ?>", "Erreur", {closeButton:true, progressBar:true, timeOut:5000});
+    <?php endforeach; ?>
+    <?php else : ?>
+    toastr.error("<?= addslashes((string)$errors) ?>", "Erreur", {closeButton:true, progressBar:true, timeOut:5000});
+    <?php endif; ?>
+    <?php endif; ?>
+</script>
+
 </body>
+</html>

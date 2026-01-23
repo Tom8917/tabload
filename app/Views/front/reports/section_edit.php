@@ -222,16 +222,33 @@ $success = $success ?? session('success');
         if (event.origin !== window.location.origin) return;
 
         const data = event.data || {};
-        if (data.type !== 'media-select' || !data.url) return;
 
-        const editor = tinymce.get('editor');
-        if (!editor) return;
+        if (data.type === 'MEDIA_PICKED' && data.media && data.media.url) {
+            const editor = tinymce.get('editor');
+            if (!editor) return;
 
-        editor.insertContent(
-            `<img src="${data.url}" alt="${(data.name || '').replaceAll('"','&quot;')}" style="max-width:100%;height:auto;" />`
-        );
+            const m = data.media;
+            const name = (m.name || '').replaceAll('"','&quot;');
 
-        const modalEl = document.getElementById('mediaPickerModal');
-        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            if (m.kind === 'document') {
+                editor.insertContent(`<p><a href="${m.url}" target="_blank" rel="noopener">${name || 'Télécharger'}</a></p>`);
+            } else {
+                editor.insertContent(`<img src="${m.url}" alt="${name}" style="max-width:100%;height:auto;" />`);
+            }
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('mediaPickerModal')).hide();
+            return;
+        }
+
+        if (data.type === 'media-select' && data.url) {
+            const editor = tinymce.get('editor');
+            if (!editor) return;
+
+            editor.insertContent(
+                `<img src="${data.url}" alt="${(data.name || '').replaceAll('"','&quot;')}" style="max-width:100%;height:auto;" />`
+            );
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('mediaPickerModal')).hide();
+        }
     });
 </script>

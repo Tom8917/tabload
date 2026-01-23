@@ -261,20 +261,17 @@ abstract class BaseController extends Controller
      */
     public function view($vue = null, array $datas = [], $admin = false, array $options = [])
     {
-        // Détecte si le controller courant est dans App\Controllers\Admin\
         $isAdminContext = false;
         if ($this->router) {
-            $ctrl = (string)$this->router->controllerName(); // ex: App\Controllers\Admin\Dashboard
+            $ctrl = (string)$this->router->controllerName();
             $isAdminContext = str_starts_with($ctrl, 'App\\Controllers\\Admin\\');
         }
 
-        // Retro-compat : si 3e param = array => options
         if (is_array($admin)) {
             $options = $admin;
-            $admin = $isAdminContext; // IMPORTANT : on ne force plus à false
+            $admin = $isAdminContext;
         } else {
             $admin = (bool)$admin;
-            // si tu veux être “safe”, tu peux aussi forcer admin quand contexte admin :
             if ($isAdminContext) {
                 $admin = true;
             }

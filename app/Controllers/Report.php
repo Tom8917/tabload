@@ -52,13 +52,6 @@ class Report extends BaseController
         return (int)($user->id_permission ?? 0) === 1;
     }
 
-    /**
-     * ✅ Récupère un report + noms users
-     * - validated_by (string) = "Prénom Nom"
-     * - validated_by_id (int|null) = id original
-     * - corrected_by (string) = "Prénom Nom" (optionnel)
-     * - corrected_by_id (int|null)
-     */
     private function findReportWithUsersOr404(int $reportId): array
     {
         $row = $this->reports
@@ -100,7 +93,6 @@ class Report extends BaseController
     {
         $ownerId = (int)($report['user_id'] ?? 0);
         if ($ownerId !== $this->userId()) {
-            // en front: on peut choisir 404 pour ne pas révéler, mais tu utilises parfois 403
             throw new PageForbiddenException('Accès refusé');
         }
     }
@@ -114,9 +106,6 @@ class Report extends BaseController
         return $section;
     }
 
-    /**
-     * GET /report
-     */
     public function getIndex()
     {
         $uid = $this->userId();
@@ -127,9 +116,6 @@ class Report extends BaseController
         ], ['saveData' => false]);
     }
 
-    /**
-     * GET /report/new
-     */
     public function getNew()
     {
         return $this->view('front/reports/new', [
@@ -138,14 +124,10 @@ class Report extends BaseController
         ], ['saveData' => false]);
     }
 
-    /**
-     * GET /report/{id}
-     */
     public function getShow(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
 
-        // lecture autorisée pour tous (comme tu l’avais)
         $canEdit = ((int)($report['user_id'] ?? 0) === $this->userId()) || $this->isAdmin();
 
         $sectionsTree = $this->sectionsService->getTreeForReport($id);
@@ -157,9 +139,6 @@ class Report extends BaseController
         ], ['saveData' => false]);
     }
 
-    /**
-     * GET /report/{id}/edit
-     */
     public function getEdit(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
@@ -172,9 +151,6 @@ class Report extends BaseController
         ], ['saveData' => false]);
     }
 
-    /**
-     * POST /report
-     */
     public function postCreate()
     {
         $post = $this->request->getPost();
@@ -227,9 +203,6 @@ class Report extends BaseController
             ->with('success', 'Bilan créé avec son squelette. Vous pouvez commencer la rédaction.');
     }
 
-    /**
-     * POST /report/{id}/update
-     */
     public function postUpdate(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
@@ -259,17 +232,13 @@ class Report extends BaseController
         return redirect()->to(site_url('report/' . $id))->with('success', 'Bilan mis à jour.');
     }
 
-    /**
-     * GET /report/{id}/sections
-     */
     public function getSections(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
 
-        $canEdit = ((int)($report['user_id'] ?? 0) === $this->userId()); // front : seulement owner
+        $canEdit = ((int)($report['user_id'] ?? 0) === $this->userId());
         $tree    = $this->sectionsService->getTreeForReport($id);
 
-        // (si tu n’en as plus besoin, tu peux enlever)
         $users = (new UserModel())
             ->select('id, firstname, lastname, email')
             ->orderBy('firstname', 'ASC')
@@ -286,9 +255,6 @@ class Report extends BaseController
         ], ['saveData' => false]);
     }
 
-    /**
-     * POST /report/{id}/sections/root
-     */
     public function postSectionsRoot(int $reportId)
     {
         $report = $this->findReportWithUsersOr404($reportId);
@@ -314,9 +280,6 @@ class Report extends BaseController
         return redirect()->to(site_url('report/' . $reportId . '/sections'))->with('success', 'Partie ajoutée.');
     }
 
-    /**
-     * POST /report/{id}/sections/{parentId}/child
-     */
     public function postSectionsChild(int $reportId, int $parentId)
     {
         $report = $this->findReportWithUsersOr404($reportId);
@@ -344,13 +307,10 @@ class Report extends BaseController
         return redirect()->to(site_url('report/' . $reportId . '/sections'))->with('success', 'Sous-partie ajoutée.');
     }
 
-    /**
-     * GET /report/{reportId}/sections/{sectionId}/edit
-     */
     public function getEditSection(int $reportId, int $sectionId)
     {
         $report = $this->findReportWithUsersOr404($reportId);
-        $this->requireOwner($report); // front : uniquement le owner modifie les sections
+        $this->requireOwner($report);
 
         $section = $this->findSectionOr404($reportId, $sectionId);
 
@@ -362,9 +322,6 @@ class Report extends BaseController
         ], ['saveData' => false]);
     }
 
-    /**
-     * POST /report/{reportId}/sections/{sectionId}/update
-     */
     public function postUpdateSection(int $reportId, int $sectionId)
     {
         $report = $this->findReportWithUsersOr404($reportId);
@@ -411,9 +368,6 @@ class Report extends BaseController
             ->with('success', 'Section mise à jour.');
     }
 
-    /**
-     * POST /report/{reportId}/sections/{sectionId}/delete
-     */
     public function postDeleteSection(int $reportId, int $sectionId)
     {
         $report = $this->findReportWithUsersOr404($reportId);
@@ -456,9 +410,6 @@ class Report extends BaseController
         ]);
     }
 
-    /**
-     * POST /report/{id}/delete
-     */
     public function postDelete(int $id)
     {
         $report = $this->findReportWithUsersOr404($id);
@@ -470,13 +421,6 @@ class Report extends BaseController
         return redirect()->to(site_url('report'))->with('success', 'Bilan supprimé.');
     }
 
-    /**
-     * POST /report/{id}/sections/meta
-     *
-     * 🔒 FRONT :
-     * - l'auteur peut changer title/application/version/status/author_name
-     * - il NE PEUT PAS changer validated_by / validated_at
-     */
     public function postUpdateMetaInline(int $reportId)
     {
         $report = $this->findReportWithUsersOr404($reportId);
@@ -553,12 +497,11 @@ class Report extends BaseController
 
     public function updateMeta(int $reportId)
     {
-        $report = $this->mustGetMyReport($reportId); // ta méthode de sécurité
+        $report = $this->mustGetMyReport($reportId);
 
         $docStatus = (string) $this->request->getPost('doc_status');
         $modKind   = (string) $this->request->getPost('modification_kind');
 
-        // Validation simple (tu peux passer en validation service si tu veux)
         $allowedDoc = ['work', 'approved', 'validated'];
         $allowedMod = ['creation', 'replace'];
 
@@ -570,7 +513,7 @@ class Report extends BaseController
         $this->reports->update($reportId, [
             'doc_status'         => $docStatus,
             'modification_kind'  => $modKind,
-            'updated_at'         => date('Y-m-d H:i:s'), // si pas géré auto
+            'updated_at'         => date('Y-m-d H:i:s'),
         ]);
 
         $this->success('Informations mises à jour.');

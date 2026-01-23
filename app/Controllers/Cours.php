@@ -10,12 +10,11 @@ class Cours extends BaseController
 
     public function __construct()
     {
-        $this->cours = new CoursModel(); // casse correcte
+        $this->cours = new CoursModel();
     }
 
     public function getIndex()
     {
-        // Paginer et passer 'list' + 'pager' (ce que la vue attend)
         $list  = $this->cours->orderBy('created_at','DESC')->paginate(12);
         $pager = $this->cours->pager;
 

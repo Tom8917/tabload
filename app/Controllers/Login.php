@@ -8,13 +8,11 @@ class Login extends BaseController
 {
     protected $require_auth = false;
 
-    // GET /login
     public function getIndex(): string
     {
         return view('/login/login');
     }
 
-    // POST /login
     public function postLogin()
     {
         $email    = $this->request->getPost('email');
@@ -43,7 +41,6 @@ class Login extends BaseController
         return $this->redirect('/');
     }
 
-    // GET /login/register
     public function getRegister()
     {
         $flashData = session()->getFlashdata('data');
@@ -53,7 +50,6 @@ class Login extends BaseController
         ]);
     }
 
-    // POST /login/register
     public function postRegister()
     {
         $data = [
@@ -76,7 +72,6 @@ class Login extends BaseController
         return $this->redirect('/login');
     }
 
-    // GET /logout
     public function getLogout()
     {
         $this->session->remove('user');

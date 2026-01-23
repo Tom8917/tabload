@@ -102,7 +102,7 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
 // --------------------------------------------------------------------------
 // ADMIN (admin)
 // --------------------------------------------------------------------------
-$routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'admin'], static function ($routes) {
+$routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'adminOnly'], static function ($routes) {
 
     // Dashboard admin
     $routes->get('/',         'Dashboard::getIndex');
@@ -126,33 +126,38 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
 // ----------------------------------------------------------------------
 // TOKENS (Admin)
 // ----------------------------------------------------------------------
-    $routes->get('token',               'Token::getIndex');        // liste
-    $routes->get('token/(:num)',        'Token::getIndex/$1');     // détail
-    $routes->post('token/update',       'Token::postUpdate');      // update (postupdate sans id dans l’URL)
-    $routes->get('token/delete/(:num)', 'Token::getDelete/$1');    // delete
-    $routes->post('token/search-token', 'Token::postSearchToken'); // DataTables Ajax
+    $routes->get('token',               'Token::getIndex');
+    $routes->get('token/(:num)',        'Token::getIndex/$1');
+    $routes->post('token/update',       'Token::postUpdate');
+    $routes->get('token/delete/(:num)', 'Token::getDelete/$1');
+    $routes->post('token/search-token', 'Token::postSearchToken');
 
 
     // ----------------------------------------------------------------------
     // REPORTS (Admin)
     // ----------------------------------------------------------------------
-    $routes->get('reports',                 'Report::getIndex');          // liste
-    $routes->get('reports/new',             'Report::getNew');            // form création
-    $routes->post('reports',                'Report::postCreate');        // create
+    $routes->get('reports',                 'Report::getIndex');
+    $routes->get('reports/new',             'Report::getNew');
+    $routes->post('reports',                'Report::postCreate');
 
-    $routes->get('reports/(:num)',          'Report::getShow/$1');        // show (détail)
-    $routes->get('reports/(:num)/edit',     'Report::getEdit/$1');        // form edit
-    $routes->post('reports/(:num)/update',  'Report::postUpdate/$1');     // update
-    $routes->post('reports/(:num)/delete',  'Report::postDelete/$1');     // delete
+    $routes->get('reports/(:num)',          'Report::getShow/$1');
+    $routes->get('reports/(:num)/edit',     'Report::getEdit/$1');
+    $routes->post('reports/(:num)/update',  'Report::postUpdate/$1');
+    $routes->post('reports/(:num)/delete',  'Report::postDelete/$1');
 
     // --- Sections (Admin)
     $routes->get('reports/(:num)/sections',                'Report::getSections/$1');
     $routes->post('reports/(:num)/sections/root',          'Report::postSectionsRoot/$1');
     $routes->post('reports/(:num)/sections/(:num)/child',  'Report::postSectionsChild/$1/$2');
 
+    $routes->post('reports/(:num)/sections/(:num)/move-up',   'Report::postMoveRootUp/$1/$2');
+    $routes->post('reports/(:num)/sections/(:num)/move-down', 'Report::postMoveRootDown/$1/$2');
+
     $routes->get('reports/(:num)/sections/(:num)/edit',    'Report::getEditSection/$1/$2');
     $routes->post('reports/(:num)/sections/(:num)/update', 'Report::postUpdateSection/$1/$2');
     $routes->post('reports/(:num)/sections/(:num)/delete', 'Report::postDeleteSection/$1/$2');
+
+    $routes->post('reports/(:num)/comments', 'Report::postUpdateComments/$1');
 
     $routes->post('reports/(:num)/mark-in-review', 'Report::postMarkInReview/$1');
     $routes->post('reports/(:num)/validate',       'Report::postValidate/$1');
@@ -165,6 +170,12 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     // ----------------------------------------------------------------------
     // Autres modules admin
     // ----------------------------------------------------------------------
+
+    $routes->get('task',      'Task::getIndex');
+    $routes->get('task/(:num)', 'Task::getTasks');
+    $routes->post('task/create', 'Task::postCreate');
+    $routes->post('task/update', 'Task::postUpdate');
+
     $routes->get('cours',            'Cours::getIndex');
     $routes->get('cours/(:segment)', 'Cours::getShow/$1');
 

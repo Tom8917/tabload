@@ -10,21 +10,26 @@ class AdminOnlyFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
-        $user = session()->get('user');
+        $session = session();
 
-        // pas connecté -> dehors
-        if (!$user) {
-            return redirect()->to('/login');
+        if (!$session->has('user')) {
+            $session->set('redirect_url', current_url(true)->getPath());
+            return redirect()->to(site_url('login'));
         }
 
-        // pas admin -> dehors
+        $user = $session->get('user');
+
         if ((int)($user->id_permission ?? 0) !== 1) {
-            return redirect()->to('/')->with('error', "Accès admin refusé.");
+            return redirect()
+                ->to(site_url('/'))
+                ->with('error', 'Accès réservé aux administrateurs.');
         }
+
+        return null;
     }
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
-        // nothing
+        return null;
     }
 }

@@ -29,14 +29,14 @@
     "title": "Bilan",
     "url": "/admin/reports",
     "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-list\"></i>",
+    "icon": "<i class=\"nav-icon fa-solid fa-file-lines\"></i>",
     "class": "main-menu-accueil"
   },
   "tabload": {
     "title": "Tabload",
     "url": "/admin/tabload",
     "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-list\"></i>",
+    "icon": "<i class=\"nav-icon fa-solid fa-table\"></i>",
     "class": "main-menu-accueil"
   },
   "tasks": {
@@ -50,21 +50,7 @@
     "title": "Évènements",
     "url": "/admin/events",
     "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
-    "class": "main-menu-accueil"
-  },
-  "cours": {
-    "title": "Cours",
-    "url": "/admin/cours",
-    "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
-    "class": "main-menu-accueil"
-  },
-  "pages": {
-    "title": "RP",
-    "url": "/admin/pages",
-    "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-file\"></i>",
+    "icon": "<i class=\"nav-icon fa-solid fa-calendar\"></i>",
     "class": "main-menu-accueil"
   },
   "media": {

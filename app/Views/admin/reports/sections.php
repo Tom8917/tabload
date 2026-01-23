@@ -1,6 +1,6 @@
 <?php
-$errors  = $errors ?? (session('errors') ?? []);
-$success = $success ?? session('success');
+$errors  = session()->getFlashdata('errors') ?? [];
+$success = session()->getFlashdata('success');
 
 $report       = $report ?? [];
 $sectionsTree = $sectionsTree ?? [];
@@ -12,7 +12,6 @@ $doc = old('doc_status', $report['doc_status'] ?? 'work');
 $mk  = old('modification_kind', $report['modification_kind'] ?? 'creation');
 $st  = old('status', $report['status'] ?? 'brouillon');
 
-// Infos “Validation / Corrections”
 $validatedAt = $report['validated_at'] ?? null;
 $validatedBy = (int)($report['validated_by_id'] ?? 0);
 $correctedAt = $report['corrected_at'] ?? null;
@@ -55,9 +54,6 @@ $updatedAt   = $report['updated_at'] ?? null;
 $status = (string)($report['status'] ?? '');
 $statusLabel = $status !== '' ? $status : '—';
 
-$errors = $errors ?? (session('errors') ?? []);
-$success = $success ?? session('success');
-
 $sectionsTree = $sectionsTree ?? [];
 $admins = $admins ?? [];
 
@@ -94,7 +90,6 @@ $validatedBy = (int)($report['validated_by_id'] ?? 0);
 $correctedAt = $report['corrected_at'] ?? null;
 $correctedBy = (int)($report['corrected_by'] ?? 0);
 
-// Sommaire roots
 $roots = $sectionsTree;
 ?>
 
@@ -132,7 +127,7 @@ $roots = $sectionsTree;
         </div>
     <?php endif; ?>
 
-    <div class="row g-4 mb-5">
+    <div class="row g-4 mb-4">
 
         <!-- META / INFOS DOCUMENT -->
         <div class="col-lg-7">
@@ -183,7 +178,6 @@ $roots = $sectionsTree;
                         </div>
 
                         <div class="row">
-
                             <div class="col-md-12 mt-3">
                                 <label class="form-label">Statut du document</label>
                                 <?php $doc = old('doc_status', $report['doc_status'] ?? 'work'); ?>
@@ -233,7 +227,7 @@ $roots = $sectionsTree;
                             </div>
                         </div>
 
-                        <div class="d-flex gap-2 mt-2">
+                        <div class="d-flex justify-content-end gap-2 mt-2">
                             <button class="btn btn-primary" type="submit">Enregistrer</button>
                         </div>
                     </form>
@@ -321,35 +315,123 @@ $roots = $sectionsTree;
 
     </div>
 
-    <?php if ($canEdit): ?>
-        <!-- Ajouter une PARTIE (niveau 1) -->
-        <div class="card mb-4">
-            <div class="card-header">Ajouter une partie (niveau 1)</div>
-            <div class="card-body">
-                <form method="post" action="<?= site_url('admin/reports/' . (int)($report['id'] ?? 0) . '/sections/root') ?>">
-                    <?= csrf_field() ?>
+    <hr class="mb-4">
 
-                    <div class="mb-3">
-                        <label class="form-label">Titre de la partie <span class="text-danger">*</span></label>
-                        <input type="text"
-                               name="title"
-                               class="form-control <?= isset($errors['title_root']) ? 'is-invalid' : '' ?>"
-                               value="<?= esc(old('title')) ?>">
-                        <?php if (isset($errors['title_root'])): ?>
-                            <div class="invalid-feedback"><?= esc($errors['title_root']) ?></div>
-                        <?php endif; ?>
-                    </div>
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-2">
+                <div class="card-header fw-semibold">Commentaire</div>
+                <div class="card-body">
 
-                    <div class="mb-3">
-                        <label class="form-label">Contenu (optionnel)</label>
-                        <textarea name="content" rows="3" class="form-control"><?= esc(old('content')) ?></textarea>
-                    </div>
+                    <form method="post" action="<?= site_url('admin/reports/' . (int)$report['id'] . '/comments') ?>">
+                        <?= csrf_field() ?>
 
-                    <button type="submit" class="btn btn-primary">Ajouter la partie</button>
-                </form>
+                        <div class="mb-3">
+                            <label class="form-label">Commentaire</label>
+                            <textarea
+                                    name="comments"
+                                    rows="5"
+                                    class="form-control <?= isset($errors['comments']) ? 'is-invalid' : '' ?>"
+                                    placeholder="Ajouter un commentaire ..."
+                            ><?= esc(old('comments', $report['comments'] ?? '')) ?></textarea>
+
+                            <?php if (isset($errors['comments'])): ?>
+                                <div class="invalid-feedback"><?= esc($errors['comments']) ?></div>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-end">
+                            <button class="btn btn-primary" type="submit">Enregistrer le commentaire</button>
+                        </div>
+                    </form>
+
+                </div>
             </div>
         </div>
-    <?php endif; ?>
+    </div>
+
+    <hr class="mb-4">
+
+    <div class="row">
+        <?php if ($canEdit): ?>
+            <div class="col-md-6">
+
+                <!-- Ajouter une PARTIE (niveau 1) -->
+                <div class="card mb-4">
+                    <div class="card-header">Ajouter une partie (niveau 1)</div>
+                    <div class="card-body">
+                        <form method="post" action="<?= site_url('admin/reports/' . $report['id'] . '/sections/root') ?>">
+                            <?= csrf_field() ?>
+
+                            <div class="mb-3">
+                                <label class="form-label">Titre de la partie <span class="text-danger">*</span></label>
+                                <input type="text"
+                                       name="title"
+                                       class="form-control <?= isset($errors['title_root']) ? 'is-invalid' : '' ?>"
+                                       value="<?= old('title') ?>">
+                                <?php if (isset($errors['title_root'])): ?>
+                                    <div class="invalid-feedback"><?= esc($errors['title_root']) ?></div>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Contenu (optionnel)</label>
+                                <textarea name="content" rows="3" class="form-control"><?= old('content') ?></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Ajouter la partie</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <?php if (!empty($roots)): ?>
+                    <div class="card mb-4">
+                        <div class="card-header">Étapes de rédaction</div>
+                        <div class="card-body d-flex flex-column gap-2">
+
+                            <?php foreach ($roots as $index => $r): ?>
+                                <div class="d-flex align-items-center justify-content-between gap-2 border rounded p-2">
+
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <a class="btn btn-outline-primary btn-sm"
+                                           href="<?= site_url('admin/reports/' . $report['id'] . '/sections/' . $r['id'] . '/edit') ?>">
+                                            <?= esc($r['code']) ?>. <?= esc($r['title']) ?>
+                                        </a>
+                                        <!--                                <span class="text-muted small">Position: -->
+                                        <?php //= (int)($r['position'] ?? 0) ?><!--</span>-->
+                                    </div>
+
+                                    <?php if ($canEdit): ?>
+                                        <div class="btn-group">
+                                            <form method="post"
+                                                  action="<?= site_url('admin/reports/' . $report['id'] . '/sections/' . $r['id'] . '/move-up') ?>">
+                                                <?= csrf_field() ?>
+                                                <button class="btn btn-sm btn-outline-secondary"
+                                                        type="submit" <?= $index === 0 ? 'disabled' : '' ?>>
+                                                    ↑
+                                                </button>
+                                            </form>
+
+                                            <form method="post"
+                                                  action="<?= site_url('admin/reports/' . $report['id'] . '/sections/' . $r['id'] . '/move-down') ?>">
+                                                <?= csrf_field() ?>
+                                                <button class="btn btn-sm btn-outline-secondary"
+                                                        type="submit" <?= $index === count($roots) - 1 ? 'disabled' : '' ?>>
+                                                    ↓
+                                                </button>
+                                            </form>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    </div>
 
     <?php
     /**

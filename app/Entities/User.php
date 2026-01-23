@@ -10,11 +10,7 @@ class User extends Entity
         'id' => null,
         'email' => null,
         'password' => null,
-        'sessionPassword' => null,
-        'uegarPassword' => null,
         'id_permission' => null,
-        'id_material' => null,
-        'id_team' => null,
         'created_at' => null,
         'updated_at' => null,
         'deleted_at' => null,
@@ -23,7 +19,6 @@ class User extends Entity
     protected $casts = [
         'id' => 'integer',
         'id_permission' => 'integer',
-        'id_team' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -95,7 +90,7 @@ class User extends Entity
     {
         return [
             '' => 'Utilisateur',
-            'administrateur' => 'Administrateur',        // Utilisez des slugs au lieu de noms
+            'administrateur' => 'Administrateur',
             'super-admininistrateur' => 'Super Administrateur'
         ];
     }

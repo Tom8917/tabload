@@ -8,18 +8,12 @@ use App\Models\ReportSectionModel;
 class ReportTemplateService
 {
     public function __construct(
-        private readonly ReportSectionModel $sections,
+        private readonly ReportSectionModel   $sections,
         private readonly ReportSectionService $sectionService
-    ) {
+    )
+    {
     }
 
-    /**
-     * Build complet :
-     * - Roots niveau 1 sans content
-     * - Niveaux 2+ avec content
-     * - Tests optionnels compact
-     * - Synthèse "Principaux résultats" = sous-sous générées selon tests activés
-     */
     public function buildReportSkeleton(int $reportId, array $config): void
     {
         $report = model(ReportModel::class)->find($reportId);
@@ -35,14 +29,14 @@ class ReportTemplateService
 
         $ctx = [
             'reportId' => $reportId,
-            'appName'  => $appName,
-            'appVersion'  => $appVersion,
-            'tests'    => $config['tests'] ?? [],
+            'appName' => $appName,
+            'appVersion' => $appVersion,
+            'tests' => $config['tests'] ?? [],
         ];
 
         $position = 1;
 
-        // 1) Synthèse (root sans content)
+        // 1
         $synthId = $this->insertSection(
             reportId: $reportId,
             parentId: null,
@@ -52,11 +46,11 @@ class ReportTemplateService
         );
         $this->createFromDefinition($reportId, $synthId, $this->defSynthese($ctx), $ctx);
 
-        // 2) Description de la campagne (root sans content)
+        //2
         $campId = $this->insertSection($reportId, null, $position++, 'Description de la campagne', null);
         $this->createFromDefinition($reportId, $campId, $this->defCampaign($ctx), $ctx);
 
-        // 3) Tests optionnels (ordre compact)
+        // 3
         foreach ($this->enabledTestsInOrder($ctx['tests']) as $type) {
             $cible = '';
             if ($type === 'target') {
@@ -71,29 +65,14 @@ class ReportTemplateService
             $this->createFromDefinition($reportId, $testRootId, $this->defTestBlock($testCtx), $testCtx);
         }
 
-        // 4) Conclusion (root sans content)
+        // 4
         $conclId = $this->insertSection($reportId, null, $position++, 'Conclusion', null);
         $this->createFromDefinition($reportId, $conclId, $this->defConclusion($ctx), $ctx);
 
-        // ✅ codes & niveaux recalculés (1,1.1,1.1.1, etc.)
         $this->sectionService->recomputeCodes($reportId);
     }
 
-    // ------------------------------------------------------------
-    //  ENGINE
-    // ------------------------------------------------------------
 
-    /**
-     * Définition = liste de noeuds :
-     * [
-     *   [
-     *     'title' => string|callable($ctx):string,
-     *     'content' => string|callable($ctx):?string,
-     *     'children' => [ ... ],
-     *   ],
-     *   ...
-     * ]
-     */
     private function createFromDefinition(int $reportId, int $parentId, array $definition, array $ctx): void
     {
         $pos = 1;
@@ -119,17 +98,16 @@ class ReportTemplateService
 
     private function insertSection(int $reportId, ?int $parentId, int $position, string $title, ?string $content): int
     {
-        // level sera recalculé, on met une valeur cohérente
         $level = $parentId === null ? 1 : 2;
 
         return (int)$this->sections->insert([
             'report_id' => $reportId,
             'parent_id' => $parentId,
-            'position'  => $position,
-            'level'     => $level,
-            'code'      => null,
-            'title'     => $title,
-            'content'   => $content,
+            'position' => $position,
+            'level' => $level,
+            'code' => null,
+            'title' => $title,
+            'content' => $content,
         ], true);
     }
 
@@ -162,9 +140,6 @@ class ReportTemplateService
         return $out;
     }
 
-    // ------------------------------------------------------------
-    //  DEFINITIONS (PERSONNALISABLES)
-    // ------------------------------------------------------------
 
     private function defSynthese(array $ctx): array
     {
@@ -200,8 +175,6 @@ class ReportTemplateService
             $children[] = [
                 'title' => $this->syntheseResultTitle($type),
                 'content' => fn() => $this->tplPlaceholderShort(),
-                // ici tu peux ajouter des sous-sous-sous si tu veux :
-                // 'children' => [ ... ]
             ];
         }
         return $children;
@@ -210,11 +183,11 @@ class ReportTemplateService
     private function syntheseResultTitle(string $type): string
     {
         return match ($type) {
-            'target'   => 'Résultats du test à la cible',
-            'endurance'=> "Résultats du test d’endurance",
-            'limits'   => 'Résultats du test aux limites',
+            'target' => 'Résultats du test à la cible',
+            'endurance' => "Résultats du test d’endurance",
+            'limits' => 'Résultats du test aux limites',
             'overload' => 'Résultats du test de surcharge',
-            default    => 'Résultats du test',
+            default => 'Résultats du test',
         };
     }
 
@@ -235,9 +208,9 @@ class ReportTemplateService
                 'title' => 'Exigences - Performances attendues',
                 'content' => fn() => $this->tplCampaignExigences(),
                 'children' => [
-                    ['title' => 'Temps de réponse', 'content' => fn() => $this->tplPlaceholderShort()],
-                    ['title' => 'Taux d’erreur', 'content' => fn() => $this->tplPlaceholderShort()],
-                    ['title' => 'Débit / TPS', 'content' => fn() => $this->tplPlaceholderShort()],
+                    ['title' => 'Scénarios', 'content' => fn() => $this->tplCampaignScenarios()],
+                    ['title' => 'Activités', 'content' => fn() => $this->tplCampaignActivites()],
+                    ['title' => 'Périodes', 'content' => fn() => $this->tplCampaignPeriode()],
                 ],
             ],
             [
@@ -254,11 +227,24 @@ class ReportTemplateService
 
     private function defTestBlock(array $ctx): array
     {
-        // Ici tu personnalises TOUT ce qui compose un test.
         return [
             [
                 'title' => 'Objectif',
                 'content' => fn($c) => $this->tplTestObjectif($c['type'], $c['cible']),
+                'children' => [
+                    [
+                        'title' => 'Rappel des débits utilisés',
+                        'content' => fn() => $this->tplPlaceholderShort(),
+                    ],
+                    [
+                        'title' => 'Modèle de Charge',
+                        'content' => fn() => $this->tplPlaceholderShort(),
+                    ],
+                    [
+                        'title' => 'Condition d\'exécution',
+                        'content' => fn() => $this->tplPlaceholderShort(),
+                    ],
+                ],
             ],
             [
                 'title' => 'Résultats',
@@ -268,29 +254,28 @@ class ReportTemplateService
                         'title' => 'Débits transactionnels',
                         'content' => fn() => $this->tplPlaceholderShort(),
                         'children' => [
-                            ['title' => 'Tableaux', 'content' => fn() => $this->tplPlaceholderShort()],
-                            ['title' => 'Graphiques', 'content' => fn() => $this->tplPlaceholderShort()],
+                            ['title' => 'Graphique des débits transactionnels', 'content' => fn() => $this->tplPlaceholderShort()],
                         ],
                     ],
                     [
                         'title' => 'Temps de réponse',
                         'content' => fn() => $this->tplPlaceholderShort(),
                         'children' => [
-                            ['title' => 'p95 / p99', 'content' => fn() => $this->tplPlaceholderShort()],
-                            ['title' => 'Évolution dans le temps', 'content' => fn() => $this->tplPlaceholderShort()],
+                            ['title' => 'Tableau des temps de réponse', 'content' => fn() => $this->tplPlaceholderShort()],
+                            ['title' => 'Analyse', 'content' => fn() => $this->tplPlaceholderShort()],
+                            ['title' => 'Graphique des temps de réponse', 'content' => fn() => $this->tplPlaceholderShort()],
                         ],
                     ],
                     [
-                        'title' => 'Erreurs (tableaux / graphes)',
+                        'title' => 'Tableau des erreurs',
                         'content' => fn() => $this->tplPlaceholderShort(),
                     ],
                     [
                         'title' => 'Monitoring',
                         'content' => fn() => $this->tplPlaceholderList(),
                         'children' => [
-                            ['title' => 'CPU', 'content' => fn() => $this->tplPlaceholderShort()],
-                            ['title' => 'RAM', 'content' => fn() => $this->tplPlaceholderShort()],
-                            ['title' => 'DB', 'content' => fn() => $this->tplPlaceholderShort()],
+                            ['title' => 'CPU disponible sur les serveurs d\'application', 'content' => fn() => $this->tplPlaceholderShort()],
+                            ['title' => 'CPU disponible sur les serveurs de base de données', 'content' => fn() => $this->tplPlaceholderShort()],
                         ],
                     ],
                 ],
@@ -304,7 +289,6 @@ class ReportTemplateService
 
     private function defConclusion(array $ctx): array
     {
-        // Tu peux mettre vide si tu veux
         return [
             [
                 'title' => 'Synthèse finale',
@@ -321,25 +305,22 @@ class ReportTemplateService
         ];
     }
 
-    // ------------------------------------------------------------
-    //  TITLES
-    // ------------------------------------------------------------
 
     private function testRootTitle(string $type, string $cible): string
     {
         return match ($type) {
-            'target'   => 'Test à la cible' . ($cible !== '' ? ' — ' . $cible : ''),
-            'endurance'=> "Test d'endurance",
-            'limits'   => "Test aux limites",
+            'target' => 'Test à la cible' . ($cible !== '' ? ' — ' . $cible : ''),
+            'endurance' => "Test d'endurance",
+            'limits' => "Test aux limites",
             'overload' => "Test de surcharge",
-            default    => "Test",
+            default => "Test",
         };
     }
 
-// ------------------------------------------------------------
-//  TEXT TEMPLATES (HTML)
-// ------------------------------------------------------------
 
+
+
+    // Objectif
     private function tplSyntheseObjectif(string $appName): string
     {
         $appName = esc($appName);
@@ -353,7 +334,7 @@ HTML;
 
     private function tplSyntheseConformite(string $appName, string $appVersion): string
     {
-        $appName    = esc($appName);
+        $appName = esc($appName);
         $appVersion = esc($appVersion);
 
         return <<<HTML
@@ -361,6 +342,14 @@ HTML;
 HTML;
     }
 
+
+
+
+
+
+
+
+    // Description de la campagne
     private function tplCampaignProtocole(): string
     {
         return <<<HTML
@@ -385,16 +374,32 @@ HTML;
 "insérer les tableaux".</p>
 
 <p>Les tableaux ci-après décrivent les Scénarios, Activités et Périodes utilisés dans cette campagne ainsi que les exigences de charge associées.</p>
+HTML;
+    }
 
-<>Scénarios<br>
-Les scénarios utilisateurs ont été scindés en étapes appelées "Points de mesure". 
+    private function tplCampaignScenarios(): string
+    {
+        return <<<HTML
+<p>Les scénarios utilisateurs ont été scindés en étapes appelées "Points de mesure". 
 De plus à chaque scénario est associé un point de mesure implicite - qui représente la totalité du scénario - nommé "Durée transaction".<br>
 "insérer le tableau de description de scénarios".</p>
+HTML;
+    }
 
-<p>Activités<br>
+    private function tplCampaignActivites(): string
+    {
+        return <<<HTML
+<p>Les scénarios utilisateurs ont été scindés en étapes appelées "Points de mesure". 
+De plus à chaque scénario est associé un point de mesure implicite - qui représente la totalité du scénario - nommé "Durée transaction".<br>
 "insérer le tableau des activités".</p>
+HTML;
+    }
 
-<p>Périodes<br>
+    private function tplCampaignPeriode(): string
+    {
+        return <<<HTML
+<p>Les scénarios utilisateurs ont été scindés en étapes appelées "Points de mesure". 
+De plus à chaque scénario est associé un point de mesure implicite - qui représente la totalité du scénario - nommé "Durée transaction".<br>
 "insérer le tableau des périodes".</p>
 HTML;
     }
@@ -407,29 +412,26 @@ HTML;
 HTML;
     }
 
+
+
+
+
+
+
+    //Tests
     private function tplTestObjectif(string $type, string $cible): string
     {
         $label = match ($type) {
-            'target'   => "test à la cible" . ($cible !== '' ? " (" . esc($cible) . ")" : ''),
-            'endurance'=> "test d’endurance",
-            'limits'   => "test aux limites",
+            'target' => "test à la cible" . ($cible !== '' ? " (" . esc($cible) . ")" : ''),
+            'endurance' => "test d’endurance",
+            'limits' => "test aux limites",
             'overload' => "test de surcharge",
-            default    => "test",
+            default => "test",
         };
 
         return <<<HTML
 <p>L'objectif de ce {$label} est de vérifier que lorsque le système est soumis à une sollicitation conforme aux exigences de XXX transactions par seconde, 
 les critères d'acceptabilité fonctionnels et techniques formulés par la Maîtrise d'Ouvrage sont respectés.</p>
-
-<p>Rappel des débits utilisés :<br>
-"insérer le tableau".</p>
-
-<p>Modèle de charge :<br>
-"insérer le tableau".</p>
-
-<p>Conditions d'exécution :<br>
-S'il y a eu un paramètre modifié, le spécifier ici. 
-SINON, mettre "Les conditions d'exécution sont nominales.".</p>
 HTML;
     }
 
@@ -446,6 +448,13 @@ HTML;
 HTML;
     }
 
+
+
+
+
+
+
+    // Champs vides
     private function tplPlaceholderShort(): string
     {
         return <<<HTML
