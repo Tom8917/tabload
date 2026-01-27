@@ -131,7 +131,7 @@ class Report extends BaseController
         $rules = [
             'title'            => 'required|min_length[3]',
             'application_name' => 'required|min_length[2]',
-            'version'          => 'permit_empty|max_length[50]',
+            'application_version' => 'permit_empty|max_length[50]',
         ];
 
         if (!$this->validate($rules)) {
@@ -142,14 +142,15 @@ class Report extends BaseController
         if ($authorName === '') $authorName = $this->currentUserFullName();
 
         $id = $this->reports->insert([
-            'user_id'           => $this->userId(),
-            'title'             => $post['title'],
-            'application_name'  => $post['application_name'],
-            'version'           => $post['version'] ?? null,
-            'author_name'       => $authorName,
-            'status'            => 'brouillon',
-            'doc_status'        => 'work',
-            'modification_kind' => 'creation',
+            'user_id'              => $this->userId(),
+            'title'                => $post['title'],
+            'application_name'     => $post['application_name'],
+            'application_version'  => $post['application_version'] ?? null,
+            'author_name'          => $authorName,
+            'status'               => 'brouillon',
+            'doc_status'           => 'work',
+            'doc_version'          => 'v0.1',
+            'modification_kind'    => 'creation',
         ], true);
 
         $config = [
@@ -173,8 +174,18 @@ class Report extends BaseController
             'author_updated_at' => $now,
         ]);
 
-        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-        $history->add((int)$id, 'draft', $this->userId(), 'Version initiale', $post['version'] ?? null);
+//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
+//        $history->add((int)$id, 'draft', $this->userId(), 'Version initiale', $post['version'] ?? null);
+
+        $rv = new \App\Models\ReportVersionModel();
+        $rv->insert([
+            'report_id'     => (int)$id,
+            'version_label' => 'v0.1',
+            'change_type'   => 'draft',
+            'doc_status'    => 'work',
+            'changed_by'    => $this->userId(),
+            'comment'       => 'Version initiale',
+        ]);
 
         return redirect()->to(site_url('admin/reports/' . $id . '/sections'))
             ->with('success', 'Bilan créé avec son squelette. Vous pouvez commencer la rédaction.');
@@ -217,16 +228,17 @@ class Report extends BaseController
         $post   = $this->request->getPost();
 
         $rules = [
-            'title'             => 'required|min_length[3]',
-            'application_name'  => 'required|min_length[2]',
-            'version'           => 'permit_empty|max_length[50]',
-            'status'            => 'permit_empty|in_list[brouillon,en_relecture,final]',
-            'doc_status'        => 'permit_empty|in_list[work,approved,validated]',
-            'file_media_id'     => 'permit_empty|is_natural_no_zero',
-            'modification_kind' => 'permit_empty|in_list[creation,replace]',
-            'author_name'       => 'permit_empty|max_length[120]',
-            'version_date'      => 'permit_empty',
-            'comments'          => 'permit_empty|max_length[5000]',
+            'title'               => 'required|min_length[3]',
+            'application_name'    => 'required|min_length[2]',
+            'application_version' => 'permit_empty|max_length[50]',
+            'doc_version'         => 'permit_empty|max_length[20]',
+            'status'              => 'permit_empty|in_list[brouillon,en relecture,final]',
+            'doc_status'          => 'permit_empty|in_list[work,approved,validated]',
+            'file_media_id'       => 'permit_empty|is_natural_no_zero',
+            'modification_kind'   => 'permit_empty|in_list[creation,replace]',
+            'author_name'         => 'permit_empty|max_length[120]',
+            'version_date'        => 'permit_empty',
+            'comments'            => 'permit_empty|max_length[5000]',
         ];
 
         if (!$this->validate($rules)) {
@@ -236,18 +248,18 @@ class Report extends BaseController
         $now = date('Y-m-d H:i:s');
 
         $update = [
-            'title'             => $post['title'],
-            'application_name'  => $post['application_name'],
-            'version'           => $post['version'] ?? null,
-            'status'            => $post['status'] ?? ($report['status'] ?? 'brouillon'),
-            'doc_status'        => $post['doc_status'] ?? ($report['doc_status'] ?? 'work'),
-            'author_name'       => isset($post['author_name']) ? trim((string)$post['author_name']) : ($report['author_name'] ?? null),
-            'modification_kind' => isset($post['modification_kind']) ? (string)$post['modification_kind'] : ($report['modification_kind'] ?? null),
-            'version_date'      => !empty($post['version_date']) ? $post['version_date'] : ($report['version_date'] ?? null),
-            'comments'          => isset($post['comments']) ? trim((string)$post['comments']) : ($report['comments'] ?? null),
-
-            'corrected_by'      => $this->userId(),
-            'corrected_at'      => $now,
+            'title'               => $post['title'],
+            'application_name'    => $post['application_name'],
+            'application_version' => $post['application_version'] ?? null,
+            'doc_version'         => $post['doc_version'] ?? ($report['doc_version'] ?? 'v0.1'),
+            'status'              => $post['status'] ?? ($report['status'] ?? 'brouillon'),
+            'doc_status'          => $post['doc_status'] ?? ($report['doc_status'] ?? 'work'),
+            'author_name'         => isset($post['author_name']) ? trim((string)$post['author_name']) : ($report['author_name'] ?? null),
+            'modification_kind'   => isset($post['modification_kind']) ? (string)$post['modification_kind'] : ($report['modification_kind'] ?? null),
+            'version_date'        => !empty($post['version_date']) ? $post['version_date'] : ($report['version_date'] ?? null),
+            'comments'            => isset($post['comments']) ? trim((string)$post['comments']) : ($report['comments'] ?? null),
+            'corrected_by'        => $this->userId(),
+            'corrected_at'        => $now,
         ];
 
         if (array_key_exists('file_media_id', $post) && $post['file_media_id'] !== '') {
@@ -256,14 +268,14 @@ class Report extends BaseController
 
         $this->reports->update($id, $update);
 
-        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-        $history->add(
-            $id,
-            'correction',
-            $this->userId(),
-            'Correction admin',
-            $post['version'] ?? ($report['version'] ?? null)
-        );
+//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
+//        $history->add(
+//            $id,
+//            'correction',
+//            $this->userId(),
+//            'Correction admin',
+//            $post['version'] ?? ($report['version'] ?? null)
+//        );
 
         return redirect()->to(site_url('admin/reports/' . $id . '/sections'))
             ->with('success', 'Bilan mis à jour.');
@@ -295,8 +307,8 @@ class Report extends BaseController
             'corrected_at' => $now,
         ]);
 
-        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-        $history->add($id, 'comment', $this->userId(), 'Commentaire admin', $report['version'] ?? null);
+//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
+//        $history->add($id, 'comment', $this->userId(), 'Commentaire admin', $report['version'] ?? null);
 
         return redirect()->back()->with('success', 'Commentaire enregistré.');
     }
@@ -436,8 +448,8 @@ class Report extends BaseController
             'corrected_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-        $history->add($reportId, 'correction', $this->userId(), 'Modification section (correcteur)', $report['version'] ?? null);
+//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
+//        $history->add($reportId, 'correction', $this->userId(), 'Modification section (correcteur)', $report['version'] ?? null);
 
         return redirect()->to(site_url('admin/reports/' . $reportId . '/sections'))
             ->with('success', 'Section mise à jour.');
@@ -512,13 +524,14 @@ class Report extends BaseController
         $report = $this->findReportWithUsersOr404($id);
 
         $this->reports->update($id, [
-            'status'       => 'en_relecture',
+            'status'       => 'en relecture',
+            'doc_status'       => 'work',
             'corrected_by' => $this->userId(),
             'corrected_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-        $history->add($id, 'in_review', $this->userId(), 'Passage en relecture', $report['version'] ?? null);
+//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
+//        $history->add($id, 'in_review', $this->userId(), 'Passage en relecture', $report['version'] ?? null);
 
         return redirect()->to(site_url('admin/reports/' . $id . '/sections'))
             ->with('success', 'Bilan passé en relecture.');
@@ -561,12 +574,31 @@ class Report extends BaseController
         $this->reports->update($id, [
             'status'       => 'final',
             'doc_status'   => 'validated',
+            'doc_version'  => 'v1.0',
             'validated_by' => $validatorId,
             'validated_at' => $now,
         ]);
 
-        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-        $history->add($id, 'validation', $this->userId(), 'Document validé', $report['version'] ?? null);
+//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
+//        $history->add($id, 'validation', $this->userId(), 'Document validé', $report['version'] ?? null);
+
+        $rv = new \App\Models\ReportVersionModel();
+
+        $exists = $rv->where('report_id', $id)
+            ->where('change_type', 'validation')
+            ->where('version_label', 'v1.0')
+            ->first();
+
+        if (!$exists) {
+            $rv->insert([
+                'report_id'     => $id,
+                'version_label' => 'v1.0',
+                'change_type'   => 'validation',
+                'doc_status'    => 'validated',
+                'changed_by'    => $this->userId(),
+                'comment'       => 'Version validée',
+            ]);
+        }
 
         return redirect()->to(site_url('admin/reports/' . $id . '/sections'))
             ->with('success', 'Bilan validé.');

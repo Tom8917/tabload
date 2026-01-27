@@ -132,10 +132,16 @@ class Report extends BaseController
 
         $sectionsTree = $this->sectionsService->getTreeForReport($id);
 
+        $versions = model(\App\Models\ReportVersionModel::class)
+            ->where('report_id', $id)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+
         return $this->view('front/reports/show', [
             'report'       => $report,
             'sectionsTree' => $sectionsTree,
             'canEdit'      => $canEdit,
+            'versions'     => $versions,
         ], ['saveData' => false]);
     }
 
@@ -156,10 +162,10 @@ class Report extends BaseController
         $post = $this->request->getPost();
 
         $rules = [
-            'title'            => 'required|min_length[3]',
-            'application_name' => 'required|min_length[2]',
-            'version'          => 'permit_empty|max_length[50]',
-            'file_media_id'    => 'permit_empty',
+            'title'               => 'required|min_length[3]',
+            'application_name'    => 'required|min_length[2]',
+            'application_version' => 'permit_empty|max_length[50]',
+            'file_media_id'       => 'permit_empty',
         ];
 
         if (!$this->validate($rules)) {
@@ -167,13 +173,16 @@ class Report extends BaseController
         }
 
         $id = $this->reports->insert([
-            'user_id'          => $this->userId(),
-            'title'            => $post['title'],
-            'application_name' => $post['application_name'],
-            'version'          => $post['version'] ?? null,
-            'file_media_id'    => $post['file_media_id'] ?? null,
-            'author_name'      => $this->currentUserFullName(),
-            'status'           => 'brouillon',
+            'user_id'              => $this->userId(),
+            'title'                => $post['title'],
+            'application_name'     => $post['application_name'],
+            'application_version'  => $post['application_version'] ?? null,
+            'file_media_id'        => $post['file_media_id'] ?? null,
+            'author_name'          => $this->currentUserFullName(),
+            'status'               => 'brouillon',
+            'doc_status'           => 'work',
+            'doc_version'          => 'v0.1',
+            'modification_kind'    => $post['modification_kind'],
         ], true);
 
         $config = [
@@ -192,18 +201,28 @@ class Report extends BaseController
         $tpl->buildReportSkeleton((int)$id, $config);
 
         $now = date('Y-m-d H:i:s');
-
         $this->reports->update((int)$id, [
             'version_date'      => $now,
             'author_updated_at' => $now,
         ]);
 
-        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-        $history->add((int)$id, 'draft', $this->userId(), 'Version initiale', $post['version'] ?? null);
+//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
+//        $history->add((int)$id, 'draft', $this->userId(), 'Version initiale', $post['version'] ?? null);
+
+        $rv = new \App\Models\ReportVersionModel();
+        $rv->insert([
+            'report_id'     => (int)$id,
+            'version_label' => 'v0.1',
+            'change_type'   => 'draft',
+            'doc_status'    => 'work',
+            'changed_by'    => $this->userId(),
+            'comment'       => 'Version initiale',
+        ]);
 
         return redirect()->to(site_url('report/' . $id . '/sections'))
             ->with('success', 'Bilan créé avec son squelette. Vous pouvez commencer la rédaction.');
     }
+
 
     public function postUpdate(int $id)
     {
@@ -213,11 +232,11 @@ class Report extends BaseController
         $post = $this->request->getPost();
 
         $rules = [
-            'title'            => 'required|min_length[3]',
-            'application_name' => 'required|min_length[2]',
-            'version'          => 'permit_empty|max_length[50]',
-            'file_media_id'    => 'permit_empty',
-            'status'           => 'permit_empty|in_list[brouillon,en_relecture,final]',
+            'title'               => 'required|min_length[3]',
+            'application_name'    => 'required|min_length[2]',
+            'application_version' => 'permit_empty|max_length[50]',
+            'file_media_id'       => 'permit_empty',
+            'status'              => 'permit_empty|in_list[brouillon,en_relecture,final]',
         ];
 
         if (!$this->validate($rules)) {
@@ -225,12 +244,12 @@ class Report extends BaseController
         }
 
         $this->reports->update($id, [
-            'title'             => $post['title'],
-            'application_name'  => $post['application_name'],
-            'version'           => $post['version'] ?? null,
-            'file_media_id'    => $post['file_media_id'] ?? null,
-            'status'            => $post['status'] ?? ($report['status'] ?? 'brouillon'),
-            'author_updated_at' => date('Y-m-d H:i:s'),
+            'title'               => $post['title'],
+            'application_name'    => $post['application_name'],
+            'application_version' => $post['application_version'] ?? null,
+            'file_media_id'       => $post['file_media_id'],
+            'status'              => $post['status'] ?? ($report['status'] ?? 'brouillon'),
+            'author_updated_at'   => date('Y-m-d H:i:s'),
         ]);
 
         return redirect()->to(site_url('report/' . $id))->with('success', 'Bilan mis à jour.');
@@ -365,8 +384,8 @@ class Report extends BaseController
             'author_updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-        $history->add($reportId, 'edit', $this->userId(), 'Modification section (auteur)', $report['version'] ?? null);
+//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
+//        $history->add($reportId, 'edit', $this->userId(), 'Modification section (auteur)', $report['version'] ?? null);
 
         return redirect()->to(site_url('report/' . $reportId . '/sections'))
             ->with('success', 'Section mise à jour.');
@@ -430,38 +449,41 @@ class Report extends BaseController
         $report = $this->findReportWithUsersOr404($reportId);
         $this->requireOwnerOrAdmin($report);
 
+        $docStatus = trim((string)$this->request->getPost('doc_status'));
+        if ($docStatus === '') $docStatus = (string)($report['doc_status'] ?? 'work');
+
+        if ($docStatus === 'validated') {
+            return redirect()->back()->with('errors', [
+                'doc_status' => 'La validation se fait uniquement depuis l’interface admin.',
+            ]);
+        }
+
+        $rawFileId = trim((string)$this->request->getPost('file_media_id'));
+        if ($rawFileId === '0') $rawFileId = '';
+
         $data = [
-            'title'             => trim((string)$this->request->getPost('title')),
-            'application_name'  => trim((string)$this->request->getPost('application_name')),
-            'version'           => trim((string)$this->request->getPost('version')),
-            'status'            => trim((string)$this->request->getPost('status')) ?: (string)($report['status'] ?? 'brouillon'),
-            'author_name'       => trim((string)$this->request->getPost('author_name')) ?: (string)($report['author_name'] ?? ''),
-            'doc_status'        => trim((string)$this->request->getPost('doc_status')) ?: (string)($report['doc_status'] ?? 'work'),
-            'modification_kind' => trim((string)$this->request->getPost('modification_kind')) ?: (string)($report['modification_kind'] ?? 'creation'),
-            'author_updated_at' => date('Y-m-d H:i:s'),
-            'file_media_id' => $this->request->getPost('file_media_id') !== null && $this->request->getPost('file_media_id') !== ''
-                ? (int)$this->request->getPost('file_media_id')
-                : null,
+            'title'               => trim((string)$this->request->getPost('title')),
+            'application_name'    => trim((string)$this->request->getPost('application_name')),
+            'application_version' => trim((string)$this->request->getPost('application_version')),
+            'status'              => trim((string)$this->request->getPost('status')) ?: (string)($report['status'] ?? 'brouillon'),
+            'author_name'         => trim((string)$this->request->getPost('author_name')) ?: (string)($report['author_name'] ?? ''),
+            'doc_status'          => $docStatus,
+            'doc_version'         => 'v0.1',
+            'modification_kind'   => trim((string)$this->request->getPost('modification_kind')) ?: (string)($report['modification_kind'] ?? 'creation'),
+            'author_updated_at'   => date('Y-m-d H:i:s'),
+            'file_media_id'       => $rawFileId,
         ];
 
         $rules = [
-            'title'             => 'required|min_length[3]',
-            'application_name'  => 'required|min_length[2]',
-            'version'           => 'permit_empty|max_length[50]',
-            'status'            => 'permit_empty|in_list[brouillon,en_relecture,final]',
-            'author_name'       => 'permit_empty|max_length[120]',
-            'doc_status'        => 'required|in_list[work,approved,validated]',
-            'modification_kind' => 'required|in_list[creation,replace]',
-            'file_media_id' => 'permit_empty|is_natural_no_zero',
+            'title'               => 'required|min_length[3]',
+            'application_name'    => 'required|min_length[2]',
+            'application_version' => 'permit_empty|max_length[50]',
+            'status'              => 'permit_empty|in_list[brouillon,en_relecture,final]',
+            'author_name'         => 'permit_empty|max_length[120]',
+            'doc_status'          => 'required|in_list[work,approved]',
+            'modification_kind'   => 'required|in_list[creation,replace]',
+            'file_media_id'       => 'permit_empty|is_natural_no_zero',
         ];
-
-        $prevDoc = (string)($report['doc_status'] ?? 'work');
-        $newDoc  = (string)$data['doc_status'];
-
-        if ($prevDoc !== 'validated' && $newDoc === 'validated') {
-            $data['validated_by'] = $this->userId();
-            $data['validated_at'] = date('Y-m-d H:i:s');
-        }
 
         if (! $this->validateData($data, $rules)) {
             return redirect()->back()
@@ -469,7 +491,11 @@ class Report extends BaseController
                 ->with('errors', $this->validator->getErrors());
         }
 
-        unset($data['validated_by'], $data['validated_at']);
+        if ($data['file_media_id'] === '') {
+            $data['file_media_id'] = null;
+        } else {
+            $data['file_media_id'] = (int)$data['file_media_id'];
+        }
 
         $this->reports->update($reportId, $data);
 
@@ -515,9 +541,10 @@ class Report extends BaseController
         }
 
         $this->reports->update($reportId, [
-            'doc_status'         => $docStatus,
-            'modification_kind'  => $modKind,
-            'updated_at'         => date('Y-m-d H:i:s'),
+            'doc_status'        => $docStatus,
+            'doc_version'       => 'v0.1',
+            'modification_kind' => $modKind,
+            'updated_at'        => date('Y-m-d H:i:s'),
         ]);
 
         $this->success('Informations mises à jour.');

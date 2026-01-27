@@ -1,31 +1,22 @@
 <?php
+/**
+ * ADMIN - reports/sections.php
+ * Objectif : variables propres, pas de redéfinition, cohérence des champs.
+ */
+
 $errors  = session()->getFlashdata('errors') ?? [];
 $success = session()->getFlashdata('success');
 
 $report       = $report ?? [];
 $sectionsTree = $sectionsTree ?? [];
 $admins       = $admins ?? [];
+$canEdit      = $canEdit ?? true;
 
-$canEdit = $canEdit ?? true;
-
-$doc = old('doc_status', $report['doc_status'] ?? 'work');
-$mk  = old('modification_kind', $report['modification_kind'] ?? 'creation');
-$st  = old('status', $report['status'] ?? 'brouillon');
-
-$validatedAt = $report['validated_at'] ?? null;
-$validatedBy = (int)($report['validated_by_id'] ?? 0);
-$correctedAt = $report['corrected_at'] ?? null;
-?>
-
-<?= view('admin/reports/_steps', [
-    'step'     => 'write',
-    'reportId' => (int)($report['id'] ?? 0),
-    'canEdit'  => $canEdit ?? true,
-]) ?>
-
-<?php
 helper('html');
 
+/**
+ * Format date (d/m/Y) ou "—"
+ */
 $fmtDate = function ($value): string {
     if (empty($value)) return '—';
     try {
@@ -35,28 +26,64 @@ $fmtDate = function ($value): string {
     }
 };
 
+/**
+ * Checkbox UI (icône)
+ */
 $cb = function (bool $checked): string {
-    return $checked ? '<i class="fa-regular fa-circle-check"></i>' : '<i class="fa-regular fa-circle"></i>';
+    return $checked
+        ? '<i class="fa-regular fa-circle-check"></i>'
+        : '<i class="fa-regular fa-circle"></i>';
 };
 
-$docStatus = (string)($report['doc_status'] ?? 'work');
-$modKind   = (string)($report['modification_kind'] ?? 'creation');
+/**
+ * Valeurs "old()" -> fallback BDD
+ */
+$doc = old('doc_status', $report['doc_status'] ?? 'work');                 // work/approved/validated
+$mk  = old('modification_kind', $report['modification_kind'] ?? 'creation'); // creation/replace
+$st  = old('status', $report['status'] ?? 'brouillon');                   // brouillon/en_relecture/final
+
+/**
+ * Champs report utiles
+ * (⚠️ garde tes noms BDD ici : validated_by_id / corrected_by_id etc.)
+ */
+$reportId   = (int)($report['id'] ?? 0);
+$title      = (string)($report['title'] ?? '');
 
 $appName    = (string)($report['application_name'] ?? '—');
-$appVersion = (string)($report['version'] ?? '');
+$appVersion    = (string)($report['application_version'] ?? '—');
+
 $author     = (string)($report['author_name'] ?? '');
+
 $fileId     = (string)($report['file_media_id'] ?? '');
 $fileName   = (string)($report['file_name'] ?? '');
-$validatedAt = $report['validated_at'] ?? null;
-$createdAt   = $report['created_at'] ?? null;
-$updatedAt   = $report['updated_at'] ?? null;
+$filePath   = (string)($report['file_path'] ?? '');
 
-$status = (string)($report['status'] ?? '');
-$statusLabel = $status !== '' ? $status : '—';
+$createdAt  = $report['created_at'] ?? null;
+$updatedAt  = $report['updated_at'] ?? null;
 
-$sectionsTree = $sectionsTree ?? [];
-$admins = $admins ?? [];
+$validatedAt   = $report['validated_at'] ?? null;
+$validatedById = (int)($report['validated_by_id'] ?? 0);
 
+$correctedAt   = $report['corrected_at'] ?? null;
+$correctedById = (int)($report['corrected_by_id'] ?? 0); // ⚠️ corrected_by_id (pas corrected_by)
+
+/**
+ * Petites aides d’affichage
+ */
+$statusLabel = ($st !== '' ? $st : '—');
+$docStatus   = (string)($doc ?: 'work');
+$modKind     = (string)($mk ?: 'creation');
+
+$isValidated = ($docStatus === 'validated');
+
+/**
+ * Sommaire : racines
+ */
+$roots = is_array($sectionsTree) ? $sectionsTree : [];
+
+/**
+ * UI sections (indentation / titres / badges)
+ */
 $scrollOffset = 90;
 
 $indentClass = function (int $level): string {
@@ -66,6 +93,7 @@ $indentClass = function (int $level): string {
         default => 'ms-5',
     };
 };
+
 $headingClass = function (int $level): string {
     return match ($level) {
         1 => 'h4 fw-bold mb-2',
@@ -73,6 +101,7 @@ $headingClass = function (int $level): string {
         default => 'h6 fw-semibold mb-2 text-body',
     };
 };
+
 $badgeLevel = function (int $level): string {
     return match ($level) {
         1 => 'bg-primary',
@@ -81,17 +110,52 @@ $badgeLevel = function (int $level): string {
     };
 };
 
-$status = (string)($report['status'] ?? 'brouillon');
-$docStatusLabel = ucfirst(str_replace('_', ' ', $status));
+/**
+ * Affichage du validateur (nom) depuis $admins (si dispo)
+ */
+$getAdminNameById = function (int $id) use ($admins): string {
+    if ($id <= 0) return '—';
+    foreach ($admins as $a) {
+        $aid = (int)($a['id'] ?? 0);
+        if ($aid !== $id) continue;
 
-$validatedAt = $report['validated_at'] ?? null;
-$validatedBy = (int)($report['validated_by_id'] ?? 0);
+        $name = trim((string)($a['firstname'] ?? '') . ' ' . (string)($a['lastname'] ?? ''));
+        if ($name === '') $name = (string)($a['name'] ?? ('Admin #' . $aid));
 
-$correctedAt = $report['corrected_at'] ?? null;
-$correctedBy = (int)($report['corrected_by'] ?? 0);
+        return $name !== '' ? $name : '—';
+    }
+    return 'Admin #' . $id;
+};
 
-$roots = $sectionsTree;
+/**
+ * Historique (info-grid) :
+ * - 1ère ligne : doc_version (ou v0.1) + created_at + "Version initiale"
+ * - 2ème ligne : v1.0 + validated_at + "Version finale" (si validé)
+ */
+$docVersion = (string)($report['doc_version'] ?? 'v0.1');
+$historyRows = [
+    [
+        'version' => $docVersion ?: 'v0.1',
+        'date'    => $fmtDate($createdAt),
+        'comment' => 'Version initiale',
+    ],
+];
+
+if (!empty($validatedAt)) {
+    $historyRows[] = [
+        'version' => 'v1.0',
+        'date'    => $fmtDate($validatedAt),
+        'comment' => 'Version finale',
+    ];
+}
 ?>
+
+<?= view('admin/reports/_steps', [
+    'step'     => 'write',
+    'reportId' => $reportId,
+    'canEdit'  => $canEdit ?? true,
+]) ?>
+
 
 <div class="container-fluid">
 
@@ -139,41 +203,47 @@ $roots = $sectionsTree;
                         <?= csrf_field() ?>
 
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-5 mb-3">
                                 <label class="form-label">Titre</label>
                                 <input name="title" class="form-control"
                                        value="<?= esc(old('title', $report['title'] ?? '')) ?>">
                             </div>
 
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label class="form-label">Application</label>
                                 <input name="application_name" class="form-control"
                                        value="<?= esc(old('application_name', $report['application_name'] ?? '')) ?>">
                             </div>
 
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Version</label>
-                                <input name="version" class="form-control"
-                                       value="<?= esc(old('version', $report['version'] ?? '')) ?>">
-                            </div>
-
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Statut (workflow)</label>
-                                <?php $st = old('status', $report['status'] ?? 'brouillon'); ?>
-                                <select name="status" class="form-select">
-                                    <option value="brouillon" <?= $st === 'brouillon' ? 'selected' : '' ?>>Brouillon
-                                    </option>
-                                    <option value="en_relecture" <?= $st === 'en_relecture' ? 'selected' : '' ?>>En
-                                        relecture
-                                    </option>
-                                    <option value="final" <?= $st === 'final' ? 'selected' : '' ?>>Final</option>
-                                </select>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Version de l'application</label>
+                                <input name="application_version" class="form-control"
+                                       value="<?= esc(old('application_version', $report['application_version'] ?? '')) ?>">
                             </div>
 
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Auteur</label>
                                 <input name="author_name" class="form-control"
                                        value="<?= esc(old('author_name', $report['author_name'] ?? '')) ?>">
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Version du document</label>
+                                <input name="doc_version" class="form-control"
+                                       value="<?= esc(old('doc_version', $report['doc_version'] ?? '')) ?>">
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Statut de rédaction</label>
+                                <?php $st = old('status', $report['status'] ?? 'brouillon'); ?>
+                                <select name="status" class="form-select">
+                                    <option value="brouillon" <?= $st === 'brouillon' ? 'selected' : '' ?>>Brouillon
+                                    </option>
+                                    <option value="en relecture" <?= $st === 'en relecture' ? 'selected' : '' ?>>En
+                                        relecture
+                                    </option>
+                                    <option value="final" <?= $st === 'final' ? 'selected' : '' ?>>Final</option>
+                                </select>
                             </div>
                         </div>
 
@@ -277,7 +347,7 @@ $roots = $sectionsTree;
                                             );
                                             if ($name === '') $name = (string)($a['name'] ?? ('Admin #' . $id));
                                             ?>
-                                            <option value="<?= $id ?>" <?= $validatedBy === $id ? 'selected' : '' ?>>
+                                            <option value="<?= $id ?>" <?= $validatedById === $id ? 'selected' : '' ?>>
                                                 <?= esc($name) ?>
                                             </option>
                                         <?php endforeach; ?>

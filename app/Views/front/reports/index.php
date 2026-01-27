@@ -41,7 +41,8 @@ $success = $success ?? session('success');
                             <th style="width:60px;">ID</th>
                             <th>Titre</th>
                             <th>Application</th>
-                            <th>Version</th>
+                            <th>Version de l'application</th>
+                            <th>Version du document</th>
                             <th>Statut</th>
                             <th style="width:260px;">Actions</th>
                         </tr>
@@ -58,7 +59,8 @@ $success = $success ?? session('success');
                                 <td>#<?= esc($report['id']) ?></td>
                                 <td><?= esc($report['title']) ?></td>
                                 <td><?= esc($report['application_name']) ?></td>
-                                <td><?= esc($report['version']) ?></td>
+                                <td><?= esc($report['application_version']) ?></td>
+                                <td><?= esc($report['doc_version']) ?></td>
                                 <td>
                                     <span class="badge <?= $badgeClass ?>">
                                         <?= esc(ucfirst(str_replace('_', ' ', $status))) ?>
@@ -109,18 +111,32 @@ $success = $success ?? session('success');
                             <th style="width:60px;">ID</th>
                             <th>Titre</th>
                             <th>Application</th>
-                            <th>Version</th>
+                            <th>Version de l'application</th>
+                            <th>Version du document</th>
+                            <th>Statut</th>
                             <th>Auteur</th>
                             <th style="width:120px;">Action</th>
                         </tr>
                         </thead>
                         <tbody>
                         <?php foreach ($otherReports as $report): ?>
+                            <?php
+                            $status = $report['status'] ?? 'brouillon';
+                            $badgeClass = 'bg-secondary';
+                            if ($status === 'en_relecture') $badgeClass = 'bg-warning';
+                            if ($status === 'final') $badgeClass = 'bg-success';
+                            ?>
                             <tr>
                                 <td>#<?= esc($report['id']) ?></td>
                                 <td><?= esc($report['title']) ?></td>
                                 <td><?= esc($report['application_name']) ?></td>
-                                <td><?= esc($report['version']) ?></td>
+                                <td><?= esc($report['application_version']) ?></td>
+                                <td><?= esc($report['doc_version']) ?></td>
+                                <td>
+                                    <span class="badge <?= $badgeClass ?>">
+                                        <?= esc(ucfirst(str_replace('_', ' ', $status))) ?>
+                                    </span>
+                                </td>
                                 <td><?= esc($report['author_name']) ?></td>
                                 <td>
                                     <a class="btn btn-sm btn-outline-primary"
@@ -161,7 +177,7 @@ $success = $success ?? session('success');
                                 <strong><h4><?= esc($report['application_name']) ?></h4></strong><br>
                             </div>
                             <div class="mb-2">
-                                <strong>Version : </strong><?= esc($report['version']) ?><br>
+                                <strong>Version de l'application : </strong><?= esc($report['application_version']) ?><br>
                             </div>
                             <div class="mb-2">
                                 <strong>Rédigé par : </strong><?= esc($report['author_name']) ?><br>
@@ -171,6 +187,9 @@ $success = $success ?? session('success');
                             </div>
                             <div class="mb-2">
                                 <strong>Statut du document : </strong><?= esc($report['doc_status']) ?><br>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Version du document : </strong><?= esc($report['doc_version']) ?><br>
                             </div>
                             <div class="mb-2">
                                 <strong>Dernière correction : </strong><?= esc($report['updated_at']) ?><br>

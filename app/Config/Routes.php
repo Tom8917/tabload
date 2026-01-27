@@ -65,7 +65,7 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
     $routes->post('report/(:num)/sections/(:num)/move-up', 'Report::postMoveRootUp/$1/$2');
     $routes->post('report/(:num)/sections/(:num)/move-down', 'Report::postMoveRootDown/$1/$2');
 
-    $routes->post('report/(:num)/meta', 'Reports::updateMeta/$1');
+//    $routes->post('report/(:num)/meta', 'Report::updateMeta/$1');
 
     $routes->get('tabload',         'Tabload::getIndex');
 

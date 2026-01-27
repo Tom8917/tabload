@@ -53,29 +53,18 @@ $success = $success ?? session('success');
                     </div>
 
                     <div class="col-md-3 mb-3">
-                        <label class="form-label">Version</label>
-                        <input name="version" class="form-control" value="<?= esc(old('version', $report['version'] ?? '')) ?>">
+                        <label class="form-label">Version de l’application</label>
+                        <input name="application_version" class="form-control"
+                               value="<?= esc(old('application_version', $report['application_version'] ?? '')) ?>">
                     </div>
 
                     <div class="col-md-3 mb-3">
-                        <label class="form-label">Statut</label>
+                        <label class="form-label">Statut (workflow)</label>
                         <select name="status" class="form-select">
-                            <?php
-                            $st = old('status', $report['status'] ?? 'draft');
-
-                            // compat si anciens statuts FR en base
-                            $st = match ($st) {
-                                'brouillon' => 'draft',
-                                'en_relecture', 'a_corriger', 'à corriger' => 'in_review',
-                                'valide', 'validé', 'conforme' => 'validated',
-                                'non_conforme', 'refusé', 'rejeté' => 'rejected',
-                                default => $st,
-                            };
-                            ?>
-                            <option value="draft" <?= $st==='draft'?'selected':'' ?>>Brouillon</option>
-                            <option value="in_review" <?= $st==='in_review'?'selected':'' ?>>À corriger</option>
-                            <option value="validated" <?= $st==='validated'?'selected':'' ?>>Validé</option>
-                            <option value="rejected" <?= $st==='rejected'?'selected':'' ?>>Non conforme</option>
+                            <?php $st = old('status', $report['status'] ?? 'brouillon'); ?>
+                            <option value="brouillon" <?= $st==='brouillon'?'selected':'' ?>>Brouillon</option>
+                            <option value="en_relecture" <?= $st==='en_relecture'?'selected':'' ?>>En relecture</option>
+                            <option value="final" <?= $st==='final'?'selected':'' ?>>Final</option>
                         </select>
                     </div>
 
@@ -84,14 +73,14 @@ $success = $success ?? session('success');
                         <input name="author_name" class="form-control" value="<?= esc(old('author_name', $report['author_name'] ?? '')) ?>">
                     </div>
 
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label">Validé par (correcteur)</label>
-                        <input name="corrector_name" class="form-control" value="<?= esc(old('corrector_name', $report['corrector_name'] ?? '')) ?>">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Correcteur</label>
+                        <input class="form-control" value="<?= esc($report['corrected_by'] ?? '') ?>" readonly>
                     </div>
 
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label">Date de validation</label>
-                        <input type="date" name="validated_at" class="form-control" value="<?= esc(old('validated_at', $report['validated_at'] ?? '')) ?>">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Validé par</label>
+                        <input class="form-control" value="<?= esc($report['validated_by'] ?? '') ?>" readonly>
                     </div>
                 </div>
 

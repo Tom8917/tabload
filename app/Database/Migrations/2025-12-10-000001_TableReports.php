@@ -27,7 +27,7 @@ class TableReports extends Migration
                 'type'       => 'VARCHAR',
                 'constraint' => 255,
             ],
-            'version' => [
+            'application_version' => [
                 'type'       => 'VARCHAR',
                 'constraint' => 50,
                 'null'       => true,
@@ -39,13 +39,19 @@ class TableReports extends Migration
             ],
             'status' => [
                 'type'       => 'ENUM',
-                'constraint' => ['brouillon', 'en_relecture', 'final'],
+                'constraint' => ['brouillon', 'en relecture', 'final'],
                 'default'    => 'brouillon',
             ],
             'doc_status' => [
                 'type'       => 'ENUM',
                 'constraint' => ['work', 'approved', 'validated'],
                 'default'    => 'work',
+            ],
+            'doc_version' => [
+                'type'       => 'VARCHAR',
+                'constraint' => 20,
+                'null'       => false,
+                'default'    => 'v0.1',
             ],
             'modification_kind' => [
                 'type'       => 'ENUM',
