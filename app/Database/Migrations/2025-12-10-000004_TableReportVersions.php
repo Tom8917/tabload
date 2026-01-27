@@ -33,6 +33,11 @@ class TableReportVersions extends Migration
                 'constraint' => ['draft', 'edit', 'correction', 'approval', 'validation'],
                 'default'    => 'edit',
             ],
+            'doc_status' => [
+                'type'       => 'ENUM',
+                'constraint' => ['work', 'approved', 'validated'],
+                'null'       => true,
+            ],
             'changed_by' => [
                 'type'       => 'INT',
                 'constraint' => 11,

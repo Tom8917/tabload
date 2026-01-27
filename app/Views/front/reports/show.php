@@ -76,8 +76,19 @@ $cb = function (bool $checked): string {
         default => 'bg-secondary',
     };
 
+    $mediaId = (int)($report['file_media_id'] ?? 0);
+    $entFile = '';
+
+    if ($mediaId > 0) {
+        $m = model(\App\Models\MediaModel::class)->find($mediaId);
+        $entFile = trim((string)($m['file_name'] ?? ''));
+    }
+
+    if ($entFile === '') $entFile = 'Aucun document renseigné';
+
     $appName = (string)($report['application_name'] ?? '—');
-    $appVersion = (string)($report['version'] ?? '');
+    $appVersion = (string)($report['application_version'] ?? '');
+    $docVersion = (string)($report['doc_version'] ?? '');
     $author = (string)($report['author_name'] ?? '');
     $fileId = (string)($report['file_media_id'] ?? '');
     $fileName = (string)($report['file_name'] ?? '');
@@ -85,25 +96,25 @@ $cb = function (bool $checked): string {
     $validator = (string)($report['validated_by'] ?? '');
     $validatedAt = $report['validated_at'] ?? null;
     $createdAt = $report['created_at'] ?? null;
-    $updatedAt = $report['updated_at'] ?? null;
+    $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($report['updated_at'] ?? null));
     ?>
 
     <?php if ($canEdit): ?>
-    <div class="d-flex justify-content-between mb-4">
-        <div>
-            <h1 class="h3 mb-1">Aperçu : <?= esc($report['title'] ?? '') ?></h1>
+        <div class="d-flex justify-content-between mb-4">
+            <div>
+                <h1 class="h3 mb-1">Aperçu : <?= esc($report['title'] ?? '') ?></h1>
+            </div>
+            <a href="<?= site_url('report/' . $report['id'] . '/sections') ?>" class="btn btn-outline-secondary">
+                Retour à la rédaction
+            </a>
         </div>
-        <a href="<?= site_url('report/' . $report['id'] . '/sections') ?>" class="btn btn-outline-secondary">
-            Retour à la rédaction
-        </a>
-    </div>
     <?php else: ?>
-    <div class="d-flex justify-content-end mb-4">
-    <a href="<?= site_url('report/') ?>" class="btn btn-outline-secondary">
-            Retour à la liste
-        </a>
-    </div>
-<?php endif ?>
+        <div class="d-flex justify-content-end mb-4">
+            <a href="<?= site_url('report/') ?>" class="btn btn-outline-secondary">
+                Retour à la liste
+            </a>
+        </div>
+    <?php endif ?>
 
     <!-- Card centrée et large : Bureau de l'intégration -->
     <div class="row justify-content-center">
@@ -127,20 +138,27 @@ $cb = function (bool $checked): string {
                     <div class="row g-4">
                         <div class="col-12">
                             <div class="mt-3 mb-1"><span
-                                        class="fw-bold">Version :</span> <?= $appVersion !== '' ? ($appVersion) : '—' ?>
+                                        class="fw-bold">Version :</span> <?= $docVersion !== '' ? ($docVersion) : '—' ?>
                                 du <?= ($fmtDate($createdAt)) ?></div>
                         </div>
 
                         <div class="col-12">
-                            <div class="mt-3 mb-1"><span class="fw-bold">Fichier : </span><?= ($fileName) ?></div>
-                            <?php if (!empty($fileId) && !empty($report['file_path'])): ?>
-                                <div class="mt-2">
-                                    <a class="btn btn-sm btn-outline-secondary"
-                                       href="<?= base_url(ltrim((string)$report['file_path'], '/')) ?>"
-                                       target="_blank" rel="noopener">
-                                        Ouvrir le fichier
+                            <?php if (!empty($report['file_path'])): ?>
+                                <?php $fileUrl = base_url(ltrim((string)$report['file_path'], '/')); ?>
+                                <div class="mt-3 mb-1">
+                                    <span class="fw-bold">Fichier :</span>
+                                    <a href="<?= esc($fileUrl) ?>" target="_blank" rel="noopener">
+                                        <?= esc($fileName ?: 'Ouvrir le fichier') ?>
                                     </a>
                                 </div>
+                                <div class="mt-2">
+                                    <a class="btn btn-sm btn-outline-secondary"
+                                       href="<?= esc($fileUrl) ?>" download>
+                                        Télécharger
+                                    </a>
+                                </div>
+                            <?php else: ?>
+                                <div class="mt-3 mb-1"><span class="fw-bold">Fichier : </span><?= $entFile ?></div>
                             <?php endif; ?>
                         </div>
 
@@ -264,21 +282,41 @@ $cb = function (bool $checked): string {
                                     <h5 class="fw-semibold">Commentaires</h5>
                                 </div>
 
-                                <!-- Case 4 -->
-                                <div class="col-12 col-md-3 info-cell">
-                                    <span class=><?= ($appVersion ?: '—') ?></span>
-                                </div>
+                                <?php if (empty($versions)): ?>
 
-                                <!-- Case 5 -->
-                                <div class="col-12 col-md-3 info-cell">
-                                    <p class="mb-0"><?= ($fmtDate($updatedAt)) ?></p>
-                                </div>
+                                    <div class="col-12 info-cell text-muted">
+                                        Aucun historique pour le moment.
+                                    </div>
 
-                                <!-- Case 6 -->
-                                <div class="col-12 col-md-6 info-cell">
-                                    <p class="mb-0">Version initiale</p>
-                                </div>
+                                <?php else: ?>
+
+                                    <?php foreach ($versions as $v): ?>
+                                        <?php
+                                        $versionLabel = (string)($v['version_label'] ?? '—');
+                                        $date = $v['created_at'] ?? null;
+                                        $comment = trim((string)($v['comment'] ?? ''));
+                                        ?>
+
+                                        <!-- Col Version -->
+                                        <div class="col-12 col-md-3 info-cell">
+                                            <span class="mb-0"><?= esc($versionLabel) ?></span>
+                                        </div>
+
+                                        <!-- Col Date -->
+                                        <div class="col-12 col-md-3 info-cell">
+                                            <p class="mb-0"><?= esc($fmtDate($date)) ?></p>
+                                        </div>
+
+                                        <!-- Col Commentaire -->
+                                        <div class="col-12 col-md-6 info-cell">
+                                            <p class="mb-0"><?= esc($comment !== '' ? $comment : '—') ?></p>
+                                        </div>
+
+                                    <?php endforeach; ?>
+
+                                <?php endif; ?>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -367,7 +405,7 @@ $render = function (array $node) use (&$render, $indentClass, $headingClass, $ba
                     <?= clean_html($content) ?>
                 </div>
             <?php else: ?>
-                <div class="text-muted small">Contenu non renseigné.</div>
+<!--                <div class="text-muted small">Contenu non renseigné.</div>-->
             <?php endif; ?>
 
             <?php if (!empty($node['children'])): ?>

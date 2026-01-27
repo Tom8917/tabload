@@ -67,7 +67,7 @@ helper('html');
                     <textarea id="contentEditor"
                               name="content"
                               rows="12"
-                              class="form-control"><?= old('content', $section['content'] ?? '') ?></textarea>
+                              class="form-control"><?= esc(old('content', (string)($section['content'] ?? ''))) ?></textarea>
                     <div class="form-text">
                         Astuce : utilisez <strong>couleur</strong>, <strong>surlignage</strong> et <strong>barré</strong> pour corriger (ex : rouge).
                     </div>

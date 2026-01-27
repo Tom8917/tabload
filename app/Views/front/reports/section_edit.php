@@ -3,16 +3,12 @@ $errors  = $errors ?? (session('errors') ?? []);
 $success = $success ?? session('success');
 ?>
 
-<script>
-    const IS_CORRECTOR = <?= json_encode(($user->role ?? '') === 'corrector') ?>;
-</script>
-
 <div class="container-fluid">
 
     <?= view('front/reports/_steps', [
         'step'     => 'write',
         'reportId' => $report['id'],
-        'canEdit'  => true, // ici on est forcément owner (sinon 403 dans controller)
+        'canEdit'  => true,
     ]) ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4">

@@ -20,12 +20,13 @@
             <div class="card-body p-0">
                 <div class="table-responsive mb-0">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+                        <thead class="table">
                         <tr>
                             <th style="width: 60px;">ID</th>
                             <th>Titre</th>
                             <th>Application</th>
-                            <th>Version</th>
+                            <th>Version de l'application</th>
+                            <th>Version du document</th>
                             <th>Auteur</th>
                             <th>Statut</th>
                             <th style="width: 130px;">Actions</th>
@@ -37,7 +38,8 @@
                                 <td>#<?= esc($report['id']) ?></td>
                                 <td><?= esc($report['title']) ?></td>
                                 <td><?= esc($report['application_name']) ?></td>
-                                <td><?= esc($report['version']) ?></td>
+                                <td><?= esc($report['application_version']) ?></td>
+                                <td><?= esc($report['doc_version']) ?></td>
                                 <td><?= esc($report['author_name']) ?></td>
                                 <td>
                                     <?php

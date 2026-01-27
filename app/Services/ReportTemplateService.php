@@ -18,7 +18,7 @@ class ReportTemplateService
     {
         $report = model(ReportModel::class)->find($reportId);
         $appName = trim((string)($report['application_name'] ?? ''));
-        $appVersion = trim((string)($report['version'] ?? ''));
+        $appVersion = trim((string)($report['application_version'] ?? ''));
         $entFile = trim((string)($report['file_name'] ?? ''));
 
         if ($appName === '') {

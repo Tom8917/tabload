@@ -62,12 +62,12 @@ if ($author === '') $author = 'Utilisateur';
 
                 <div class="row">
                     <div class="col-md-4 mb-3">
-                        <label class="form-label">Version du document</label>
+                        <label class="form-label">Version de l’application</label>
                         <input type="text"
-                               name="version"
+                               name="application_version"
                                class="form-control"
                                placeholder="ex : v1.0, 2025-01"
-                               value="<?= old('version') ?>">
+                               value="<?= old('application_version') ?>">
                     </div>
 
                     <div class="col-md-8 mb-3">
@@ -79,6 +79,30 @@ if ($author === '') $author = 'Utilisateur';
                         <div class="form-text">Renseigné automatiquement à la création.</div>
                     </div>
                 </div>
+
+                <hr class="my-4">
+
+                        <div class="col-md-6 mb-4 mt-3">
+                            <label class="form-label">Modification par rapport à l’existant</label>
+                            <?php $mk = old('modification_kind', $report['modification_kind'] ?? 'creation'); ?>
+
+                            <div class="d-flex flex-wrap mt-1">
+                                <div class="form-check me-3">
+                                    <input class="form-check-input" type="radio" name="modification_kind"
+                                           id="mk_creation" value="creation"
+                                        <?= $mk === 'creation' ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="mk_creation">Création</label>
+                                </div>
+
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="modification_kind"
+                                           id="mk_replace" value="replace"
+                                        <?= $mk === 'replace' ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="mk_replace">Annule et remplace la version
+                                        précédente</label>
+                                </div>
+                            </div>
+                        </div>
 
                 <hr class="my-4">
 
@@ -150,7 +174,8 @@ if ($author === '') $author = 'Utilisateur';
                 <hr class="my-4">
 
                 <!-- vue picker pour choisir le fichier de l'entrant -->
-                <?php $fileMediaId = old('file_media_id', $report['file_media_id'] ?? ''); ?>
+<!--                --><?php //$fileMediaId = old('file_media_id', $report['file_media_id'] ?? ''); ?>
+                <?php $fileMediaId = old('file_media_id', ''); ?>
 
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Fichier de l'entrant</label>
@@ -160,7 +185,7 @@ if ($author === '') $author = 'Utilisateur';
                                value="<?= esc($fileMediaId) ?>">
 
                         <input type="hidden" name="file_media_name" id="file_media_name"
-                               value="<?= esc(old('file_media_name', $report['file_media_name'] ?? '')) ?>">
+                               value="<?= esc(old('file_media_name', '')) ?>">
 
                         <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal"
                                 data-bs-target="#mediaPickerModal">
@@ -176,7 +201,7 @@ if ($author === '') $author = 'Utilisateur';
                     <div class="mt-2 small" id="pickedFileInfo">
                         <?php if (!empty($fileMediaId)): ?>
                             <span class="text-muted">Fichier sélectionné : </span>
-                            <strong><?= esc($report['file_name'] ?? ('#' . (int)$fileMediaId)) ?></strong>
+                            <strong><?= esc(old('file_media_name', $fileMediaId ? ('#' . (int)$fileMediaId) : '')) ?></strong>
 
                             <?php if (!empty($report['file_path'])): ?>
                                 <div class="text-muted small"><?= esc($report['file_path']) ?></div>

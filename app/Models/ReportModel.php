@@ -6,24 +6,25 @@ use CodeIgniter\Model;
 
 class ReportModel extends Model
 {
-    protected $table            = 'reports';
-    protected $primaryKey       = 'id';
-    protected $returnType       = 'array';
-    protected $useSoftDeletes   = false;
+    protected $table          = 'reports';
+    protected $primaryKey     = 'id';
+    protected $returnType     = 'array';
+    protected $useSoftDeletes = false;
 
-    // On garde useTimestamps pour created_at/updated_at
-    protected $useTimestamps    = true;
-    protected $createdField     = 'created_at';
-    protected $updatedField     = 'updated_at';
+    protected $useTimestamps = true;
+    protected $createdField  = 'created_at';
+    protected $updatedField  = 'updated_at';
 
     protected $allowedFields = [
         'user_id',
         'title',
         'application_name',
+        'application_version',
         'version',
         'author_name',
         'status',
         'doc_status',
+        'doc_version',
         'modification_kind',
         'file_media_id',
         'version_date',
@@ -60,5 +61,13 @@ class ReportModel extends Model
         return $this->where('id', $reportId)
             ->where('user_id', $userId)
             ->first();
+    }
+
+    public function docVersionFromStatus(string $docStatus): string
+    {
+        return match ($docStatus) {
+            'validated' => 'v1.0',
+            default     => 'v0.1',
+        };
     }
 }
