@@ -226,8 +226,6 @@ class Media extends BaseController
         $uploaded = $this->request->getFiles();
         $ok = 0;
         $errors = [];
-
-        // ✅ IMPORTANT : getFiles() peut renvoyer UploadedFile direct ou array
         $files = $uploaded['files'] ?? null;
 
         if ($files instanceof \CodeIgniter\HTTP\Files\UploadedFile) {
@@ -246,7 +244,6 @@ class Media extends BaseController
             $errors[] = "Aucun fichier reçu (vérifie post_max_size/upload_max_filesize).";
         }
 
-        // ✅ AJAX => JSON (pour ton picker)
         if ($this->request->isAJAX()) {
             return $this->response->setJSON([
                 'ok'     => $ok,
@@ -254,7 +251,6 @@ class Media extends BaseController
             ]);
         }
 
-        // sinon comportement normal (redirect)
         $folderIdRaw = $this->request->getPost('folder_id');
         $folderId    = is_numeric($folderIdRaw) ? (int)$folderIdRaw : null;
 

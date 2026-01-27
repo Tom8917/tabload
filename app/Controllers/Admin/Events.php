@@ -10,13 +10,11 @@ class Events extends BaseController
 
     public function getIndex()
     {
-        // Vue avec modal + calendrier (les events viennent en AJAX via /admin/events/list)
         return $this->view('/admin/events/index.php', [
             'initialDate' => date('Y-m-d'),
         ], ['saveData' => true]);
     }
 
-    /** JSON pour FullCalendar: /admin/events/list?start=...&end=... */
     public function getList()
     {
         $start = $this->request->getGet('start') ?? date('Y-m-01');
@@ -48,7 +46,6 @@ class Events extends BaseController
         return $this->response->setJSON($events);
     }
 
-    /** Création (unitaire ou répétition quotidienne) */
     public function postStore()
     {
         $repeat = (bool) $this->request->getPost('repeat_daily');
@@ -61,26 +58,26 @@ class Events extends BaseController
             $notes   = (string) $this->request->getPost('notes');
             $allDay  = $this->request->getPost('all_day') ? 1 : 0;
 
-            $dateFrom = (string) $this->request->getPost('date_from'); // YYYY-MM-DD
-            $dateTo   = (string) $this->request->getPost('date_to');   // YYYY-MM-DD
+            $dateFrom = (string) $this->request->getPost('date_from');
+            $dateTo   = (string) $this->request->getPost('date_to');
 
-            $t1s = (string) $this->request->getPost('time1_start'); // HH:MM
-            $t1e = (string) $this->request->getPost('time1_end');   // HH:MM
-            $t2s = (string) $this->request->getPost('time2_start'); // HH:MM
-            $t2e = (string) $this->request->getPost('time2_end');   // HH:MM
+            $t1s = (string) $this->request->getPost('time1_start');
+            $t1e = (string) $this->request->getPost('time1_end');
+            $t2s = (string) $this->request->getPost('time2_start');
+            $t2e = (string) $this->request->getPost('time2_end');
 
             if (!$dateFrom || !$dateTo) {
-                return $this->redirect('admin/events')->with('error','Renseigne la période (du… au…).');
+                return redirect()->to(site_url('admin/events'))->with('error','Renseigne la période (du… au…).');
             }
             if (!$allDay && (!$t1s || !$t1e)) {
-                return $this->redirect('admin/events')->with('error','Renseigne au moins un créneau horaire.');
+                return redirect()->to(site_url('admin/events'))->with('error','Renseigne au moins un créneau horaire.');
             }
 
             $dates = [];
             $start = new \DateTime($dateFrom.' 00:00:00');
             $end   = new \DateTime($dateTo.' 00:00:00');
             if ($end < $start) {
-                return $this->redirect('admin/events')->with('error','La date de fin doit être ≥ date de début.');
+                return redirect()->to(site_url('admin/events'))->with('error','La date de fin doit être ≥ date de début.');
             }
             for ($d = clone $start; $d <= $end; $d->modify('+1 day')) {
                 $dates[] = $d->format('Y-m-d');
@@ -133,10 +130,9 @@ class Events extends BaseController
             }
 
             if ($this->request->isAJAX()) return $this->response->setJSON(['ok' => true, 'count' => $inserted]);
-            return $this->redirect('admin/events')->with('message', $inserted.' évènement(s) créé(s)');
+            return redirect()->to(site_url('admin/events'))->with('message', $inserted.' évènement(s) créé(s)');
         }
 
-        // Unitaire
         $data = $this->request->getPost(['title','type','starts_at','ends_at','location','notes','color']);
         $data['all_day'] = $this->request->getPost('all_day') ? 1 : 0;
         $data['color']   = $this->sanitizeColor($data['color'] ?? null);
@@ -176,14 +172,12 @@ class Events extends BaseController
         return redirect()->to(site_url('admin/events'))->with('message','Évènement mis à jour');
     }
 
-    public function postDelete($id)
+    public function getDelete(int $id)
     {
-        (new EventModel())->delete((int)$id);
-        if ($this->request->isAJAX()) return $this->response->setJSON(['ok' => true]);
-        return $this->redirect('admin/events')->with('message','Évènement supprimé');
+        (new EventModel())->delete($id);
+        return redirect()->to(site_url('admin/events'))->with('message','Évènement supprimé');
     }
 
-    // helpers
     private function sanitizeColor(?string $hex): ?string
     {
         return ($hex && preg_match('/^#[0-9a-f]{6}$/i', $hex)) ? $hex : null;

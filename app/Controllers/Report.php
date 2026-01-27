@@ -159,6 +159,7 @@ class Report extends BaseController
             'title'            => 'required|min_length[3]',
             'application_name' => 'required|min_length[2]',
             'version'          => 'permit_empty|max_length[50]',
+            'file_media_id'    => 'permit_empty',
         ];
 
         if (!$this->validate($rules)) {
@@ -170,6 +171,7 @@ class Report extends BaseController
             'title'            => $post['title'],
             'application_name' => $post['application_name'],
             'version'          => $post['version'] ?? null,
+            'file_media_id'    => $post['file_media_id'] ?? null,
             'author_name'      => $this->currentUserFullName(),
             'status'           => 'brouillon',
         ], true);
@@ -214,6 +216,7 @@ class Report extends BaseController
             'title'            => 'required|min_length[3]',
             'application_name' => 'required|min_length[2]',
             'version'          => 'permit_empty|max_length[50]',
+            'file_media_id'    => 'permit_empty',
             'status'           => 'permit_empty|in_list[brouillon,en_relecture,final]',
         ];
 
@@ -225,6 +228,7 @@ class Report extends BaseController
             'title'             => $post['title'],
             'application_name'  => $post['application_name'],
             'version'           => $post['version'] ?? null,
+            'file_media_id'    => $post['file_media_id'] ?? null,
             'status'            => $post['status'] ?? ($report['status'] ?? 'brouillon'),
             'author_updated_at' => date('Y-m-d H:i:s'),
         ]);

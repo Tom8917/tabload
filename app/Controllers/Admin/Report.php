@@ -106,9 +106,6 @@ class Report extends BaseController
         }
     }
 
-    // ------------------------------------------------------------
-    // REPORTS CRUD
-    // ------------------------------------------------------------
 
     public function getIndex()
     {
@@ -315,9 +312,6 @@ class Report extends BaseController
             ->with('success', 'Bilan supprimé.');
     }
 
-    // ------------------------------------------------------------
-    // SECTIONS
-    // ------------------------------------------------------------
 
     public function getSections(int $id)
     {
@@ -512,9 +506,6 @@ class Report extends BaseController
         ]);
     }
 
-    // ------------------------------------------------------------
-    // WORKFLOW
-    // ------------------------------------------------------------
 
     public function postMarkInReview(int $id)
     {

@@ -8,14 +8,9 @@ $routes->setDefaultController('Login');
 $routes->setDefaultMethod('getIndex');
 $routes->setTranslateURIDashes(false);
 
-// Désactive l'auto routing (recommandé si tu veux 0 surprise)
 $routes->setAutoRoute(false);
 
-/*
-|--------------------------------------------------------------------------
-| PUBLIC (sans auth)
-|--------------------------------------------------------------------------
-*/
+// PUBLIC (sans auth)
 $routes->get('login',                'Login::getIndex');
 $routes->post('login',               'Login::postLogin');
 $routes->get('login/register', 'Login::getRegister');
@@ -23,13 +18,7 @@ $routes->post('login/register', 'Login::postRegister');
 $routes->get('login/logout', 'Login::getLogout');
 
 
-/*
-|--------------------------------------------------------------------------
-| FRONT (auth)
-|--------------------------------------------------------------------------
-| - "/" = dashboard
-| - toutes les pages front ici
-*/
+// FRONT (auth)
 $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes) {
 
     // Dashboard
@@ -49,21 +38,20 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
     $routes->get('pages/(:segment)', 'Pages::getShow/$1');
 
     // Profile
-    // (comme ton Profile attend un ID, on fait une route /profile qui redirige vers /profile/{id})
     $routes->get('profile',          'Profile::getMe');
     $routes->get('profile/(:num)',   'Profile::getIndex/$1');
 
-    // REPORTS (Front user)
-    $routes->get('report',                 'Report::getIndex');          // liste
-    $routes->get('report/new',             'Report::getNew');            // form création
-    $routes->post('report',                'Report::postCreate');        // create
+    // REPORTS
+    $routes->get('report',                 'Report::getIndex');
+    $routes->get('report/new',             'Report::getNew');
+    $routes->post('report',                'Report::postCreate');
 
-    $routes->get('report/(:num)',          'Report::getShow/$1');        // show (détail)
-    $routes->get('report/(:num)/edit',     'Report::getEdit/$1');        // form edit
-    $routes->post('report/(:num)/update',  'Report::postUpdate/$1');     // update
-    $routes->post('report/(:num)/delete',  'Report::postDelete/$1');     // delete
+    $routes->get('report/(:num)',          'Report::getShow/$1');
+    $routes->get('report/(:num)/edit',     'Report::getEdit/$1');
+    $routes->post('report/(:num)/update',  'Report::postUpdate/$1');
+    $routes->post('report/(:num)/delete',  'Report::postDelete/$1');
 
-// SECTIONS
+    // SECTIONS
     $routes->get('report/(:num)/sections',                'Report::getSections/$1');
     $routes->post('report/(:num)/sections/root',          'Report::postSectionsRoot/$1');
     $routes->post('report/(:num)/sections/(:num)/child',  'Report::postSectionsChild/$1/$2');
@@ -82,29 +70,23 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
     $routes->get('tabload',         'Tabload::getIndex');
 
     $routes->group('media', function($routes) {
-        $routes->get('/',               'Media::getIndex');
-        $routes->get('folder/(:num)',   'Media::getFolder/$1');
-
-        $routes->post('upload',         'Media::postUpload');
-
-        $routes->post('folder/create',  'Media::postCreateFolder');
+        $routes->get('/',                     'Media::getIndex');
+        $routes->get('folder/(:num)',         'Media::getFolder/$1');
+        $routes->post('upload',               'Media::postUpload');
+        $routes->post('folder/create',        'Media::postCreateFolder');
         $routes->post('folder/delete/(:num)', 'Media::postDeleteFolder/$1');
-
-        $routes->post('delete/(:num)',  'Media::postDelete/$1');
-
-        $routes->get('folders-tree',    'Media::getFoldersTree');
-        $routes->post('move/(:num)',    'Media::postMove/$1');
-        $routes->post('copy/(:num)',    'Media::postCopy/$1');
+        $routes->post('delete/(:num)',        'Media::postDelete/$1');
+        $routes->get('folders-tree',          'Media::getFoldersTree');
+        $routes->post('move/(:num)',          'Media::postMove/$1');
+        $routes->post('copy/(:num)',          'Media::postCopy/$1');
     });
 });
 
 
-// --------------------------------------------------------------------------
-// ADMIN (admin)
-// --------------------------------------------------------------------------
+// ADMIN
 $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'adminOnly'], static function ($routes) {
 
-    // Dashboard admin
+    // Dashboard
     $routes->get('/',         'Dashboard::getIndex');
     $routes->get('dashboard', 'Dashboard::getIndex');
 
@@ -123,9 +105,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->post('userpermission/search-permission', 'Userpermission::postSearchPermission');
 
 
-// ----------------------------------------------------------------------
-// TOKENS (Admin)
-// ----------------------------------------------------------------------
+// TOKENS
     $routes->get('token',               'Token::getIndex');
     $routes->get('token/(:num)',        'Token::getIndex/$1');
     $routes->post('token/update',       'Token::postUpdate');
@@ -133,9 +113,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->post('token/search-token', 'Token::postSearchToken');
 
 
-    // ----------------------------------------------------------------------
-    // REPORTS (Admin)
-    // ----------------------------------------------------------------------
+    // REPORTS
     $routes->get('reports',                 'Report::getIndex');
     $routes->get('reports/new',             'Report::getNew');
     $routes->post('reports',                'Report::postCreate');
@@ -145,7 +123,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->post('reports/(:num)/update',  'Report::postUpdate/$1');
     $routes->post('reports/(:num)/delete',  'Report::postDelete/$1');
 
-    // --- Sections (Admin)
+    // Sections
     $routes->get('reports/(:num)/sections',                'Report::getSections/$1');
     $routes->post('reports/(:num)/sections/root',          'Report::postSectionsRoot/$1');
     $routes->post('reports/(:num)/sections/(:num)/child',  'Report::postSectionsChild/$1/$2');
@@ -163,14 +141,9 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->post('reports/(:num)/validate',       'Report::postValidate/$1');
     $routes->post('reports/(:num)/assign-validator','Report::postAssignValidator/$1');
 
-
-    // Upload d'image dans une section (même endpoint que front mais côté admin)
     $routes->post('reports/sections/upload-image', 'Report::postUploadSectionImage');
 
-    // ----------------------------------------------------------------------
-    // Autres modules admin
-    // ----------------------------------------------------------------------
-
+// Autres
     $routes->get('task',      'Task::getIndex');
     $routes->get('task/(:num)', 'Task::getTasks');
     $routes->post('task/create', 'Task::postCreate');
@@ -181,6 +154,9 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
 
     $routes->get('events',      'Events::getIndex');
     $routes->get('events/list', 'Events::getList');
+    $routes->post('events/store', 'Events::PostStore');
+    $routes->post('events/update/(:num)', 'Events::postUpdate/$1');
+    $routes->get('events/delete/(:num)', 'Events::getDelete/$1');
 
     $routes->get('pages',            'Pages::getIndex');
     $routes->get('pages/(:segment)', 'Pages::getShow/$1');
@@ -190,14 +166,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->group('media', function($routes) {
         $routes->get('/',               'Media::getIndex');
         $routes->get('folder/(:num)',   'Media::getFolder/$1');
-
         $routes->post('upload',         'Media::postUpload');
-
         $routes->post('folder/create',  'Media::postCreateFolder');
         $routes->post('folder/delete/(:num)', 'Media::postDeleteFolder/$1');
-
         $routes->post('delete/(:num)',  'Media::postDelete/$1');
-
         $routes->get('folders-tree',    'Media::getFoldersTree');
         $routes->post('move/(:num)',    'Media::postMove/$1');
         $routes->post('copy/(:num)',    'Media::postCopy/$1');
@@ -205,9 +177,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
 });
 
 
-// --------------------------------------------------------------------------
 // API
-// --------------------------------------------------------------------------
 $routes->group('api', ['namespace' => 'App\Controllers\Api'], static function ($routes) {
 
     $routes->group('login', static function ($routes) {
@@ -217,7 +187,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], static function ($
         $routes->post('register',            'Login::postRegister');
         $routes->post('login',               'Login::postLogin');
 
-        $routes->get('token',                'Login::getToken'); // ex: /api/login/token?userId=...
-        $routes->get('token/(:num)',         'Login::getToken/$1'); // ex: /api/login/token/12
+        $routes->get('token',                'Login::getToken');
+        $routes->get('token/(:num)',         'Login::getToken/$1');
     });
 });

@@ -327,7 +327,6 @@ $roots = $sectionsTree;
                         <?= csrf_field() ?>
 
                         <div class="mb-3">
-                            <label class="form-label">Commentaire</label>
                             <textarea
                                     name="comments"
                                     rows="5"
