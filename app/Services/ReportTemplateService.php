@@ -19,6 +19,8 @@ class ReportTemplateService
         $report = model(ReportModel::class)->find($reportId);
         $appName = trim((string)($report['application_name'] ?? ''));
         $appVersion = trim((string)($report['version'] ?? ''));
+        $entFile = trim((string)($report['file_name'] ?? ''));
+
         if ($appName === '') {
             $appName = '"Non définie"';
         }
@@ -27,10 +29,21 @@ class ReportTemplateService
             $appVersion = '"Aucune version"';
         }
 
+        $mediaId = (int)($report['file_media_id'] ?? 0);
+        $entFile = '';
+
+        if ($mediaId > 0) {
+            $m = model(\App\Models\MediaModel::class)->find($mediaId);
+            $entFile = trim((string)($m['file_name'] ?? ''));
+        }
+
+        if ($entFile === '') $entFile = 'Aucun document renseigné';
+
         $ctx = [
             'reportId' => $reportId,
             'appName' => $appName,
             'appVersion' => $appVersion,
+            'entFile' => $entFile,
             'tests' => $config['tests'] ?? [],
         ];
 
@@ -141,6 +154,9 @@ class ReportTemplateService
     }
 
 
+
+
+    // Partie 1 : Synthèse
     private function defSynthese(array $ctx): array
     {
         return [
@@ -154,12 +170,11 @@ class ReportTemplateService
             ],
             [
                 'title' => 'Principaux résultats',
-                'content' => fn() => $this->tplPlaceholderShort(),
                 'children' => $this->defSyntheseResultsChildren($ctx),
             ],
             [
                 'title' => 'Comparaison avec les campagnes précédentes',
-                'content' => fn() => $this->tplPlaceholderShort(),
+                'content' => fn($c) => $this->tplSyntheseComparaison($c['appName'], $c['appVersion']),
             ],
             [
                 'title' => 'Conclusion - Conformité aux exigences',
@@ -191,6 +206,12 @@ class ReportTemplateService
         };
     }
 
+
+
+
+
+
+    // Partie 2 : Description de la campagne
     private function defCampaign(array $ctx): array
     {
         return [
@@ -198,15 +219,12 @@ class ReportTemplateService
                 'title' => 'Protocole opératoire',
                 'content' => fn() => $this->tplCampaignProtocole(),
                 'children' => [
-                    ['title' => 'Contexte', 'content' => fn() => $this->tplPlaceholderShort()],
-                    ['title' => 'Période / date', 'content' => fn() => $this->tplPlaceholderShort()],
-                    ['title' => 'Pré-requis', 'content' => fn() => $this->tplPlaceholderList()],
-                    ['title' => 'Déroulé', 'content' => fn() => $this->tplPlaceholderList()],
+                    ['title' => 'Schéma de l\'architecture', 'content' => fn() => $this->tplPlaceholderList()],
                 ],
             ],
             [
                 'title' => 'Exigences - Performances attendues',
-                'content' => fn() => $this->tplCampaignExigences(),
+                'content' => fn($c) => $this->tplCampaignExigences($c['entFile']),
                 'children' => [
                     ['title' => 'Scénarios', 'content' => fn() => $this->tplCampaignScenarios()],
                     ['title' => 'Activités', 'content' => fn() => $this->tplCampaignActivites()],
@@ -216,15 +234,13 @@ class ReportTemplateService
             [
                 'title' => 'Plan de test',
                 'content' => fn() => $this->tplCampaignPlan(),
-                'children' => [
-                    ['title' => 'Scénarios', 'content' => fn() => $this->tplPlaceholderList()],
-                    ['title' => 'Paliers / charge', 'content' => fn() => $this->tplPlaceholderList()],
-                    ['title' => 'Monitoring', 'content' => fn() => $this->tplPlaceholderList()],
-                ],
             ],
         ];
     }
 
+
+
+    // Partie 3 jusuq'à max 6 : les différents tests
     private function defTestBlock(array $ctx): array
     {
         return [
@@ -287,6 +303,10 @@ class ReportTemplateService
         ];
     }
 
+
+
+
+    // Dernière partie : Conclusion (inexistante encore)
     private function defConclusion(array $ctx): array
     {
         return [
@@ -306,6 +326,8 @@ class ReportTemplateService
     }
 
 
+
+    // Les différents types de tests
     private function testRootTitle(string $type, string $cible): string
     {
         return match ($type) {
@@ -316,6 +338,8 @@ class ReportTemplateService
             default => "Test",
         };
     }
+
+
 
 
 
@@ -332,15 +356,50 @@ en termes de temps de réponse et de taux d'erreurs.</p>
 HTML;
     }
 
+
+    private function tplSyntheseComparaison(string $appName, string $appVersion): string
+    {
+        $appName = esc($appName);
+        $appVersion = esc($appVersion);
+
+        return <<<HTML
+<p><em>Description rapide des différences à débit / exigences égaux</em></p>
+<br><br>
+Notes :<br>
+<ul>
+   <li>Le pourcentage de variation est caluclé de la façon suivante : &Delta; = ((Vn - Vn-1)/Vn-1)*100</li> 
+   <li>Les temps affichés étant des T95, leur somme peut différer du T95 global.</li>
+</ul>
+HTML;
+    }
+
+
     private function tplSyntheseConformite(string $appName, string $appVersion): string
     {
         $appName = esc($appName);
         $appVersion = esc($appVersion);
 
         return <<<HTML
-<p>L'application {$appName} en version {$appVersion} :</p>
+<div class="card gap-2">
+<p>L'application {$appName} en version {$appVersion}</p><br>
+<ul>
+<li> est conforme à l'exigence de charge en termes de débit transactionnel pour la période PX;</li>
+<li>respecte les critères d'acceptabilité fonctionnels de temps de réponse;</li>
+<li>respecte les critères d'acceptabilité fonctionnels de taux d'erreur;</li>
+<li>respecte les critères d'acceptabilité techniques de consommation CPU;</li>
+<li>respecte les critères d'acceptabilité techniques de consommation mémoire;</li>
+</ul>
+<br>
+De plus:<br>
+<ul>
+<li>l'application est stable durant les XXh de tir d'endurance.</li>
+<li>la limite est au-delà des XXX transactions par seconde en période PX.</li>
+<li>l'application est résiliente à un pic d'utilisation poncutel de XX %.</li>
+</ul>
+</div>
 HTML;
     }
+
 
 
 
@@ -353,16 +412,18 @@ HTML;
     private function tplCampaignProtocole(): string
     {
         return <<<HTML
-<p>Les temps de réponse sont obtenus aux piedsdes serveurs, 
+<p>Les temps de réponse sont obtenus aux pieds des serveurs, 
 hors temps réseau jusqu'à l'utilisateur final, 
 et hors temps de génération de l'affichage sur le poste client.</p>
 HTML;
     }
 
-    private function tplCampaignExigences(): string
+    private function tplCampaignExigences(string $entFile): string
     {
+        $entFile = esc($entFile);
+
         return <<<HTML
-<p>Les exigences sont formulées dans le document "document de l'entrant".</p>
+<p>Les exigences sont formulées dans le document "{$entFile}".</p>
 
 <p>Une campagne de tests de performance consiste à exécuter des tests sur des Périodes 
 (qui modélisent des Périodes réelles du plan de production).</p>
@@ -377,6 +438,7 @@ HTML;
 HTML;
     }
 
+    
     private function tplCampaignScenarios(): string
     {
         return <<<HTML

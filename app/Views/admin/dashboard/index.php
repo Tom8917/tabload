@@ -9,33 +9,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
 </head>
 
-
-<!--<style>-->
-<!---->
-<!--    .bandeau{-->
-<!--        overflow:hidden;-->
-<!--        white-space:nowrap;-->
-<!--    }-->
-<!---->
-<!--    .bandeau p{-->
-<!--        display:inline-block;-->
-<!--        padding:0.2rem 0.5rem;-->
-<!--        animation: defilement 12s linear infinite;-->
-<!--        font-weight:600;-->
-<!--    }-->
-<!---->
-<!--    @keyframes defilement{-->
-<!--        0%   { transform:translateX(250%); }-->
-<!--        100% { transform:translateX(-100%); }-->
-<!--    }-->
-<!--</style>-->
-<!---->
-<!--<body>-->
-<!---->
-<!--<div class="bandeau">-->
-<!--    <p>✨ Bienvenue sur vapoT ! Profitez de nos nouveautés → Créez votre propre recette 🎉</p>-->
-<!--</div>-->
-
 <body>
 <div class="container mt-2">
     <!-- Header -->
@@ -116,7 +89,7 @@
             <div class="col-lg-5">
                 <div class="card shadow-sm border-0 h-100">
                     <div class="card-body">
-                        <h5 class="mb-3">Activité hebdo (exemple)</h5>
+                        <h5 class="mb-3">Activité hebdo</h5>
                         <canvas id="chartCours"></canvas>
                     </div>
                 </div>
