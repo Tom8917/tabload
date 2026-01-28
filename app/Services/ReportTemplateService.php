@@ -364,7 +364,7 @@ HTML;
 
         return <<<HTML
 <p><em>Description rapide des différences à débit / exigences égaux</em></p>
-<br><br>
+<br>
 Notes :<br>
 <ul>
    <li>Le pourcentage de variation est caluclé de la façon suivante : &Delta; = ((Vn - Vn-1)/Vn-1)*100</li> 
@@ -380,7 +380,6 @@ HTML;
         $appVersion = esc($appVersion);
 
         return <<<HTML
-<div class="card gap-2">
 <p>L'application {$appName} en version {$appVersion}</p><br>
 <ul>
 <li> est conforme à l'exigence de charge en termes de débit transactionnel pour la période PX;</li>
@@ -396,7 +395,6 @@ De plus:<br>
 <li>la limite est au-delà des XXX transactions par seconde en période PX.</li>
 <li>l'application est résiliente à un pic d'utilisation poncutel de XX %.</li>
 </ul>
-</div>
 HTML;
     }
 

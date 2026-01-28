@@ -32,6 +32,8 @@ $scrollOffset = 90;
 $docStatus = (string)($report['doc_status'] ?? 'work');
 $modKind   = (string)($report['modification_kind'] ?? 'creation');
 
+$versions = $versions ?? [];
+
 $cb = function (bool $checked): string {
     return $checked ? '<i class="fa-regular fa-circle-check"></i>' : '<i class="fa-regular fa-circle"></i>';
 };
@@ -58,9 +60,8 @@ if ($mediaId > 0) {
 }
 if ($entFile === '') $entFile = 'Aucun document renseigné';
 
-// ⚠️ mêmes champs que ton front
 $appName     = (string)($report['application_name'] ?? '—');
-$appVersion  = (string)($report['application_version'] ?? ''); // pas "version" ici
+$appVersion  = (string)($report['application_version'] ?? '');
 $docVersion  = (string)($report['doc_version'] ?? '');
 $author      = (string)($report['author_name'] ?? '');
 $fileId      = (string)($report['file_media_id'] ?? '');
@@ -70,7 +71,6 @@ $validator   = (string)($report['validated_by'] ?? '');
 $validatedAt = $report['validated_at'] ?? null;
 $createdAt   = $report['created_at'] ?? null;
 
-// même logique front pour la “dernière modif”
 $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($report['updated_at'] ?? null));
 ?>
 

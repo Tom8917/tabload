@@ -236,7 +236,7 @@ class Report extends BaseController
             'application_name'    => 'required|min_length[2]',
             'application_version' => 'permit_empty|max_length[50]',
             'file_media_id'       => 'permit_empty',
-            'status'              => 'permit_empty|in_list[brouillon,en_relecture,final]',
+            'status'              => 'permit_empty|in_list[brouillon,en relecture,final]',
         ];
 
         if (!$this->validate($rules)) {
@@ -478,7 +478,7 @@ class Report extends BaseController
             'title'               => 'required|min_length[3]',
             'application_name'    => 'required|min_length[2]',
             'application_version' => 'permit_empty|max_length[50]',
-            'status'              => 'permit_empty|in_list[brouillon,en_relecture,final]',
+            'status'              => 'permit_empty|in_list[brouillon,en relecture,final]',
             'author_name'         => 'permit_empty|max_length[120]',
             'doc_status'          => 'required|in_list[work,approved]',
             'modification_kind'   => 'required|in_list[creation,replace]',

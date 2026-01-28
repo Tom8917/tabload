@@ -194,7 +194,7 @@ if (!empty($validatedAt)) {
     <div class="row g-4 mb-4">
 
         <!-- META / INFOS DOCUMENT -->
-        <div class="col-lg-7">
+        <div class="col-lg-8">
             <div class="card">
                 <div class="card-header fw-semibold">Infos du document</div>
                 <div class="card-body">
@@ -203,22 +203,16 @@ if (!empty($validatedAt)) {
                         <?= csrf_field() ?>
 
                         <div class="row">
-                            <div class="col-md-5 mb-3">
+                            <div class="col-md-7 mb-3">
                                 <label class="form-label">Titre</label>
                                 <input name="title" class="form-control"
                                        value="<?= esc(old('title', $report['title'] ?? '')) ?>">
                             </div>
 
-                            <div class="col-md-4 mb-3">
+                            <div class="col-md-5 mb-3">
                                 <label class="form-label">Application</label>
                                 <input name="application_name" class="form-control"
                                        value="<?= esc(old('application_name', $report['application_name'] ?? '')) ?>">
-                            </div>
-
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">Version de l'application</label>
-                                <input name="application_version" class="form-control"
-                                       value="<?= esc(old('application_version', $report['application_version'] ?? '')) ?>">
                             </div>
 
                             <div class="col-md-4 mb-3">
@@ -228,13 +222,19 @@ if (!empty($validatedAt)) {
                             </div>
 
                             <div class="col-md-3 mb-3">
+                                <label class="form-label">Version de l'application</label>
+                                <input name="application_version" class="form-control"
+                                       value="<?= esc(old('application_version', $report['application_version'] ?? '')) ?>">
+                            </div>
+
+                            <div class="col-md-3 mb-3">
                                 <label class="form-label">Version du document</label>
                                 <input name="doc_version" class="form-control"
                                        value="<?= esc(old('doc_version', $report['doc_version'] ?? '')) ?>">
                             </div>
 
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">Statut de rédaction</label>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Statut</label>
                                 <?php $st = old('status', $report['status'] ?? 'brouillon'); ?>
                                 <select name="status" class="form-select">
                                     <option value="brouillon" <?= $st === 'brouillon' ? 'selected' : '' ?>>Brouillon
@@ -307,7 +307,7 @@ if (!empty($validatedAt)) {
         </div>
 
         <!-- VALIDATION ADMIN -->
-        <div class="col-lg-5">
+        <div class="col-lg-4">
             <div class="card">
                 <div class="card-header fw-semibold">Validation / Corrections</div>
                 <div class="card-body">
