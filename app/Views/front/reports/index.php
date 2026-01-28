@@ -44,7 +44,7 @@ $success = $success ?? session('success');
                             <th>Version de l'application</th>
                             <th>Version du document</th>
                             <th>Statut</th>
-                            <th style="width:260px;">Actions</th>
+                            <th style="width:300px;">Actions</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -69,18 +69,19 @@ $success = $success ?? session('success');
                                 <td class="d-flex flex-wrap gap-2">
                                     <a class="btn btn-sm btn-outline-primary"
                                        href="<?= site_url('report/' . $report['id']) ?>">
-                                        Aperçu
+                                        <i class="fa-solid fa-eye"></i> Aperçu
                                     </a>
                                     <a class="btn btn-sm btn-outline-secondary"
                                        href="<?= site_url('report/' . $report['id'] . '/sections') ?>">
-                                        Rédiger
+                                        <i class="fa-solid fa-pen"></i> Rédiger
                                     </a>
                                     <form method="post"
-                                          action="<?= site_url('report/' . $report['id'] . '/delete') ?>"
-                                          onsubmit="return confirm('Supprimer ce bilan ?');">
+                                          class="js-delete-report"
+                                          data-title="<?= esc($report['title']) ?>"
+                                          action="<?= site_url('report/' . $report['id'] . '/delete') ?>">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            Supprimer
+                                            <i class="fa-solid fa-trash"></i> Supprimer
                                         </button>
                                     </form>
                                 </td>
@@ -93,6 +94,41 @@ $success = $success ?? session('success');
         </div>
     </div>
 
+    <script>
+        (function () {
+            const forms = document.querySelectorAll('form.js-delete-report');
+            if (!forms.length) return;
+
+            forms.forEach((form) => {
+                form.addEventListener('submit', function (e) {
+                    e.preventDefault();
+
+                    const title = (form.dataset.title || '').trim();
+                    const label = title ? `« ${title} »` : 'ce bilan';
+
+                    Swal.fire({
+                        title: 'Confirmer la suppression ?',
+                        html: `Tu es sur le point de supprimer ${label}.<br>Cette action est <span style="text-decoration: underline" class="fw-bold">irréversible</span> !`,
+                        icon: 'warning',
+                        iconColor: '#dc3545',
+                        showCancelButton: true,
+                        cancelButtonText: 'Annuler',
+                        confirmButtonText: 'Supprimer',
+                        reverseButtons: true,
+                        buttonsStyling: false,
+                        customClass: {
+                            cancelButton: 'btn btn-outline-secondary me-2',
+                            confirmButton: 'btn btn-danger'
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            form.submit();
+                        }
+                    });
+                });
+            });
+        })();
+    </script>
 
     <!-- Bilans des autres -->
     <div class="card">

@@ -202,10 +202,16 @@ class Report extends BaseController
             ->orderBy('lastname', 'ASC')
             ->findAll();
 
+        $versions = model(\App\Models\ReportVersionModel::class)
+            ->where('report_id', $id)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+
         return $this->view('admin/reports/show', [
             'report'       => $report,
             'sectionsTree' => $sectionsTree,
             'admins'       => $admins,
+            'versions'     => $versions,
             'errors'       => session('errors') ?? [],
             'success'      => session('success'),
         ], true);

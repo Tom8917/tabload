@@ -104,9 +104,14 @@ $cb = function (bool $checked): string {
             <div>
                 <h1 class="h3 mb-1">Aperçu : <?= esc($report['title'] ?? '') ?></h1>
             </div>
-            <a href="<?= site_url('report/' . $report['id'] . '/sections') ?>" class="btn btn-outline-secondary">
-                Retour à la rédaction
-            </a>
+            <div>
+                <a href="<?= site_url('report/' . $report['id'] . '/sections') ?>" class="btn btn-outline-primary me-1">
+                    Retour à la rédaction
+                </a>
+                <a href="<?= site_url('report/') ?>" class="btn btn-outline-secondary">
+                    Retour à la liste
+                </a>
+            </div>
         </div>
     <?php else: ?>
         <div class="d-flex justify-content-end mb-4">
@@ -405,7 +410,7 @@ $render = function (array $node) use (&$render, $indentClass, $headingClass, $ba
                     <?= clean_html($content) ?>
                 </div>
             <?php else: ?>
-<!--                <div class="text-muted small">Contenu non renseigné.</div>-->
+                <!--                <div class="text-muted small">Contenu non renseigné.</div>-->
             <?php endif; ?>
 
             <?php if (!empty($node['children'])): ?>
