@@ -43,7 +43,7 @@
     "title": "Tâche",
     "url": "/admin/task",
     "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-list\"></i>",
+    "icon": "<i class=\"nav-icon fa-solid fa-list-check\"></i>",
     "class": "main-menu-accueil"
   },
   "events": {
@@ -58,6 +58,13 @@
     "url": "/admin/media",
     "perm": "none",
     "icon": "<i class=\"nav-icon fa-solid fa-image\"></i>",
+    "class": "main-menu-accueil"
+  },
+  "logs": {
+    "title": "Logs",
+    "url": "/admin/logs",
+    "perm": "none",
+    "icon": "<i class=\"nav-icon fa-solid fa-list-ol\"></i>",
     "class": "main-menu-accueil"
   }
 }

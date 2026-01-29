@@ -11,6 +11,9 @@ use App\Services\ReportSectionService;
 use App\Services\ReportTemplateService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
+use App\Models\LogModel;
+use App\Services\LogService;
+
 class Report extends BaseController
 {
     protected ReportModel $reports;
@@ -25,6 +28,66 @@ class Report extends BaseController
         $this->sectionsService = new ReportSectionService();
         $this->sections        = new ReportSectionModel();
     }
+
+
+//logs:
+    private function log(string $action, string $entityType, ?int $entityId, ?string $message = null, array $meta = []): void
+    {
+        $svc = new LogService(model(LogModel::class));
+        $svc->add(
+            $this->userId() ?: null,
+            $action,
+            $entityType,
+            $entityId,
+            $message,
+            $meta
+        );
+    }
+
+    private function normalizeValue(mixed $v): mixed
+    {
+        if ($v === null) return null;
+
+        if (is_string($v)) {
+            $vv = trim($v);
+            return $vv === '' ? '' : $vv;
+        }
+
+        if (is_numeric($v)) {
+            $s = (string) $v;
+            return str_contains($s, '.') ? (float) $v : (int) $v;
+        }
+
+        return $v;
+    }
+
+    private function buildDiff(array $before, array $after): array
+    {
+        $changes = [];
+
+        $keys = array_unique(array_merge(array_keys($before), array_keys($after)));
+
+        foreach ($keys as $k) {
+            $bRaw = $before[$k] ?? null;
+            $aRaw = $after[$k] ?? null;
+
+            $b = $this->normalizeValue($bRaw);
+            $a = $this->normalizeValue($aRaw);
+
+            if ($b === $a) {
+                continue;
+            }
+
+            $changes[$k] = [
+                'from' => $bRaw,
+                'to'   => $aRaw,
+            ];
+        }
+
+        return $changes;
+    }
+
+
 
     private function userId(): int
     {
@@ -185,6 +248,26 @@ class Report extends BaseController
             'modification_kind'    => $post['modification_kind'],
         ], true);
 
+        // LOG : création report
+        $this->log(
+            'create',
+            'report',
+            (int) $id,
+            'Création du bilan',
+            [
+                'changes' => [
+                    'title' => ['from' => null, 'to' => $post['title'] ?? null],
+                    'application_name' => ['from' => null, 'to' => $post['application_name'] ?? null],
+                    'application_version' => ['from' => null, 'to' => $post['application_version'] ?? null],
+                    'file_media_id' => ['from' => null, 'to' => $post['file_media_id'] ?? null],
+                    'status' => ['from' => null, 'to' => 'brouillon'],
+                    'doc_status' => ['from' => null, 'to' => 'work'],
+                    'doc_version' => ['from' => null, 'to' => 'v0.1'],
+                    'modification_kind' => ['from' => null, 'to' => $post['modification_kind'] ?? null],
+                ],
+            ]
+        );
+
         $config = [
             'tests' => [
                 'target' => [
@@ -205,9 +288,6 @@ class Report extends BaseController
             'version_date'      => $now,
             'author_updated_at' => $now,
         ]);
-
-//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-//        $history->add((int)$id, 'draft', $this->userId(), 'Version initiale', $post['version'] ?? null);
 
         $rv = new \App\Models\ReportVersionModel();
         $rv->insert([
@@ -243,14 +323,45 @@ class Report extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $this->reports->update($id, [
-            'title'               => $post['title'],
-            'application_name'    => $post['application_name'],
+        $before = [
+            'title'               => $report['title'] ?? null,
+            'application_name'    => $report['application_name'] ?? null,
+            'application_version' => $report['application_version'] ?? null,
+            'file_media_id'       => $report['file_media_id'] ?? null,
+            'status'              => $report['status'] ?? null,
+        ];
+
+        $after = [
+            'title'               => $post['title'] ?? null,
+            'application_name'    => $post['application_name'] ?? null,
             'application_version' => $post['application_version'] ?? null,
-            'file_media_id'       => $post['file_media_id'],
+            'file_media_id'       => $post['file_media_id'] ?? null,
             'status'              => $post['status'] ?? ($report['status'] ?? 'brouillon'),
+        ];
+
+        $before['file_media_id'] = (int) ($before['file_media_id'] ?? 0) ?: null;
+        $after['file_media_id']  = (int) ($after['file_media_id'] ?? 0) ?: null;
+
+        $changes = $this->buildDiff($before, $after);
+
+        $this->reports->update($id, [
+            'title'               => $after['title'],
+            'application_name'    => $after['application_name'],
+            'application_version' => $after['application_version'],
+            'file_media_id'       => $after['file_media_id'],
+            'status'              => $after['status'],
             'author_updated_at'   => date('Y-m-d H:i:s'),
         ]);
+
+        if (!empty($changes)) {
+            $this->log(
+                'update',
+                'report',
+                (int) $id,
+                'Mise à jour du bilan',
+                ['changes' => $changes]
+            );
+        }
 
         return redirect()->to(site_url('report/' . $id))->with('success', 'Bilan mis à jour.');
     }
@@ -350,7 +461,7 @@ class Report extends BaseController
         $report = $this->findReportWithUsersOr404($reportId);
         $this->requireOwner($report);
 
-        $this->findSectionOr404($reportId, $sectionId);
+        $section = $this->findSectionOr404($reportId, $sectionId);
 
         $post = $this->request->getPost();
 
@@ -369,27 +480,62 @@ class Report extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $this->sections->update($sectionId, [
-            'title'             => $post['title'],
+        $before = [
+            'title'             => $section['title'] ?? null,
+            'content'           => $section['content'] ?? null,
+            'period_label'      => $section['period_label'] ?? null,
+            'period_number'     => $section['period_number'] ?? null,
+            'debit_value'       => $section['debit_value'] ?? null,
+            'start_date'        => $section['start_date'] ?? null,
+            'end_date'          => $section['end_date'] ?? null,
+            'compliance_status' => $section['compliance_status'] ?? null,
+        ];
+
+        $after = [
+            'title'             => $post['title'] ?? null,
             'content'           => $post['content'] ?? null,
             'period_label'      => $post['period_label'] ?? null,
-            'period_number'     => $post['period_number'] ?: null,
-            'debit_value'       => $post['debit_value'] ?: null,
-            'start_date'        => $post['start_date'] ?: null,
-            'end_date'          => $post['end_date'] ?: null,
+            'period_number'     => ($post['period_number'] ?? '') !== '' ? (int)$post['period_number'] : null,
+            'debit_value'       => ($post['debit_value'] ?? '') !== '' ? $post['debit_value'] : null,
+            'start_date'        => ($post['start_date'] ?? '') ?: null,
+            'end_date'          => ($post['end_date'] ?? '') ?: null,
             'compliance_status' => $post['compliance_status'] ?? 'non_applicable',
+        ];
+
+        $changes = $this->buildDiff($before, $after);
+
+        $this->sections->update($sectionId, [
+            'title'             => $after['title'],
+            'content'           => $after['content'],
+            'period_label'      => $after['period_label'],
+            'period_number'     => $after['period_number'],
+            'debit_value'       => $after['debit_value'],
+            'start_date'        => $after['start_date'],
+            'end_date'          => $after['end_date'],
+            'compliance_status' => $after['compliance_status'],
         ]);
 
         $this->reports->update($reportId, [
             'author_updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-//        $history = new \App\Services\ReportHistoryService(new \App\Models\ReportVersionModel());
-//        $history->add($reportId, 'edit', $this->userId(), 'Modification section (auteur)', $report['version'] ?? null);
+        if (!empty($changes)) {
+            $this->log(
+                'update',
+                'report_section',
+                (int) $sectionId,
+                'Modification de section',
+                [
+                    'report_id' => (int) $reportId,
+                    'changes'   => $changes,
+                ]
+            );
+        }
 
         return redirect()->to(site_url('report/' . $reportId . '/sections'))
             ->with('success', 'Section mise à jour.');
     }
+
 
     public function postDeleteSection(int $reportId, int $sectionId)
     {
@@ -438,21 +584,55 @@ class Report extends BaseController
         $report = $this->findReportWithUsersOr404($id);
         $this->requireOwnerOrAdmin($report);
 
+        $this->log(
+            'delete',
+            'report',
+            (int) $id,
+            'Suppression du bilan',
+            [
+                'changes' => [
+                    'title' => ['from' => $report['title'] ?? null, 'to' => null],
+                    'application_name' => ['from' => $report['application_name'] ?? null, 'to' => null],
+                    'status' => ['from' => $report['status'] ?? null, 'to' => null],
+                ],
+            ]
+        );
+
         $this->sections->where('report_id', $id)->delete();
         $this->reports->delete($id);
 
         return redirect()->to(site_url('report'))->with('success', 'Bilan supprimé.');
     }
 
+
     public function postUpdateMetaInline(int $reportId)
     {
         $report = $this->findReportWithUsersOr404($reportId);
         $this->requireOwnerOrAdmin($report);
 
+        $before = [
+            'title'               => $report['title'] ?? null,
+            'application_name'    => $report['application_name'] ?? null,
+            'application_version' => $report['application_version'] ?? null,
+            'status'              => $report['status'] ?? null,
+            'author_name'         => $report['author_name'] ?? null,
+            'doc_status'          => $report['doc_status'] ?? null,
+            'modification_kind'   => $report['modification_kind'] ?? null,
+            'file_media_id'       => $report['file_media_id'] ?? null,
+        ];
+
         $docStatus = trim((string)$this->request->getPost('doc_status'));
         if ($docStatus === '') $docStatus = (string)($report['doc_status'] ?? 'work');
 
         if ($docStatus === 'validated') {
+
+            $this->log(
+                'forbidden',
+                'report',
+                (int) $reportId,
+                'Tentative de validation via interface front (bloquée)'
+            );
+
             return redirect()->back()->with('errors', [
                 'doc_status' => 'La validation se fait uniquement depuis l’interface admin.',
             ]);
@@ -497,11 +677,38 @@ class Report extends BaseController
             $data['file_media_id'] = (int)$data['file_media_id'];
         }
 
+        $after = [
+            'title'               => $data['title'] ?? null,
+            'application_name'    => $data['application_name'] ?? null,
+            'application_version' => $data['application_version'] ?? null,
+            'status'              => $data['status'] ?? null,
+            'author_name'         => $data['author_name'] ?? null,
+            'doc_status'          => $data['doc_status'] ?? null,
+            'modification_kind'   => $data['modification_kind'] ?? null,
+            'file_media_id'       => $data['file_media_id'] ?? null,
+        ];
+
+        $before['file_media_id'] = (int) ($before['file_media_id'] ?? 0) ?: null;
+        $after['file_media_id']  = (int) ($after['file_media_id'] ?? 0) ?: null;
+
+        $changes = $this->buildDiff($before, $after);
+
         $this->reports->update($reportId, $data);
+
+        if (!empty($changes)) {
+            $this->log(
+                'update',
+                'report',
+                (int) $reportId,
+                'Mise à jour des informations (inline)',
+                ['changes' => $changes]
+            );
+        }
 
         return redirect()->to(site_url('report/' . $reportId . '/sections'))
             ->with('success', 'Informations du bilan enregistrées.');
     }
+
 
     public function postMoveRootUp(int $reportId, int $sectionId)
     {

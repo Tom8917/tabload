@@ -185,12 +185,6 @@ $renderNode = function (array $node) use (&$renderNode, $report, $canEditUnlocke
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span>Informations du bilan</span>
-
-                <?php if ($isValidated): ?>
-                    <span class="badge bg-dark">
-                        <i class="fa-solid fa-lock"></i> Document validé
-                    </span>
-                <?php endif; ?>
             </div>
 
             <div class="card-body">

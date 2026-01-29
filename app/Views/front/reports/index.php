@@ -114,11 +114,11 @@ $success = $success ?? session('success');
                         showCancelButton: true,
                         cancelButtonText: 'Annuler',
                         confirmButtonText: 'Supprimer',
-                        reverseButtons: true,
+                        reverseButtons: false,
                         buttonsStyling: false,
                         customClass: {
-                            cancelButton: 'btn btn-outline-secondary me-2',
-                            confirmButton: 'btn btn-danger'
+                            cancelButton: 'btn btn-outline-secondary',
+                            confirmButton: 'btn btn-danger me-2'
                         }
                     }).then((result) => {
                         if (result.isConfirmed) {
