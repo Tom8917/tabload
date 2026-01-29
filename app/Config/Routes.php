@@ -163,6 +163,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
 
     $routes->get('tabload', 'Tabload::getIndex');
 
+
+    // logs
+    $routes->get('logs', 'Logs::getIndex');
+
+
     $routes->group('media', function($routes) {
         $routes->get('/',               'Media::getIndex');
         $routes->get('folder/(:num)',   'Media::getFolder/$1');
