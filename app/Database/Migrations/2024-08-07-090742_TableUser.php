@@ -35,7 +35,7 @@ class TableUser extends Migration
             ],
             'password' => [
                 'type' => 'VARCHAR',
-                'constraint' => 100,
+                'constraint' => 255,
             ],
             'counter_user' => [
                 'type' => 'INT',
@@ -46,6 +46,7 @@ class TableUser extends Migration
                 'type' => 'INT',
                 'constraint' => 255,
                 'unsigned' => true,
+                'null' => true,
             ],
             'created_at' => [
                 'type' => 'DATETIME',
@@ -64,6 +65,30 @@ class TableUser extends Migration
         $this->forge->addKey('id', true);
         $this->forge->createTable('user');
 
+        $data = [
+            'firstname' => 'admin',
+            'lastname' => 'admin',
+            'email' => 'admin@admin.fr',
+            'password' => password_hash('admin', PASSWORD_DEFAULT),
+            'id_permission' => 1,
+            'counter_user' => 3,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $data2 = [
+            'firstname' => 'user',
+            'lastname' => 'user',
+            'email' => 'user@user.fr',
+            'password' => password_hash('user', PASSWORD_DEFAULT),
+            'id_permission' => 3,
+            'counter_user' => 3,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $this->db->table('user')->insert($data);
+        $this->db->table('user')->insert($data2);
     }
 
     public function down()

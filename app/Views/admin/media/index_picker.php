@@ -528,7 +528,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                 if (progressBar) progressBar.style.width = '0%';
 
                 const form = new FormData();
-                queue.forEach(f => form.append('files', f, f.name));
+                queue.forEach(f => form.append('files[]', f, f.name));
                 form.append('folder_id', currentFolderId);
 
                 form.append("<?= csrf_token() ?>", "<?= csrf_hash() ?>");

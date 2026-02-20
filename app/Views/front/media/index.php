@@ -34,7 +34,49 @@ function fileIcon(string $ext): array {
         default => ['<img src="'.base_url('assets/icons/file.png').'" alt="FILE" width="60">', 'FILE'],
     };
 }
+
+$user = session('user');
+
+$userId = 0;
+if (is_object($user)) {
+    $userId = (int)($user->id ?? 0);
+} elseif (is_array($user)) {
+    $userId = (int)($user['id'] ?? 0);
+}
+
+/**
+ * Front: seul le owner voit les actions.
+ * Ici: un dossier appartient à l'user si folder.user_id == userId
+ */
+// owner du dossier courant (quand tu es dans /media/folder/{id})
+$currentFolderOwnerId = (int)($currentFolder['user_id'] ?? 0);
+
+// helper: récup ownerId d'un folder de la liste
+$folderOwnerId = function(array $folder) use ($currentFolderOwnerId): int {
+    // cas normal: la liste contient user_id
+    if (isset($folder['user_id']) && $folder['user_id'] !== null) {
+        return (int)$folder['user_id'];
+    }
+    // fallback: si ton controller ne renvoie pas user_id dans la liste,
+    // on ne peut pas deviner l’owner de CHAQUE dossier.
+    // -> on renvoie -1 pour forcer "pas de manage" (sécurisé)
+    return -1;
+};
+
+$canManageFolder = function(array $folder) use ($userId, $folderOwnerId): bool {
+    if ($userId <= 0) return false;
+    return $folderOwnerId($folder) === $userId;
+};
+
+/**
+ * Front: pour les fichiers, on n’a pas user_id dans media (chez toi),
+ * donc on se base sur le bool fourni par le controller si tu l’ajoutes.
+ * Sinon: on fait simple => on autorise actions seulement si currentFolder appartient à l'user
+ * (car tes fichiers listés = ceux du folder courant, qui est owned).
+ */
+$canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === $userId);
 ?>
+
 <style>
     .media-toolbar{
         border: 1px solid rgba(0,0,0,.08);
@@ -114,7 +156,7 @@ function fileIcon(string $ext): array {
     <!-- Header -->
     <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
         <div>
-            <div class="h4 m-0">Médiathèque</div>
+            <div class="h3 m-0">Médiathèque</div>
             <div class="text-muted small">Dossiers & fichiers — images et documents</div>
         </div>
 
@@ -129,8 +171,8 @@ function fileIcon(string $ext): array {
     <div class="card-soft mb-4">
         <div class="p-3 p-md-4">
             <div id="dropZone" class="dropzone text-center">
-                <div class="fw-semibold">Glisse-dépose tes fichiers ici</div>
-                <div class="text-muted small mb-3">ou clique pour sélectionner — 4 Mo max / fichier</div>
+                <div class="fw-semibold">Glisser-déposer des fichiers ici</div>
+                <div class="text-muted small mb-3">5 Mo max / fichier</div>
 
                 <input id="fileInput" type="file" class="d-none" multiple
                        accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
@@ -243,22 +285,140 @@ function fileIcon(string $ext): array {
                                 </div>
                             </div>
 
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="dropdown">⋯</button>
-                                <div class="dropdown-menu dropdown-menu-end">
-                                    <form action="<?= site_url('media/folder/delete/'.$d['id']) ?>" method="post"
-                                          onsubmit="return confirm('Supprimer ce dossier ? (doit être vide)')">
-                                        <?= csrf_field() ?>
-                                        <button class="dropdown-item text-danger" type="submit">Supprimer</button>
-                                    </form>
+                            <?php
+                            $fid    = (int)($d['id'] ?? 0);
+                            $fname  = (string)($d['name'] ?? '');
+                            $manage = $canManageFolder($d);
+                            ?>
+
+                            <?php if ($manage): ?>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill"
+                                            data-bs-toggle="dropdown"
+                                            type="button"
+                                            aria-expanded="false">
+                                        ⋯
+                                    </button>
+
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        <button class="dropdown-item"
+                                                type="button"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalRenameFolder"
+                                                data-folder-id="<?= $fid ?>"
+                                                data-folder-name="<?= esc($fname, 'attr') ?>">
+                                            <i class="fa-solid fa-pen-to-square me-2"></i> Renommer
+                                        </button>
+
+                                        <div class="dropdown-divider"></div>
+
+                                        <button class="dropdown-item text-danger"
+                                                type="button"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalDeleteFolder"
+                                                data-folder-id="<?= $fid ?>"
+                                                data-folder-name="<?= esc($fname, 'attr') ?>">
+                                            <i class="fa-solid fa-trash me-2"></i> Supprimer
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
+
+    <!-- Modal Renommer dossier -->
+    <div class="modal fade" id="modalRenameFolder" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" id="renameFolderForm" class="modal-content">
+                <?= csrf_field() ?>
+                <div class="modal-header">
+                    <h5 class="modal-title">Renommer le dossier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+
+                <div class="modal-body">
+                    <label class="form-label">Nouveau nom</label>
+                    <input type="text" name="name" id="renameFolderInput" class="form-control" maxlength="150" required>
+                    <div class="form-text">150 caractères max.</div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary rounded-pill">Renommer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Supprimer dossier -->
+    <div class="modal fade" id="modalDeleteFolder" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" id="deleteFolderForm" class="modal-content">
+                <?= csrf_field() ?>
+                <div class="modal-header">
+                    <h5 class="modal-title">Supprimer le dossier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p class="mb-2">
+                        Confirmer la suppression du dossier :
+                        <strong id="deleteFolderName"></strong>
+                    </p>
+                    <div class="alert alert-warning mb-0">
+                        Le dossier doit être vide (pas de sous-dossiers, pas de fichiers).
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-danger rounded-pill">Supprimer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const renameModal = document.getElementById('modalRenameFolder');
+            const renameForm  = document.getElementById('renameFolderForm');
+            const renameInput = document.getElementById('renameFolderInput');
+
+            if (renameModal) {
+                renameModal.addEventListener('show.bs.modal', (event) => {
+                    const btn  = event.relatedTarget;
+                    const id   = btn.getAttribute('data-folder-id');
+                    const name = btn.getAttribute('data-folder-name') || '';
+
+                    renameForm.action = "<?= site_url('media/folder') ?>/" + id + "/rename";
+                    renameInput.value = name;
+
+                    setTimeout(() => renameInput.focus(), 150);
+                });
+            }
+
+            const deleteModal = document.getElementById('modalDeleteFolder');
+            const deleteForm  = document.getElementById('deleteFolderForm');
+            const deleteName  = document.getElementById('deleteFolderName');
+
+            if (deleteModal) {
+                deleteModal.addEventListener('show.bs.modal', (event) => {
+                    const btn  = event.relatedTarget;
+                    const id   = btn.getAttribute('data-folder-id');
+                    const name = btn.getAttribute('data-folder-name') || '';
+
+                    deleteForm.action = "<?= site_url('media/folder/delete') ?>/" + id;
+                    deleteName.textContent = name;
+                });
+            }
+
+        });
+    </script>
 
     <!-- Fichiers -->
     <div class="d-flex align-items-center mb-2">
@@ -508,7 +668,7 @@ function fileIcon(string $ext): array {
                 const ext = extOf(f.name);
                 if (!allowedExt.includes(ext)) { errs.push(`${f.name} : extension non supportée`); continue; }
                 if (f.size <= 0) { errs.push(`${f.name} : taille invalide`); continue; }
-                if (f.size > maxSize) { errs.push(`${f.name} : > 4 Mo`); continue; }
+                if (f.size > maxSize) { errs.push(`${f.name} : > 5 Mo`); continue; }
                 added.push(f);
             }
 
@@ -582,6 +742,8 @@ function fileIcon(string $ext): array {
 
                     xhr.onload  = () => (xhr.status >= 200 && xhr.status < 400) ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
                     xhr.onerror = () => reject(new Error('Network error'));
+                    form.append("<?= csrf_token() ?>", "<?= csrf_hash() ?>");
+
                     xhr.send(form);
                 });
 

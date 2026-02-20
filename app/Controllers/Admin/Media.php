@@ -26,6 +26,12 @@ class Media extends BaseController
         $this->menu  = 'media';
     }
 
+    private function userId(): int
+    {
+        $u = session('user');
+        return (int)($u->id ?? 0);
+    }
+
     public function getIndex()
     {
         return $this->renderExplorer(null);
@@ -44,14 +50,15 @@ class Media extends BaseController
 
         $currentFolder = null;
         if ($folderId !== null) {
-            $currentFolder = $this->folderModel->getById($folderId);
+            $currentFolder = $this->folderModel->getByIdWithAuthor($folderId);
+
             if (!$currentFolder) {
                 throw new PageNotFoundException('Dossier introuvable');
             }
         }
 
         $breadcrumbs = $this->buildBreadcrumbs($currentFolder);
-        $folders     = $this->folderModel->getChildren($folderId);
+        $folders     = $this->folderModel->getChildrenWithAuthor($folderId);
 
         $q = $this->mediaModel;
         $q = ($folderId === null) ? $q->where('folder_id', null) : $q->where('folder_id', $folderId);
@@ -89,6 +96,16 @@ class Media extends BaseController
             $backUrl = $rootUrl;
         }
 
+        $fname = $currentFolder ? (string)($currentFolder['name'] ?? '—') : 'Racine';
+
+        $aname = '—';
+        if ($currentFolder) {
+            $aname = trim(
+                (string)($currentFolder['firstname'] ?? '') . ' ' . (string)($currentFolder['lastname'] ?? '')
+            );
+            if ($aname === '') $aname = '—';
+        }
+
         $data = [
             'picker'        => $picker,
             'filter'        => $filter,
@@ -97,6 +114,9 @@ class Media extends BaseController
             'breadcrumbs'   => $breadcrumbs,
             'folders'       => $folders,
             'files'         => $files,
+
+            'fname'         => $fname,
+            'aname'         => $aname,
 
             'uploadUrl'     => site_url('admin/media/upload'),
             'rootUrl'       => $rootUrl,
@@ -127,7 +147,6 @@ class Media extends BaseController
     private function buildBreadcrumbs(?array $currentFolder): array
     {
         $trail = [['id' => null, 'name' => 'Racine']];
-
         if (!$currentFolder) return $trail;
 
         $stack = [];
@@ -147,8 +166,16 @@ class Media extends BaseController
         return array_merge($trail, $stack);
     }
 
+    /**
+     * ADMIN : création dossier (user_id = admin qui crée)
+     */
     public function postCreateFolder()
     {
+        $userId = $this->userId();
+        if ($userId <= 0) {
+            return redirect()->to(site_url('admin/login'))->with('error', 'Connexion requise.');
+        }
+
         $name = trim((string) $this->request->getPost('name'));
         $parentRaw = $this->request->getPost('parent_id');
         $parentId = is_numeric($parentRaw) ? (int)$parentRaw : null;
@@ -165,6 +192,7 @@ class Media extends BaseController
         $this->folderModel->insert([
             'name'       => $name,
             'parent_id'  => $parentId,
+            'user_id'    => $userId,
             'sort_order' => 0,
         ]);
 
@@ -172,6 +200,32 @@ class Media extends BaseController
         return redirect()->to($redirectUrl . $this->buildQueryKeep())->with('message', 'Dossier créé.');
     }
 
+    /**
+     * ADMIN : rename dossier
+     */
+    public function postRenameFolder(int $folderId)
+    {
+        $name = trim((string) $this->request->getPost('name'));
+        if ($name === '') {
+            return redirect()->back()->with('error', 'Nom de dossier requis.');
+        }
+
+        $folder = $this->folderModel->getById($folderId);
+        if (!$folder) {
+            return redirect()->back()->with('error', 'Dossier introuvable.');
+        }
+
+        if (!$this->folderModel->renameFolder($folderId, $name)) {
+            return redirect()->back()->with('error', 'Impossible de renommer (nom invalide ?).');
+        }
+
+        return redirect()->back()->with('message', 'Dossier renommé.');
+    }
+
+    /**
+     * ADMIN : suppression dossier (pas de contrainte owner)
+     * Je garde ta règle "vide" pour éviter les mauvaises surprises.
+     */
     public function postDeleteFolder(int $folderId)
     {
         $folder = $this->folderModel->getById($folderId);
@@ -219,12 +273,8 @@ class Media extends BaseController
             return redirect()->back()->with('error', 'Fichier introuvable.');
         }
 
-        $full = FCPATH . ltrim((string)$row['file_path'], '/');
-        if (is_file($full)) {
-            @unlink($full);
-        }
+        $this->mediaModel->deleteMedia((int)$id);
 
-        $this->mediaModel->delete($id);
         return redirect()->back()->with('message', 'Fichier supprimé.');
     }
 
@@ -262,9 +312,7 @@ class Media extends BaseController
         $folderIdRaw = $this->request->getPost('folder_id');
         $folderId    = is_numeric($folderIdRaw) ? (int)$folderIdRaw : null;
 
-        $redirectUrl = $folderId ? site_url(($this->router->controllerName() === 'Media' ? 'media' : 'admin/media') . '/folder/' . $folderId)
-            : site_url(($this->router->controllerName() === 'Media' ? 'media' : 'admin/media'));
-
+        $redirectUrl = $folderId ? site_url('admin/media/folder/' . $folderId) : site_url('admin/media');
         $redirectUrl .= $this->buildQueryKeep();
 
         if ($ok > 0) {
@@ -330,12 +378,12 @@ class Media extends BaseController
         $newRel = 'uploads/media/' . $newName;
 
         $data = [
-            'folder_id' => $targetId,
-            'file_name' => $newName,
-            'file_path' => $newRel,
-            'mime_type' => $row['mime_type'] ?? null,
-            'file_size' => (int)($row['file_size'] ?? filesize($newFull)),
-            'kind'      => $row['kind'] ?? (str_starts_with((string)$row['mime_type'], 'image/') ? 'image' : 'document'),
+            'folder_id'   => $targetId,
+            'file_name'   => $newName,
+            'file_path'   => $newRel,
+            'mime_type'   => $row['mime_type'] ?? null,
+            'file_size'   => (int)($row['file_size'] ?? filesize($newFull)),
+            'kind'        => $row['kind'] ?? (str_starts_with((string)$row['mime_type'], 'image/') ? 'image' : 'document'),
             'entity_type' => null,
             'entity_id'   => null,
         ];
@@ -357,7 +405,7 @@ class Media extends BaseController
 
         $size = (int) $file->getSize();
         if ($size <= 0) return "Taille de fichier nulle (post_max_size/upload_max_filesize ?).";
-        if ($size > 4 * 1024 * 1024) return "Fichier trop volumineux (> 4 Mo).";
+        if ($size > 5 * 1024 * 1024) return "Fichier trop volumineux (> 5 Mo).";
 
         $clientMime = strtolower((string) $file->getClientMimeType());
         $realMime   = strtolower((string) $file->getMimeType());

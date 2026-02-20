@@ -64,8 +64,11 @@ class Media extends Migration
         ]);
 
         $this->forge->addKey('id', true);
-        $this->forge->addForeignKey('entity_id', 'user', 'id', 'CASCADE', 'CASCADE');
+        $this->forge->addKey(['folder_id']);
+        $this->forge->addKey(['entity_id', 'entity_type']);
+
         $this->forge->addForeignKey('folder_id', 'media_folders', 'id', 'SET NULL', 'CASCADE');
+
         $this->forge->createTable('media');
     }
 

@@ -39,20 +39,6 @@
     "icon": "<i class=\"nav-icon fa-solid fa-table\"></i>",
     "class": "main-menu-accueil"
   },
-  "tasks": {
-    "title": "Tâche",
-    "url": "/admin/task",
-    "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-list-check\"></i>",
-    "class": "main-menu-accueil"
-  },
-  "events": {
-    "title": "Évènements",
-    "url": "/admin/events",
-    "perm": "none",
-    "icon": "<i class=\"nav-icon fa-solid fa-calendar\"></i>",
-    "class": "main-menu-accueil"
-  },
   "media": {
     "title": "Média",
     "url": "/admin/media",
