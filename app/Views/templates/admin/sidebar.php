@@ -115,6 +115,9 @@
                                 <div style="width:60px;height:60px;background:#105298;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;">
                                     #105298
                                 </div>
+                                <div style="width:60px;height:60px;background:#FD9200;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;">
+                                    #FD9200
+                                </div>
                             </div>
                         </div>
                     </div>

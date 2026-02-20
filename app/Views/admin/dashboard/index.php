@@ -13,217 +13,268 @@
 <div class="container mt-2">
     <!-- Header -->
     <header class="mb-4">
-        <h1 class="text-center">Page d'Accueil</h1>
-        <p class="text-center">Bienvenue dans le tableau de bord</p>
+        <h1 class="mb-3 text-center">Tableau de bord</h1>
     </header>
 
-<!-- Toastr JS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-<!-- FontAwesome JS -->
-<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-<!-- CoreUI -->
-<script src="https://cdn.jsdelivr.net/npm/@coreui/coreui@4.5.0/dist/js/coreui.bundle.min.js"></script>
-
+    <!-- Toastr JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <!-- FontAwesome JS -->
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <!-- CoreUI -->
+    <script src="https://cdn.jsdelivr.net/npm/@coreui/coreui@4.5.0/dist/js/coreui.bundle.min.js"></script>
 
 
     <div class="container-xl py-4">
 
-        <?php if(session('message')): ?>
+        <?php if (session('message')): ?>
             <div class="alert alert-success"><?= esc(session('message')) ?></div>
         <?php endif; ?>
-        <?php if(session('error')): ?>
+        <?php if (session('error')): ?>
             <div class="alert alert-danger"><?= esc(session('error')) ?></div>
         <?php endif; ?>
-
-        <h2 class="mb-3">Dashboard</h2>
 
         <!-- Stats -->
         <div class="row g-3">
             <div class="col-sm-6 col-lg-3">
                 <div class="card shadow-sm border-0 h-100">
                     <div class="card-body d-flex align-items-center">
-                        <div class="display-6 me-3">👤</div>
-                        <div><div class="text-muted small">Users</div><div class="h4 m-0"><?= esc($stats['users']) ?></div></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6 col-lg-3">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="display-6 me-3">📝</div>
-                        <div><div class="text-muted small">Tasks</div><div class="h4 m-0"><?= esc($stats['tasks']) ?></div></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6 col-lg-3">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="display-6 me-3">📄</div>
-                        <div><div class="text-muted small">Pages</div><div class="h4 m-0"><?= esc($stats['pages']) ?></div></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6 col-lg-3">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="display-6 me-3">📚</div>
-                        <div><div class="text-muted small">Cours</div><div class="h4 m-0"><?= esc($stats['cours']) ?></div></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Calendrier + Graph -->
-        <div class="row g-3 mt-2">
-            <div class="col-lg-7">
-                <div class="card shadow-sm border-0">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h5 class="m-0">Calendrier des évènements</h5>
-                            <small class="text-muted">Clique sur un jour pour créer</small>
+                        <div class="display-6 me-3"><i class="fa-regular fa-user"></i></div>
+                        <div>
+                            <div class="text-muted small">Nombre d'utilisateur</div>
+                            <div class="h4 m-0"><?= esc($stats['users']) ?></div>
                         </div>
-                        <div id="calendarAdmin"></div>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-5">
+            <div class="col-sm-6 col-lg-3">
                 <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body">
-                        <h5 class="mb-3">Activité hebdo</h5>
-                        <canvas id="chartCours"></canvas>
+                    <div class="card-body d-flex align-items-center">
+                        <div class="display-6 me-3"><i class="fa-regular fa-file"></i></div>
+                        <div>
+                            <div class="text-muted small">Nombre de bilans</div>
+                            <div class="h4 m-0"><?= esc($stats['reports']) ?></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- FullCalendar + Chart.js -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script>
-        (function(){
-            const initialDate = '<?= esc($initialDate ?? date('Y-m-d')) ?>';
+    <div class="container-xl py-4">
+        <div class="row g-3 g-lg-4">
 
-            // éléments DOM
-            const elCal      = document.getElementById('calendarAdmin');
-            const modalEl    = document.getElementById('modalEvent');
-            const form       = document.getElementById('eventForm');
-            const delBtn     = document.getElementById('ev_delete_btn');
-            const hTitle     = document.getElementById('eventModalTitle');
+            <!-- Créer un bilan -->
+            <div class="col-12 col-md-6 col-xl-3">
+                <a href="<?= base_url('admin/reports/new') ?>" class="tdb-card tdb-primary">
+                    <div class="tdb-icon"><i class="fa-solid fa-plus"></i></div>
+                    <div class="tdb-title">Créer un bilan</div>
+                    <div class="tdb-desc">Démarre un nouveau document avec tes sections, notes et tableaux.</div>
+                    <div class="tdb-cta">
+                        <span>Commencer</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </a>
+            </div>
 
-            // blocs répétition
-            const blockSingle = document.getElementById('block_single');
-            const blockRepeat = document.getElementById('block_repeat');
-            const cbRepeat    = document.getElementById('ev_repeat');
+            <!-- Mes bilans -->
+            <div class="col-12 col-md-6 col-xl-3">
+                <a href="<?= base_url('admin/reports') ?>" class="tdb-card">
+                    <div class="tdb-icon"><i class="fa-solid fa-file-lines"></i></div>
+                    <div class="tdb-title">Les bilans</div>
+                    <div class="tdb-desc">Retrouve, édite et exporte les bilans existants.</div>
+                    <div class="tdb-cta">
+                        <span>Ouvrir</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </a>
+            </div>
 
-            // champs du formulaire
-            const f = {
-                id:        document.getElementById('ev_id'),
-                title:     document.getElementById('ev_title'),
-                starts:    document.getElementById('ev_starts_at'),
-                ends:      document.getElementById('ev_ends_at'),
-                type:      document.getElementById('ev_type'),
-                color:     document.getElementById('ev_color'),
-                location:  document.getElementById('ev_location'),
-                notes:     document.getElementById('ev_notes'),
-                allDay:    document.getElementById('ev_all_day'),
-                dateFrom:  document.getElementById('ev_date_from'),
-                dateTo:    document.getElementById('ev_date_to'),
-                t1s:       document.getElementById('ev_time1_start'),
-                t1e:       document.getElementById('ev_time1_end'),
-                t2s:       document.getElementById('ev_time2_start'),
-                t2e:       document.getElementById('ev_time2_end'),
-            };
+            <!-- TabLoad -->
+            <div class="col-12 col-md-6 col-xl-3">
+                <a href="<?= base_url('admin/tabload') ?>" class="tdb-card">
+                    <div class="tdb-icon"><i class="fa-solid fa-table"></i></div>
+                    <div class="tdb-title">TabLoad</div>
+                    <div class="tdb-desc">Transforme un tableau brut en tableau propre et exportable.</div>
+                    <div class="tdb-cta">
+                        <span>Utiliser</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </a>
+            </div>
 
-            // Si le modal n'est pas présent, on ne bloque pas l’affichage du calendrier
-            let modal = null;
-            if (modalEl) modal = new bootstrap.Modal(modalEl);
+            <!-- Médiathèque -->
+            <div class="col-12 col-md-6 col-xl-3">
+                <a href="<?= base_url('admin/media') ?>" class="tdb-card">
+                    <div class="tdb-icon"><i class="fa-regular fa-image"></i></div>
+                    <div class="tdb-title">Médiathèque</div>
+                    <div class="tdb-desc">Importe tes images, organise-les, et réutilise-les dans tes bilans.</div>
+                    <div class="tdb-cta">
+                        <span>Parcourir</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </a>
+            </div>
 
-            function toLocalInput(dtStr){
-                if (!dtStr) return '';
-                return dtStr.replace(' ', 'T').slice(0,16); // 'YYYY-MM-DDTHH:MM'
+            <!-- Logs -->
+            <div class="col-12 col-md-6 col-xl-3">
+                <a href="<?= base_url('admin/logs') ?>" class="tdb-card">
+                    <div class="tdb-icon"><i class="fa-solid fa-list-ol"></i></div>
+                    <div class="tdb-title">Logs</div>
+                    <div class="tdb-desc">Observer les logs.</div>
+                    <div class="tdb-cta">
+                        <span>Parcourir</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <style>
+        /* ===========================
+           Dashboard cards (front)
+           Light + Dark (CoreUI friendly)
+           =========================== */
+
+        /* Light (par défaut) */
+        .tdb-card{
+            display:block;
+            text-decoration:none;
+            color: inherit;
+
+            border: 1px solid rgba(0,0,0,.08);
+            border-radius: 16px;
+            padding: 18px;
+            height: 100%;
+
+            background: rgba(255,255,255,.78);
+            transition: transform .15s ease, border-color .15s ease, background .15s ease;
+        }
+
+        .tdb-card:hover{
+            transform: translateY(-2px);
+            border-color: rgba(0,0,0,.15);
+            background: rgba(255,255,255,.95);
+        }
+
+        .tdb-primary{
+            border-color: rgba(13,110,253,.25);
+            background: rgba(13,110,253,.06);
+        }
+        .tdb-primary:hover{
+            border-color: rgba(13,110,253,.38);
+            background: rgba(13,110,253,.09);
+        }
+
+        .tdb-icon{
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+
+            border: 1px solid rgba(0,0,0,.08);
+            background: rgba(0,0,0,.03);
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .tdb-title{
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .tdb-desc{
+            color: rgba(0,0,0,.60);
+            font-size: .93rem;
+            line-height: 1.35;
+            margin-bottom: 14px;
+            min-height: 40px;
+        }
+
+        .tdb-cta{
+            display:flex;
+            align-items:center;
+            justify-content: space-between;
+            font-weight: 600;
+            color: rgba(0,0,0,.75);
+        }
+        .tdb-cta i{ opacity: .6; }
+
+        /* Focus clavier */
+        .tdb-card:focus-visible{
+            outline: 3px solid rgba(13,110,253,.35);
+            outline-offset: 2px;
+        }
+
+        /* ======================================
+           DARK : CoreUI (data-coreui-theme="dark")
+           ====================================== */
+        html[data-coreui-theme="dark"] .tdb-card{
+            border-color: rgba(255,255,255,.10);
+            background: rgba(20, 24, 28, .55);   /* effet "glass" dark */
+        }
+
+        html[data-coreui-theme="dark"] .tdb-card:hover{
+            border-color: rgba(255,255,255,.18);
+            background: rgba(28, 33, 39, .75);
+        }
+
+        html[data-coreui-theme="dark"] .tdb-primary{
+            border-color: rgba(13,110,253,.35);
+            background: rgba(13,110,253,.12);
+        }
+        html[data-coreui-theme="dark"] .tdb-primary:hover{
+            border-color: rgba(13,110,253,.50);
+            background: rgba(13,110,253,.16);
+        }
+
+        html[data-coreui-theme="dark"] .tdb-icon{
+            border-color: rgba(255,255,255,.10);
+            background: rgba(255,255,255,.06);
+        }
+
+        html[data-coreui-theme="dark"] .tdb-desc{
+            color: rgba(255,255,255,.70);
+        }
+
+        html[data-coreui-theme="dark"] .tdb-cta{
+            color: rgba(255,255,255,.80);
+        }
+
+        /* ======================================
+           Fallback : si pas CoreUI, suivre l'OS
+           ====================================== */
+        @media (prefers-color-scheme: dark){
+            html:not([data-coreui-theme]) .tdb-card{
+                border-color: rgba(255,255,255,.10);
+                background: rgba(20, 24, 28, .55);
             }
-
-            // CREATION
-            window.openCreate = function(dateStr=null){
-                if (!modal) return; // évite erreur si pas de modal
-                hTitle.textContent = 'Nouvel évènement';
-                form.action = '<?= site_url('admin/events/store') ?>';
-                f.id.value = ''; f.title.value=''; f.type.value=''; f.color.value='#6c5ce7';
-                f.location.value=''; f.notes.value='';
-                f.starts.value = dateStr ? dateStr+'T09:00' : '';
-                f.ends.value   = dateStr ? dateStr+'T17:00' : '';
-                f.allDay.checked = false;
-                delBtn.classList.add('d-none');
-
-                // répétition
-                if (cbRepeat && blockRepeat && blockSingle) {
-                    cbRepeat.checked = !!dateStr;
-                    blockRepeat.style.display = cbRepeat.checked ? '' : 'none';
-                    blockSingle.style.display = cbRepeat.checked ? 'none' : '';
-                    if (dateStr) { f.dateFrom.value = dateStr; f.dateTo.value = dateStr; }
-                }
-
-                modal.show();
-            };
-
-            // EDITION
-            function openEdit(ev){
-                if (!modal) return;
-                hTitle.textContent = 'Modifier l’évènement';
-                form.action = '<?= site_url('admin/events/update') ?>' + '/' + ev.id;
-                f.id.value = ev.id ?? '';
-                f.title.value = ev.title ?? '';
-                f.starts.value = toLocalInput(ev.startStr);
-                f.ends.value   = toLocalInput(ev.endStr || ev.startStr);
-                f.type.value = ev.extendedProps?.type ?? '';
-                f.color.value = ev.backgroundColor || ev.borderColor || ev.color || '#6c5ce7';
-                f.location.value = ev.extendedProps?.location ?? '';
-                f.notes.value = ev.extendedProps?.notes ?? '';
-                f.allDay.checked = !!ev.allDay;
-
-                // mode simple en édition
-                if (cbRepeat && blockRepeat && blockSingle) {
-                    cbRepeat.checked = false;
-                    blockRepeat.style.display = 'none';
-                    blockSingle.style.display = '';
-                }
-
-                delBtn.href = '<?= site_url('admin/events/delete') ?>' + '/' + ev.id;
-                delBtn.classList.remove('d-none');
-                modal.show();
+            html:not([data-coreui-theme]) .tdb-card:hover{
+                border-color: rgba(255,255,255,.18);
+                background: rgba(28, 33, 39, .75);
             }
-
-            // Calendar
-            const cal = new FullCalendar.Calendar(elCal, {
-                initialView: 'dayGridMonth',
-                initialDate: initialDate,
-                locale: 'fr',
-                timeZone: 'local',
-                firstDay: 1,
-                height: 'auto',
-                headerToolbar: { left:'prev,next today', center:'title', right:'dayGridMonth,timeGridWeek,listWeek' },
-                eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
-                slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
-                dayHeaderFormat: { weekday: 'short' },
-                events: '<?= site_url('admin/events/list') ?>',
-                dateClick(info){ openCreate(info.dateStr); },
-                eventClick(info){ openEdit(info.event); }
-            });
-            cal.render();
-
-            // toggle répétition
-            if (cbRepeat) {
-                cbRepeat.addEventListener('change', () => {
-                    const on = cbRepeat.checked;
-                    if (blockRepeat && blockSingle) {
-                        blockRepeat.style.display = on ? '' : 'none';
-                        blockSingle.style.display = on ? 'none' : '';
-                    }
-                });
+            html:not([data-coreui-theme]) .tdb-primary{
+                border-color: rgba(13,110,253,.35);
+                background: rgba(13,110,253,.12);
             }
-        })();
-    </script>
+            html:not([data-coreui-theme]) .tdb-primary:hover{
+                border-color: rgba(13,110,253,.50);
+                background: rgba(13,110,253,.16);
+            }
+            html:not([data-coreui-theme]) .tdb-icon{
+                border-color: rgba(255,255,255,.10);
+                background: rgba(255,255,255,.06);
+            }
+            html:not([data-coreui-theme]) .tdb-desc{
+                color: rgba(255,255,255,.70);
+            }
+            html:not([data-coreui-theme]) .tdb-cta{
+                color: rgba(255,255,255,.80);
+            }
+        }
+    </style>
 </body>
 </html>

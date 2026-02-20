@@ -1,49 +1,69 @@
 <?php
 $filter = $filter ?? 'all';
-$sort   = $sort ?? 'date_desc';
+$sort = $sort ?? 'date_desc';
 $currentFolderId = $currentFolder['id'] ?? null;
 
 $baseUrl = rtrim(base_url(), '/');
 
-function humanSize(int $bytes): string {
+function humanSize(int $bytes): string
+{
     if ($bytes <= 0) return '—';
-    $units = ['B','KB','MB','GB','TB'];
-    $i = 0; $v = (float)$bytes;
-    while ($v >= 1024 && $i < count($units)-1) { $v /= 1024; $i++; }
-    return $i === 0 ? (int)$v.' '.$units[$i] : number_format($v, 1, ',', ' ').' '.$units[$i];
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $i = 0;
+    $v = (float)$bytes;
+    while ($v >= 1024 && $i < count($units) - 1) {
+        $v /= 1024;
+        $i++;
+    }
+    return $i === 0 ? (int)$v . ' ' . $units[$i] : number_format($v, 1, ',', ' ') . ' ' . $units[$i];
 }
 
-function isImageRow(array $f): bool {
+function isImageRow(array $f): bool
+{
     $mime = strtolower((string)($f['mime_type'] ?? ''));
     $kind = strtolower((string)($f['kind'] ?? ''));
     return $kind === 'image' || str_starts_with($mime, 'image/');
 }
 
-function fileExt(string $name): string {
+function fileExt(string $name): string
+{
     $p = pathinfo($name, PATHINFO_EXTENSION);
     return strtolower((string)$p);
 }
 
-function fileIcon(string $ext): array {
-    return match($ext) {
-        'pdf' => ['<img src="'.base_url('assets/icons/pdf.png').'" alt="PDF" width="60">', 'PDF'],
-        'doc', 'docx' => ['<img src="'.base_url('assets/icons/word.png').'" alt="WORD" width="60">', 'WORD'],
-        'xls', 'xlsx' => ['<img src="'.base_url('assets/icons/excel.png').'" alt="EXCEL" width="60">', 'EXCEL'],
-        'ppt', 'pptx' => ['<img src="'.base_url('assets/icons/powerpoint.png').'" alt="POWERPOINT" width="60">', 'POWERPOINT'],
-        'zip', 'rar', '7z' => ['<img src="'.base_url('assets/icons/rar.png').'" alt="RAR" width="60">', 'RAR'],
-        default => ['<img src="'.base_url('assets/icons/file.png').'" alt="FILE" width="60">', 'FILE'],
+function fileIcon(string $ext): array
+{
+    return match ($ext) {
+        'pdf' => ['<img src="' . base_url('assets/icons/pdf.png') . '" alt="PDF" width="60">', 'PDF'],
+        'doc', 'docx' => ['<img src="' . base_url('assets/icons/word.png') . '" alt="WORD" width="60">', 'WORD'],
+        'xls', 'xlsx' => ['<img src="' . base_url('assets/icons/excel.png') . '" alt="EXCEL" width="60">', 'EXCEL'],
+        'ppt', 'pptx' => ['<img src="' . base_url('assets/icons/powerpoint.png') . '" alt="POWERPOINT" width="60">', 'POWERPOINT'],
+        'zip', 'rar', '7z' => ['<img src="' . base_url('assets/icons/rar.png') . '" alt="RAR" width="60">', 'RAR'],
+        default => ['<img src="' . base_url('assets/icons/file.png') . '" alt="FILE" width="60">', 'FILE'],
     };
 }
+
+$user = session('user');
+$userId = (int)($user->id ?? 0);
+
+$isAdmin = true;
+
+$canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
+    $ownerId = (int)($folder['user_id'] ?? 0);
+    return $isAdmin || ($ownerId === $userId);
+};
 ?>
+
 <style>
-    .media-toolbar{
-        border: 1px solid rgba(0,0,0,.08);
+    .media-toolbar {
+        border: 1px solid rgba(0, 0, 0, .08);
         border-radius: 18px;
         padding: 14px;
-        box-shadow: 0 10px 30px rgba(0,0,0,.04);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, .04);
     }
-    .chip{
-        border: 1px solid rgba(0,0,0,.12);
+
+    .chip {
+        border: 1px solid rgba(0, 0, 0, .12);
         border-radius: 999px;
         padding: 8px 12px;
         font-size: .9rem;
@@ -52,74 +72,90 @@ function fileIcon(string $ext): array {
         gap: 8px;
         text-decoration: none;
     }
-    .chip.active{
-        border-color: rgba(13,110,253,.55);
+
+    .chip.active {
+        border-color: rgba(13, 110, 253, .55);
     }
 
-    .dropzone{
-        border: 2px dashed rgba(0,0,0,.18);
+    .dropzone {
+        border: 2px dashed rgba(0, 0, 0, .18);
         border-radius: 18px;
         padding: 18px;
         cursor: pointer;
         transition: .15s ease;
     }
-    .dropzone.dragover{
-        border-color: rgba(13,110,253,.65);
+
+    .dropzone.dragover {
+        border-color: rgba(13, 110, 253, .65);
         transform: translateY(-1px);
     }
 
-    .card-soft{
-        border: 1px solid rgba(0,0,0,.08);
+    .card-soft {
+        border: 1px solid rgba(0, 0, 0, .08);
         border-radius: 18px;
-        box-shadow: 0 10px 30px rgba(0,0,0,.04);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, .04);
         overflow: hidden;
     }
-    .card-soft.allow-overflow{ overflow: visible; }
 
-    .folder-card:hover, .file-card:hover{
-        transform: translateY(-2px);
-        box-shadow: 0 14px 34px rgba(0,0,0,.07);
+    .card-soft.allow-overflow {
+        overflow: visible;
     }
-    .folder-card, .file-card{ transition: .15s ease; }
 
-    .thumb{
+    .folder-card:hover, .file-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, .07);
+    }
+
+    .folder-card, .file-card {
+        transition: .15s ease;
+    }
+
+    .thumb {
         height: 170px;
         width: 100%;
         object-fit: cover;
     }
 
-    .file-hero{
+    .file-hero {
         height: 170px;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        flex-direction:column;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
         gap: 6px;
     }
 
-    .ellipsis{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ellipsis {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
-    .tree-wrap{ max-height: 52vh; overflow:auto; }
+    .tree-wrap {
+        max-height: 52vh;
+        overflow: auto;
+    }
 </style>
 
 <div class="container-fluid">
 
-    <?php if(session('message')): ?>
+    <?php if (session('message')): ?>
         <div class="alert alert-success"><?= esc(session('message')) ?></div>
     <?php endif; ?>
-    <?php if(session('error')): ?>
+    <?php if (session('error')): ?>
         <div class="alert alert-danger"><?= esc(session('error')) ?></div>
     <?php endif; ?>
 
     <!-- Header -->
     <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
         <div>
-            <div class="h4 m-0">Médiathèque</div>
+            <div class="h3 m-0">Médiathèque</div>
             <div class="text-muted small">Dossiers & fichiers — images et documents</div>
         </div>
 
         <div class="ms-auto d-flex gap-2">
-            <button class="btn btn-outline-success rounded-pill px-3" type="button" data-bs-toggle="modal" data-bs-target="#modalFolder">
+            <button class="btn btn-outline-success rounded-pill px-3" type="button" data-bs-toggle="modal"
+                    data-bs-target="#modalFolder">
                 + Nouveau dossier
             </button>
         </div>
@@ -129,18 +165,20 @@ function fileIcon(string $ext): array {
     <div class="card-soft mb-4">
         <div class="p-3 p-md-4">
             <div id="dropZone" class="dropzone text-center">
-                <div class="fw-semibold">Glisse-dépose tes fichiers ici</div>
-                <div class="text-muted small mb-3">ou clique pour sélectionner — 4 Mo max / fichier</div>
+                <div class="fw-semibold">Glisser-déposer des fichiers ici</div>
+                <div class="text-muted small mb-3">5 Mo max / fichier</div>
 
                 <input id="fileInput" type="file" class="d-none" multiple
                        accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
-                <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">Choisir des fichiers</button>
+                <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">Choisir des fichiers
+                </button>
             </div>
 
             <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
                 <div class="text-muted small" id="fileCount">0 fichier</div>
                 <div class="ms-auto d-flex gap-2">
-                    <button id="btnClear" type="button" class="btn btn-outline-secondary rounded-pill" disabled>Vider</button>
+                    <button id="btnClear" type="button" class="btn btn-outline-secondary rounded-pill" disabled>Vider
+                    </button>
                     <button id="btnUpload" type="button" class="btn btn-success rounded-pill" disabled>Uploader</button>
                 </div>
             </div>
@@ -159,16 +197,16 @@ function fileIcon(string $ext): array {
     <div class="media-toolbar mb-4">
         <div class="d-flex flex-wrap gap-2 align-items-center">
 
-            <a class="chip <?= $filter==='all'?'active':'' ?>"
-               href="<?= esc(($currentFolderId ? site_url('admin/media/folder/'.$currentFolderId) : site_url('admin/media')) . '?type=all&sort='.$sort) ?>">
+            <a class="chip <?= $filter === 'all' ? 'active' : '' ?>"
+               href="<?= esc(($currentFolderId ? site_url('admin/media/folder/' . $currentFolderId) : site_url('admin/media')) . '?type=all&sort=' . $sort) ?>">
                 Tous
             </a>
-            <a class="chip <?= $filter==='image'?'active':'' ?>"
-               href="<?= esc(($currentFolderId ? site_url('admin/media/folder/'.$currentFolderId) : site_url('admin/media')) . '?type=image&sort='.$sort) ?>">
+            <a class="chip <?= $filter === 'image' ? 'active' : '' ?>"
+               href="<?= esc(($currentFolderId ? site_url('admin/media/folder/' . $currentFolderId) : site_url('admin/media')) . '?type=image&sort=' . $sort) ?>">
                 <i class="fa-solid fa-image"></i> Images
             </a>
-            <a class="chip <?= $filter==='document'?'active':'' ?>"
-               href="<?= esc(($currentFolderId ? site_url('admin/media/folder/'.$currentFolderId) : site_url('admin/media')) . '?type=document&sort='.$sort) ?>">
+            <a class="chip <?= $filter === 'document' ? 'active' : '' ?>"
+               href="<?= esc(($currentFolderId ? site_url('admin/media/folder/' . $currentFolderId) : site_url('admin/media')) . '?type=document&sort=' . $sort) ?>">
                 <i class="fa-solid fa-file"></i> Documents
             </a>
 
@@ -176,7 +214,8 @@ function fileIcon(string $ext): array {
 
             <!-- Recherche -->
             <div class="input-group" style="max-width: 340px;">
-                <span class="input-group-text border-0" style="border-radius: 999px 0 0 999px;"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <span class="input-group-text border-0" style="border-radius: 999px 0 0 999px;"><i
+                            class="fa-solid fa-magnifying-glass"></i></span>
                 <input id="searchInput" type="text" class="form-control border-0"
                        style="border-radius: 0 999px 999px 0;"
                        placeholder="Rechercher...">
@@ -184,12 +223,12 @@ function fileIcon(string $ext): array {
 
             <div class="ms-auto d-flex gap-2">
                 <select class="form-select rounded-pill" style="max-width:220px" id="sortSelect">
-                    <option value="date_desc" <?= $sort==='date_desc'?'selected':'' ?>>Date ↓</option>
-                    <option value="date_asc"  <?= $sort==='date_asc'?'selected':'' ?>>Date ↑</option>
-                    <option value="name_asc"  <?= $sort==='name_asc'?'selected':'' ?>>Nom A→Z</option>
-                    <option value="name_desc" <?= $sort==='name_desc'?'selected':'' ?>>Nom Z→A</option>
-                    <option value="size_desc" <?= $sort==='size_desc'?'selected':'' ?>>Taille ↓</option>
-                    <option value="size_asc"  <?= $sort==='size_asc'?'selected':'' ?>>Taille ↑</option>
+                    <option value="date_desc" <?= $sort === 'date_desc' ? 'selected' : '' ?>>Date ↓</option>
+                    <option value="date_asc" <?= $sort === 'date_asc' ? 'selected' : '' ?>>Date ↑</option>
+                    <option value="name_asc" <?= $sort === 'name_asc' ? 'selected' : '' ?>>Nom A→Z</option>
+                    <option value="name_desc" <?= $sort === 'name_desc' ? 'selected' : '' ?>>Nom Z→A</option>
+                    <option value="size_desc" <?= $sort === 'size_desc' ? 'selected' : '' ?>>Taille ↓</option>
+                    <option value="size_asc" <?= $sort === 'size_asc' ? 'selected' : '' ?>>Taille ↑</option>
                 </select>
             </div>
         </div>
@@ -200,10 +239,10 @@ function fileIcon(string $ext): array {
         <ol class="breadcrumb mb-0">
             <?php foreach (($breadcrumbs ?? []) as $i => $bc): ?>
                 <?php
-                $isLast = ($i === count($breadcrumbs)-1);
+                $isLast = ($i === count($breadcrumbs) - 1);
                 $id = $bc['id'] ?? null;
-                $url = $id ? site_url('admin/media/folder/'.$id) : site_url('admin/media');
-                $url .= '?type='.$filter.'&sort='.$sort;
+                $url = $id ? site_url('admin/media/folder/' . $id) : site_url('admin/media');
+                $url .= '?type=' . $filter . '&sort=' . $sort;
                 ?>
                 <li class="breadcrumb-item <?= $isLast ? 'active' : '' ?>">
                     <?php if ($isLast): ?>
@@ -219,7 +258,8 @@ function fileIcon(string $ext): array {
     <!-- Dossiers -->
     <div class="d-flex align-items-center mb-2">
         <div class="h5 m-0">Dossiers</div>
-        <div class="ms-auto text-muted small"><span id="foldersCount"><?= count($folders ?? []) ?></span> dossier(s)</div>
+        <div class="ms-auto text-muted small"><span id="foldersCount"><?= count($folders ?? []) ?></span> dossier(s)
+        </div>
     </div>
 
     <div class="row g-3 mb-4" id="foldersGrid">
@@ -229,36 +269,176 @@ function fileIcon(string $ext): array {
             </div>
         <?php else: ?>
             <?php foreach ($folders as $d): ?>
+                <?php
+                $fid = (int)($d['id'] ?? 0);
+                $fname = (string)($d['name'] ?? '');
+
+                $aname = trim((string)($d['firstname'] ?? '') . ' ' . (string)($d['lastname'] ?? ''));
+                if ($aname === '') {
+                    $aname = 'ID ' . (string)($d['user_id'] ?? '—');
+                }
+
+                $manage = $canManageFolder($d);
+                ?>
                 <div class="col-12 col-md-6 col-lg-4 col-xl-3 folder-item"
                      data-name="<?= esc(strtolower($d['name'] ?? ''), 'attr') ?>">
                     <div class="card-soft allow-overflow folder-card">
                         <div class="p-3 d-flex align-items-center gap-3">
                             <div style="font-size:30px;"><i class="fa-solid fa-folder-open"></i></div>
-                            <div class="flex-grow-1">
-                                <div class="fw-semibold ellipsis" style="text-decoration: underline" title="<?= esc($d['name']) ?>">
-                                    <a class="text-decoration-none"
-                                       href="<?= site_url('admin/media/folder/'.$d['id'].'?type='.$filter.'&sort='.$sort) ?>">
-                                        <?= esc($d['name']) ?>
+
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex align-items-center gap-2 min-w-0">
+                                    <a class="fw-semibold text-decoration-none ellipsis min-w-0"
+                                       style="text-decoration: underline;"
+                                       title="<?= esc($fname) ?>"
+                                       href="<?= site_url('admin/media/folder/' . $fid . '?type=' . $filter . '&sort=' . $sort) ?>">
+                                        <?= esc($fname) ?>
                                     </a>
+                                    <span class="text-muted small ellipsis flex-shrink-0"
+                                          title="<?= esc('Auteur : ' . $aname) ?>">
+                                          | Auteur : <?= esc($aname) ?>
+                                    </span>
                                 </div>
                             </div>
 
                             <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="dropdown">⋯</button>
+                                <button class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="dropdown"
+                                        type="button">⋯
+                                </button>
+
                                 <div class="dropdown-menu dropdown-menu-end">
-                                    <form action="<?= site_url('admin/media/folder/delete/'.$d['id']) ?>" method="post"
-                                          onsubmit="return confirm('Supprimer ce dossier ? (doit être vide)')">
-                                        <?= csrf_field() ?>
-                                        <button class="dropdown-item text-danger" type="submit">Supprimer</button>
-                                    </form>
+                                    <?php if ($manage): ?>
+
+                                        <button
+                                                class="dropdown-item"
+                                                type="button"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalRenameFolder"
+                                                data-folder-id="<?= $fid ?>"
+                                                data-folder-name="<?= esc($fname, 'attr') ?>"
+                                        >
+                                            <i class="fa-solid fa-pen-to-square me-2"></i> Renommer
+                                        </button>
+
+                                        <div class="dropdown-divider"></div>
+
+                                        <button
+                                                class="dropdown-item text-danger"
+                                                type="button"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalDeleteFolder"
+                                                data-folder-id="<?= $fid ?>"
+                                                data-folder-name="<?= esc($fname, 'attr') ?>"
+                                        >
+                                            <i class="fa-solid fa-trash me-2"></i> Supprimer
+                                        </button>
+
+                                    <?php else: ?>
+                                        <span class="dropdown-item-text text-muted small">Aucune action</span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
+
                         </div>
                     </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
+
+    <div class="modal fade" id="modalRenameFolder" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" id="renameFolderForm" class="modal-content">
+                <?= csrf_field() ?>
+                <div class="modal-header">
+                    <h5 class="modal-title">Renommer le dossier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+
+                <div class="modal-body">
+                    <label class="form-label">Nouveau nom</label>
+                    <input type="text" name="name" id="renameFolderInput" class="form-control" maxlength="150" required>
+                    <div class="form-text">150 caractères max.</div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">
+                        Annuler
+                    </button>
+                    <button type="submit" class="btn btn-primary rounded-pill">Renommer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalDeleteFolder" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" id="deleteFolderForm" class="modal-content">
+                <?= csrf_field() ?>
+                <div class="modal-header">
+                    <h5 class="modal-title">Supprimer le dossier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p class="mb-2">
+                        Confirmer la suppression du dossier :
+                        <strong id="deleteFolderName"></strong>
+                    </p>
+                    <div class="alert alert-warning mb-0">
+                        Le dossier doit être vide (pas de sous-dossiers, pas de fichiers).
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">
+                        Annuler
+                    </button>
+                    <button type="submit" class="btn btn-danger rounded-pill">Supprimer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // Rename
+            const renameModal = document.getElementById('modalRenameFolder');
+            const renameForm = document.getElementById('renameFolderForm');
+            const renameInput = document.getElementById('renameFolderInput');
+
+            if (renameModal) {
+                renameModal.addEventListener('show.bs.modal', (event) => {
+                    const btn = event.relatedTarget;
+                    const id = btn.getAttribute('data-folder-id');
+                    const name = btn.getAttribute('data-folder-name') || '';
+
+                    renameForm.action = "<?= site_url('admin/media/folder') ?>/" + id + "/rename";
+                    renameInput.value = name;
+                    setTimeout(() => renameInput.focus(), 150);
+                });
+            }
+
+            // Delete
+            const deleteModal = document.getElementById('modalDeleteFolder');
+            const deleteForm = document.getElementById('deleteFolderForm');
+            const deleteName = document.getElementById('deleteFolderName');
+
+            if (deleteModal) {
+                deleteModal.addEventListener('show.bs.modal', (event) => {
+                    const btn = event.relatedTarget;
+                    const id = btn.getAttribute('data-folder-id');
+                    const name = btn.getAttribute('data-folder-name') || '';
+
+                    deleteForm.action = "<?= site_url('admin/media/folder/delete') ?>/" + id;
+                    deleteName.textContent = name;
+                });
+            }
+
+        });
+    </script>
+
 
     <!-- Fichiers -->
     <div class="d-flex align-items-center mb-2">
@@ -268,7 +448,9 @@ function fileIcon(string $ext): array {
 
     <div class="row g-3" id="filesGrid">
         <?php if (empty($files)): ?>
-            <div class="col-12"><div class="text-muted">Aucun fichier ici.</div></div>
+            <div class="col-12">
+                <div class="text-muted">Aucun fichier ici.</div>
+            </div>
         <?php else: ?>
             <?php foreach ($files as $f): ?>
                 <?php
@@ -305,10 +487,13 @@ function fileIcon(string $ext): array {
 
                                 <button class="btn btn-outline-primary btn-sm rounded-pill"
                                         type="button"
-                                        onclick="copyToClipboard('<?= esc($url) ?>')">Copier</button>
+                                        onclick="copyToClipboard('<?= esc($url) ?>')">Copier
+                                </button>
 
                                 <div class="dropdown">
-                                    <button class="btn btn-outline-secondary btn-sm rounded-pill" data-bs-toggle="dropdown">⋯</button>
+                                    <button class="btn btn-outline-secondary btn-sm rounded-pill"
+                                            data-bs-toggle="dropdown">⋯
+                                    </button>
                                     <div class="dropdown-menu dropdown-menu-end">
 
                                         <button type="button" class="dropdown-item"
@@ -323,7 +508,7 @@ function fileIcon(string $ext): array {
 
                                         <div class="dropdown-divider"></div>
 
-                                        <form action="<?= site_url('admin/media/delete/'.$f['id']) ?>" method="post"
+                                        <form action="<?= site_url('admin/media/delete/' . $f['id']) ?>" method="post"
                                               onsubmit="return confirm('Supprimer ce fichier ?')">
                                             <?= csrf_field() ?>
                                             <button class="dropdown-item text-danger" type="submit">Supprimer</button>
@@ -360,7 +545,8 @@ function fileIcon(string $ext): array {
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler
+                </button>
                 <button type="submit" class="btn btn-success rounded-pill">Créer</button>
             </div>
         </form>
@@ -383,7 +569,8 @@ function fileIcon(string $ext): array {
                 <div class="small text-muted mb-2" id="moveCopySubtitle"></div>
 
                 <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
-                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="selectFolder(null)">
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill"
+                            onclick="selectFolder(null)">
                         Racine
                     </button>
                     <span class="small text-muted" id="selectedFolderLabel">Racine sélectionnée</span>
@@ -399,7 +586,8 @@ function fileIcon(string $ext): array {
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler
+                </button>
                 <button type="submit" class="btn btn-primary rounded-pill" id="moveCopySubmit">Valider</button>
             </div>
         </form>
@@ -429,7 +617,7 @@ function fileIcon(string $ext): array {
         if (!input) return;
 
         const folders = () => Array.from(document.querySelectorAll('.folder-item'));
-        const files   = () => Array.from(document.querySelectorAll('.file-item'));
+        const files = () => Array.from(document.querySelectorAll('.file-item'));
 
         function apply(q) {
             const query = (q || '').trim().toLowerCase();
@@ -471,21 +659,21 @@ function fileIcon(string $ext): array {
        4) Upload drag & drop
        ========================================================= */
     (() => {
-        const dropZone     = document.getElementById('dropZone');
-        const fileInput    = document.getElementById('fileInput');
-        const btnPick      = document.getElementById('btnPick');
-        const btnUpload    = document.getElementById('btnUpload');
-        const btnClear     = document.getElementById('btnClear');
-        const fileCount    = document.getElementById('fileCount');
-        const resultBox    = document.getElementById('uploadResult');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const btnPick = document.getElementById('btnPick');
+        const btnUpload = document.getElementById('btnUpload');
+        const btnClear = document.getElementById('btnClear');
+        const fileCount = document.getElementById('fileCount');
+        const resultBox = document.getElementById('uploadResult');
         const progressWrap = document.getElementById('uploadProgressWrap');
-        const progressBar  = document.getElementById('uploadProgress');
+        const progressBar = document.getElementById('uploadProgress');
 
         if (!dropZone || !fileInput) return;
 
         let queue = [];
         const maxSize = 4 * 1024 * 1024;
-        const allowedExt = ['jpg','jpeg','png','webp','gif','pdf','doc','docx','xls','xlsx','ppt','pptx'];
+        const allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
 
         const currentFolderId = "<?= esc((string)$currentFolderId) ?>";
 
@@ -502,13 +690,22 @@ function fileIcon(string $ext): array {
 
         function addFiles(files) {
             const added = [];
-            const errs  = [];
+            const errs = [];
 
             for (const f of files) {
                 const ext = extOf(f.name);
-                if (!allowedExt.includes(ext)) { errs.push(`${f.name} : extension non supportée`); continue; }
-                if (f.size <= 0) { errs.push(`${f.name} : taille invalide`); continue; }
-                if (f.size > maxSize) { errs.push(`${f.name} : > 4 Mo`); continue; }
+                if (!allowedExt.includes(ext)) {
+                    errs.push(`${f.name} : extension non supportée`);
+                    continue;
+                }
+                if (f.size <= 0) {
+                    errs.push(`${f.name} : taille invalide`);
+                    continue;
+                }
+                if (f.size > maxSize) {
+                    errs.push(`${f.name} : > 5 Mo`);
+                    continue;
+                }
                 added.push(f);
             }
 
@@ -516,7 +713,7 @@ function fileIcon(string $ext): array {
 
             resultBox.innerHTML = '';
             if (added.length) resultBox.innerHTML += `<div class="text-success">+ ${added.length} fichier(s) ajouté(s)</div>`;
-            if (errs.length)  resultBox.innerHTML += `<div class="text-danger">${errs.map(e => `• ${e}`).join('<br>')}</div>`;
+            if (errs.length) resultBox.innerHTML += `<div class="text-danger">${errs.map(e => `• ${e}`).join('<br>')}</div>`;
             setUI();
         }
 
@@ -532,16 +729,18 @@ function fileIcon(string $ext): array {
             fileInput.value = '';
         });
 
-        ['dragenter','dragover'].forEach(evt => {
+        ['dragenter', 'dragover'].forEach(evt => {
             dropZone.addEventListener(evt, (e) => {
-                e.preventDefault(); e.stopPropagation();
+                e.preventDefault();
+                e.stopPropagation();
                 dropZone.classList.add('dragover');
             });
         });
 
-        ['dragleave','drop'].forEach(evt => {
+        ['dragleave', 'drop'].forEach(evt => {
             dropZone.addEventListener(evt, (e) => {
-                e.preventDefault(); e.stopPropagation();
+                e.preventDefault();
+                e.stopPropagation();
                 dropZone.classList.remove('dragover');
             });
         });
@@ -580,8 +779,10 @@ function fileIcon(string $ext): array {
                         }
                     };
 
-                    xhr.onload  = () => (xhr.status >= 200 && xhr.status < 400) ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
+                    xhr.onload = () => (xhr.status >= 200 && xhr.status < 400) ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
                     xhr.onerror = () => reject(new Error('Network error'));
+                    form.append("<?= csrf_token() ?>", "<?= csrf_hash() ?>");
+
                     xhr.send(form);
                 });
 
@@ -609,11 +810,11 @@ function fileIcon(string $ext): array {
     let __foldersCache = null;
 
     function openMoveCopyModal(action, fileId, fileName) {
-        const modalEl  = document.getElementById('modalMoveCopy');
-        const form     = document.getElementById('moveCopyForm');
-        const title    = document.getElementById('moveCopyTitle');
+        const modalEl = document.getElementById('modalMoveCopy');
+        const form = document.getElementById('moveCopyForm');
+        const title = document.getElementById('moveCopyTitle');
         const subtitle = document.getElementById('moveCopySubtitle');
-        const submit   = document.getElementById('moveCopySubmit');
+        const submit = document.getElementById('moveCopySubmit');
 
         if (!modalEl || !form || !title || !subtitle || !submit) return;
 
@@ -657,7 +858,7 @@ function fileIcon(string $ext): array {
         if (__foldersCache) return __foldersCache;
 
         const resp = await fetch("<?= site_url('admin/media/folders-tree') ?>", {
-            headers: { 'Accept': 'application/json' }
+            headers: {'Accept': 'application/json'}
         });
 
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -727,7 +928,7 @@ function fileIcon(string $ext): array {
 
         wrap.querySelectorAll('[data-toggle="kids"]').forEach(btn => {
             btn.addEventListener('click', () => {
-                const id  = btn.getAttribute('data-id');
+                const id = btn.getAttribute('data-id');
                 const box = document.getElementById('kids-' + id);
                 if (!box) return;
                 const open = box.style.display !== 'none';

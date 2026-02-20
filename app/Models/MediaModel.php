@@ -29,50 +29,110 @@ class MediaModel extends Model
 
     public function getById(int $id): ?array
     {
-        return $this->find($id);
+        return $this->find($id) ?: null;
     }
 
-    public function getMediaByPath(string $filePath): ?array
+    public function getByPath(string $filePath): ?array
     {
-        return $this->where('file_path', $filePath)->first();
+        return $this->where('file_path', $filePath)->first() ?: null;
     }
 
-    public function getAllMedias($limit = null, $offset = 0) {
-        return $this->findAll($limit, $offset);
+    public function getAll(int $limit = 0, int $offset = 0): array
+    {
+        if ($limit > 0) {
+            return $this->findAll($limit, $offset);
+        }
+        return $this->findAll();
     }
-    public function getMediaById($id = null) {
-        if ($id == null) {
+
+    public function getAllByEntityType(string $entityType, int $limit = 0, int $offset = 0): array
+    {
+        $builder = $this->where('entity_type', $entityType);
+
+        if ($limit > 0) {
+            return $builder->findAll($limit, $offset);
+        }
+        return $builder->findAll();
+    }
+
+    public function getByEntity(string $entityType, int $entityId): array
+    {
+        return $this->where('entity_type', $entityType)
+            ->where('entity_id', $entityId)
+            ->findAll();
+    }
+
+    public function getFirstByEntity(string $entityType, int $entityId): ?array
+    {
+        return $this->where('entity_type', $entityType)
+            ->where('entity_id', $entityId)
+            ->first() ?: null;
+    }
+
+    /**
+     * Supprime un media (DB + fichier).
+     * - Sécurise le chemin (anti traversal)
+     * - Si le fichier n'existe pas, on supprime quand même la ligne DB.
+     */
+    public function deleteMedia(int $id): bool
+    {
+        $media = $this->find($id);
+        if (! $media) {
             return false;
         }
-        return $this->find($id);
-    }
-    public function deleteMedia($id) {
-        // Récupérer les informations du fichier depuis la base de données
-        $fichier = $this->find($id);
-        if ($fichier) {
-            // Chemin complet du fichier tel qu'il est stocké dans la base de données
-            $chemin = FCPATH . $fichier['file_path'];
 
-            // Vérifier si le fichier existe et le supprimer
-            if (file_exists($chemin)) {
-                // Supprimer le fichier physique
-                unlink($chemin);
-                // Supprimer l'entrée de la base de données
-                return $this->delete($id);
+        $relative = (string) ($media['file_path'] ?? '');
+        $relative = str_replace(['\\'], '/', $relative);
+
+        // sécurité basique : pas de chemin parent
+        if (str_contains($relative, '../') || str_contains($relative, '..\\')) {
+            // on supprime juste l'entrée DB (pour ne pas risquer de supprimer un autre fichier)
+            return (bool) $this->delete($id);
+        }
+
+        $fullPath = rtrim(FCPATH, '/\\') . '/' . ltrim($relative, '/');
+
+        if (is_file($fullPath)) {
+            @unlink($fullPath);
+        }
+
+        return (bool) $this->delete($id);
+    }
+
+    /**
+     * Supprime tous les medias d'un dossier (DB + fichiers).
+     */
+    public function deleteByFolderId(int $folderId): int
+    {
+        $items = $this->where('folder_id', $folderId)->findAll();
+        $deleted = 0;
+
+        foreach ($items as $m) {
+            if ($this->deleteMedia((int) $m['id'])) {
+                $deleted++;
             }
         }
-        return false; // Le fichier n'a pas été trouvé
+
+        return $deleted;
     }
 
-    public function getAllMediasByEntityType($entityType, $limit = null, $offset = 0) {
-        return $this->where('entity_type', $entityType)->findAll($limit, $offset);
-    }
+    /**
+     * Supprime tous les medias d'une liste de dossiers.
+     */
+    public function deleteByFolderIds(array $folderIds): int
+    {
+        $folderIds = array_values(array_filter(array_map('intval', $folderIds)));
+        if (empty($folderIds)) return 0;
 
-    public function getMediaByEntityIdAndType($entityId,$entityType) {
-        return $this->where('entity_type', $entityType)->where('entity_id', $entityId)->findAll();
-    }
+        $items = $this->whereIn('folder_id', $folderIds)->findAll();
+        $deleted = 0;
 
-    public function getFirstMediaByEntityIdAndType($entityId,$entityType) {
-        return $this->where('entity_type', $entityType)->where('entity_id', $entityId)->first();
+        foreach ($items as $m) {
+            if ($this->deleteMedia((int) $m['id'])) {
+                $deleted++;
+            }
+        }
+
+        return $deleted;
     }
 }

@@ -24,6 +24,31 @@ class Media extends BaseController
         $this->folderModel = new MediaFolderModel();
     }
 
+    /**
+     * ID utilisateur connecté (0 si absent).
+     */
+    private function userId(): int
+    {
+        $u = session('user');
+        return (int)($u->id ?? 0);
+    }
+
+    /**
+     * Récupère un dossier en imposant qu'il appartient à l'utilisateur.
+     * - folderId = null => racine (ok)
+     */
+    private function getFolderOr404(?int $folderId): ?array
+    {
+        if ($folderId === null) return null;
+
+        $folder = $this->folderModel->getById($folderId);
+        if (!$folder) {
+            throw new PageNotFoundException('Dossier introuvable');
+        }
+
+        return $folder;
+    }
+
     public function getIndex()
     {
         return $this->renderExplorer(null);
@@ -36,22 +61,29 @@ class Media extends BaseController
 
     private function renderExplorer(?int $folderId)
     {
+        $userId = $this->userId();
+        if ($userId <= 0) {
+            // adapte selon ton app : ici je bloque si pas connecté
+            return redirect()->to(site_url('/'))->with('error', 'Connexion requise.');
+        }
+
         $picker = (bool) $this->request->getGet('picker');
         $filter = (string) ($this->request->getGet('type') ?? 'all');
         $sort   = (string) ($this->request->getGet('sort') ?? 'date_desc');
 
-        $currentFolder = null;
-        if ($folderId !== null) {
-            $currentFolder = $this->folderModel->getById($folderId);
-            if (!$currentFolder) {
-                throw new PageNotFoundException('Dossier introuvable');
-            }
+        $currentFolder = $this->getFolderOr404($folderId);
+        $breadcrumbs   = $this->buildBreadcrumbs($currentFolder);
+        $isAdmin = (bool) (session('user')->is_admin ?? false); // adapte à ton système
+        $canManageCurrentFolder = false;
+
+        if ($currentFolder) {
+            $ownerId = (int) ($currentFolder['user_id'] ?? 0);
+            $canManageCurrentFolder = $isAdmin || ($ownerId === $userId);
         }
 
-        $breadcrumbs = $this->buildBreadcrumbs($currentFolder);
+        $folders       = $this->folderModel->getChildren($folderId); // TOUS
 
-        $folders = $this->folderModel->getChildren($folderId);
-
+        // ✅ uniquement fichiers dans le dossier (et dossier appartient à l'user car vérifié au-dessus)
         $q = $this->mediaModel;
 
         if ($folderId === null) $q = $q->where('folder_id', null);
@@ -74,10 +106,18 @@ class Media extends BaseController
 
         $files = $q->findAll();
 
-        $rootUrl = site_url('media') . $this->buildQueryKeep(['picker' => $picker ? '1' : null, 'type' => $filter, 'sort' => $sort]);
-        $backUrl = null;
+        $rootUrl = site_url('media') . $this->buildQueryKeep([
+                'picker' => $picker ? '1' : null,
+                'type'   => $filter,
+                'sort'   => $sort
+            ]);
+
         if ($currentFolder && !empty($currentFolder['parent_id'])) {
-            $backUrl = site_url('media/folder/' . (int)$currentFolder['parent_id']) . $this->buildQueryKeep(['picker' => $picker ? '1' : null, 'type' => $filter, 'sort' => $sort]);
+            $backUrl = site_url('media/folder/' . (int)$currentFolder['parent_id']) . $this->buildQueryKeep([
+                    'picker' => $picker ? '1' : null,
+                    'type'   => $filter,
+                    'sort'   => $sort
+                ]);
         } else {
             $backUrl = $rootUrl;
         }
@@ -94,6 +134,10 @@ class Media extends BaseController
             'uploadUrl'     => site_url('media/upload'),
             'rootUrl'       => $rootUrl,
             'backUrl'       => $backUrl,
+
+            'canManageCurrentFolder' => $canManageCurrentFolder,
+            'isAdmin' => $isAdmin,
+            'userId'  => $userId,
         ];
 
         if ($picker) {
@@ -117,10 +161,12 @@ class Media extends BaseController
         return $q ? ('?' . $q) : '';
     }
 
+    /**
+     * Breadcrumbs sécurisés (ne remonte que dans les dossiers appartenant à l'user).
+     */
     private function buildBreadcrumbs(?array $currentFolder): array
     {
         $trail = [['id' => null, 'name' => 'Racine']];
-
         if (!$currentFolder) return $trail;
 
         $stack = [];
@@ -131,7 +177,9 @@ class Media extends BaseController
             $stack[] = ['id' => (int)$node['id'], 'name' => (string)$node['name']];
             $pid = $node['parent_id'] ?? null;
             if (!$pid) break;
+
             $node = $this->folderModel->getById((int)$pid);
+
             $guard++;
             if ($guard > 50) break;
         }
@@ -140,8 +188,16 @@ class Media extends BaseController
         return array_merge($trail, $stack);
     }
 
+    /**
+     * FRONT : créer un dossier => user_id obligatoire
+     */
     public function postCreateFolder()
     {
+        $userId = $this->userId();
+        if ($userId <= 0) {
+            return redirect()->to(site_url('/'))->with('error', 'Connexion requise.');
+        }
+
         $name = trim((string) $this->request->getPost('name'));
         $parentRaw = $this->request->getPost('parent_id');
         $parentId = is_numeric($parentRaw) ? (int)$parentRaw : null;
@@ -150,14 +206,18 @@ class Media extends BaseController
             return redirect()->back()->with('error', 'Nom de dossier requis.');
         }
 
+        // ✅ parent doit appartenir à l'user si fourni
         if ($parentId !== null) {
-            $p = $this->folderModel->getById($parentId);
-            if (!$p) return redirect()->back()->with('error', 'Dossier parent introuvable.');
+            $p = $this->folderModel->getByIdForUser($parentId, $userId);
+            if (!$p) {
+                return redirect()->back()->with('error', 'Dossier parent introuvable.');
+            }
         }
 
         $this->folderModel->insert([
             'name'       => $name,
             'parent_id'  => $parentId,
+            'user_id'    => $userId,
             'sort_order' => 0,
         ]);
 
@@ -165,10 +225,23 @@ class Media extends BaseController
         return redirect()->to($redirectUrl . $this->buildQueryKeep())->with('message', 'Dossier créé.');
     }
 
+    /**
+     * FRONT : supprimer un dossier uniquement si owner.
+     * Ici on garde ta règle "dossier doit être vide" (pas enfants, pas fichiers).
+     * Si tu veux permettre suppression récursive, on le fera côté model/service.
+     */
     public function postDeleteFolder(int $folderId)
     {
-        $folder = $this->folderModel->getById($folderId);
-        if (!$folder) return redirect()->back()->with('error', 'Dossier introuvable.');
+        $userId = $this->userId();
+        if ($userId <= 0) {
+            return redirect()->to(site_url('/'))->with('error', 'Connexion requise.');
+        }
+
+        // ✅ owner check
+        $folder = $this->folderModel->getByIdForUser($folderId, $userId);
+        if (!$folder) {
+            return redirect()->back()->with('error', 'Action non autorisée (dossier introuvable).');
+        }
 
         $children = $this->folderModel->where('parent_id', $folderId)->countAllResults();
         if ($children > 0) {
@@ -188,8 +261,16 @@ class Media extends BaseController
         return redirect()->to($redirectUrl . $this->buildQueryKeep())->with('message', 'Dossier supprimé.');
     }
 
+    /**
+     * FRONT : arbre des dossiers => uniquement ceux de l'user
+     */
     public function getFoldersTree()
     {
+        $userId = $this->userId();
+        if ($userId <= 0) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Connexion requise.']);
+        }
+
         $rows = $this->folderModel
             ->select('id, name, parent_id')
             ->orderBy('parent_id', 'ASC')
@@ -205,24 +286,90 @@ class Media extends BaseController
         ]);
     }
 
+
+    public function postRenameFolder(int $id)
+    {
+        $user = session('user');
+        $userId = is_object($user) ? (int)($user->id ?? 0) : (int)($user['id'] ?? 0);
+
+        if ($userId <= 0) {
+            return redirect()->to(site_url('media'))->with('error', 'Non autorisé.');
+        }
+
+        $name = trim((string)$this->request->getPost('name'));
+        if ($name === '' || mb_strlen($name) > 150) {
+            return redirect()->back()->with('error', 'Nom invalide.');
+        }
+
+        $fm = new \App\Models\MediaFolderModel();
+        $folder = $fm->find($id);
+
+        if (!$folder) {
+            return redirect()->back()->with('error', 'Dossier introuvable.');
+        }
+
+        if ((int)($folder['user_id'] ?? 0) !== $userId) {
+            return redirect()->back()->with('error', 'Non autorisé.');
+        }
+
+        $fm->update($id, ['name' => $name]);
+
+        return redirect()->back()->with('message', 'Dossier renommé.');
+    }
+
+    /**
+     * FRONT : supprimer un fichier => autorisé uniquement si le fichier est dans un dossier appartenant à l'user
+     * (ou racine, à condition que le fichier soit "à l'user" => ici on impose qu'il doit être dans un dossier owned,
+     * sinon, si folder_id null, on refuse (plus sûr). Si tu veux une racine par user, on peut la modéliser.)
+     */
     public function postDelete(int $id)
     {
+        $userId = $this->userId();
+        if ($userId <= 0) {
+            return redirect()->to(site_url('/'))->with('error', 'Connexion requise.');
+        }
+
         $row = $this->mediaModel->getById($id);
         if (!$row) {
             return redirect()->back()->with('error', 'Fichier introuvable.');
         }
 
-        $full = FCPATH . ltrim((string)$row['file_path'], '/');
-        if (is_file($full)) {
-            @unlink($full);
+        $folderId = $row['folder_id'] ?? null;
+        if ($folderId === null) {
+            return redirect()->back()->with('error', 'Action non autorisée.');
         }
 
-        $this->mediaModel->delete($id);
+        if (! $this->folderModel->isOwner((int)$folderId, $userId)) {
+            return redirect()->back()->with('error', 'Action non autorisée.');
+        }
+
+        // utilise le model sécurisé
+        $this->mediaModel->deleteMedia((int)$id);
+
         return redirect()->back()->with('message', 'Fichier supprimé.');
     }
 
+    /**
+     * FRONT : upload uniquement dans un dossier appartenant à l'user (folder_id obligatoire)
+     */
     public function postUpload()
     {
+        $userId = $this->userId();
+        if ($userId <= 0) {
+            return redirect()->to(site_url('/'))->with('error', 'Connexion requise.');
+        }
+
+        $folderIdRaw = $this->request->getPost('folder_id');
+        $folderId    = is_numeric($folderIdRaw) ? (int)$folderIdRaw : null;
+
+        if ($folderId === null) {
+            return redirect()->back()->with('error', 'Dossier requis pour l’upload.');
+        }
+
+        if (! $this->folderModel->isOwner($folderId, $userId)) {
+            return redirect()->back()->with('error', 'Action non autorisée.');
+        }
+
         $uploaded = $this->request->getFiles();
         $ok = 0;
         $errors = [];
@@ -234,7 +381,7 @@ class Media extends BaseController
 
         if (is_array($files)) {
             foreach ($files as $file) {
-                $res = $this->storeOne($file);
+                $res = $this->storeOne($file, $folderId);
                 if ($res === true) $ok++;
                 else $errors[] = $res;
             }
@@ -251,13 +398,7 @@ class Media extends BaseController
             ]);
         }
 
-        $folderIdRaw = $this->request->getPost('folder_id');
-        $folderId    = is_numeric($folderIdRaw) ? (int)$folderIdRaw : null;
-
-        $redirectUrl = $folderId ? site_url(($this->router->controllerName() === 'Media' ? 'media' : 'admin/media') . '/folder/' . $folderId)
-            : site_url(($this->router->controllerName() === 'Media' ? 'media' : 'admin/media'));
-
-        $redirectUrl .= $this->buildQueryKeep();
+        $redirectUrl = site_url('media/folder/' . $folderId) . $this->buildQueryKeep();
 
         if ($ok > 0) {
             return redirect()->to($redirectUrl)
@@ -268,20 +409,36 @@ class Media extends BaseController
         return redirect()->to($redirectUrl)->with('error', implode("\n", $errors));
     }
 
+    /**
+     * FRONT : move => source folder owner + target folder owner
+     */
     public function postMove(int $id)
     {
+        $userId = $this->userId();
+        if ($userId <= 0) {
+            return redirect()->to(site_url('/'))->with('error', 'Connexion requise.');
+        }
+
         $row = $this->mediaModel->getById($id);
         if (!$row) return redirect()->back()->with('error', 'Fichier introuvable.');
+
+        $currentFolderId = $row['folder_id'] ?? null;
+        if ($currentFolderId === null || ! $this->folderModel->isOwner((int)$currentFolderId, $userId)) {
+            return redirect()->back()->with('error', 'Action non autorisée.');
+        }
 
         $targetRaw = $this->request->getPost('target_folder_id');
         $targetId  = is_numeric($targetRaw) ? (int)$targetRaw : null;
 
-        if ($targetId !== null && !$this->folderModel->getById($targetId)) {
-            return redirect()->back()->with('error', 'Dossier cible introuvable.');
+        if ($targetId === null) {
+            return redirect()->back()->with('error', 'Dossier cible requis.');
         }
 
-        $currentId = $row['folder_id'] ?? null;
-        if (($currentId === null && $targetId === null) || ((int)$currentId === (int)$targetId)) {
+        if (! $this->folderModel->isOwner($targetId, $userId)) {
+            return redirect()->back()->with('error', 'Action non autorisée.');
+        }
+
+        if ((int)$currentFolderId === (int)$targetId) {
             return redirect()->back()->with('message', 'Déjà dans ce dossier.');
         }
 
@@ -289,16 +446,33 @@ class Media extends BaseController
         return redirect()->back()->with('message', 'Fichier déplacé.');
     }
 
+    /**
+     * FRONT : copy => source owner + target owner
+     */
     public function postCopy(int $id)
     {
+        $userId = $this->userId();
+        if ($userId <= 0) {
+            return redirect()->to(site_url('/'))->with('error', 'Connexion requise.');
+        }
+
         $row = $this->mediaModel->getById($id);
         if (!$row) return redirect()->back()->with('error', 'Fichier introuvable.');
+
+        $currentFolderId = $row['folder_id'] ?? null;
+        if ($currentFolderId === null || ! $this->folderModel->isOwner((int)$currentFolderId, $userId)) {
+            return redirect()->back()->with('error', 'Action non autorisée.');
+        }
 
         $targetRaw = $this->request->getPost('target_folder_id');
         $targetId  = is_numeric($targetRaw) ? (int)$targetRaw : null;
 
-        if ($targetId !== null && !$this->folderModel->getById($targetId)) {
-            return redirect()->back()->with('error', 'Dossier cible introuvable.');
+        if ($targetId === null) {
+            return redirect()->back()->with('error', 'Dossier cible requis.');
+        }
+
+        if (! $this->folderModel->isOwner($targetId, $userId)) {
+            return redirect()->back()->with('error', 'Action non autorisée.');
         }
 
         $srcRel  = (string)$row['file_path'];
@@ -322,12 +496,12 @@ class Media extends BaseController
         $newRel = 'uploads/media/' . $newName;
 
         $data = [
-            'folder_id' => $targetId,
-            'file_name' => $newName,
-            'file_path' => $newRel,
-            'mime_type' => $row['mime_type'] ?? null,
-            'file_size' => (int)($row['file_size'] ?? filesize($newFull)),
-            'kind'      => $row['kind'] ?? (str_starts_with((string)$row['mime_type'], 'image/') ? 'image' : 'document'),
+            'folder_id'   => $targetId,
+            'file_name'   => $newName,
+            'file_path'   => $newRel,
+            'mime_type'   => $row['mime_type'] ?? null,
+            'file_size'   => (int)($row['file_size'] ?? filesize($newFull)),
+            'kind'        => $row['kind'] ?? (str_starts_with((string)$row['mime_type'], 'image/') ? 'image' : 'document'),
             'entity_type' => null,
             'entity_id'   => null,
         ];
@@ -341,7 +515,10 @@ class Media extends BaseController
         return redirect()->back()->with('message', 'Fichier copié.');
     }
 
-    protected function storeOne($file)
+    /**
+     * Stocke un fichier (front) dans un dossier owned.
+     */
+    protected function storeOne($file, int $folderId)
     {
         if (!$file) return "Aucun fichier.";
         if (!$file->isValid()) return "Upload invalide: {$file->getErrorString()} (code {$file->getError()}).";
@@ -349,7 +526,7 @@ class Media extends BaseController
 
         $size = (int) $file->getSize();
         if ($size <= 0) return "Taille de fichier nulle (post_max_size/upload_max_filesize ?).";
-        if ($size > 4 * 1024 * 1024) return "Fichier trop volumineux (> 4 Mo).";
+        if ($size > 5 * 1024 * 1024) return "Fichier trop volumineux (> 5 Mo).";
 
         $clientMime = strtolower((string) $file->getClientMimeType());
         $realMime   = strtolower((string) $file->getMimeType());
@@ -400,9 +577,6 @@ class Media extends BaseController
         }
 
         $relativePath = 'uploads/media/' . $finalName;
-
-        $folderIdRaw = $this->request->getPost('folder_id');
-        $folderId    = is_numeric($folderIdRaw) ? (int) $folderIdRaw : null;
 
         $mimeForKind = $realMime ?: $clientMime;
         $kind = str_starts_with($mimeForKind, 'image/') ? 'image' : 'document';
