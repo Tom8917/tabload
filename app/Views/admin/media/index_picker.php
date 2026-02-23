@@ -132,32 +132,6 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
         </div>
     </div>
 
-    <!-- Breadcrumbs (uniquement si nouveau mode) -->
-    <?php if (!$isLegacy): ?>
-        <nav aria-label="breadcrumb" class="mb-4">
-            <ol class="breadcrumb mb-0">
-                <?php if (empty($breadcrumbs)): ?>
-                    <li class="breadcrumb-item active">Racine</li>
-                <?php else: ?>
-                    <?php foreach ($breadcrumbs as $i => $bc): ?>
-                        <?php
-                        $isLast = ($i === count($breadcrumbs)-1);
-                        $id = $bc['id'] ?? null;
-                        $url = $id ? site_url('admin/media/folder/'.$id) : site_url('admin/media');
-                        $url .= '?picker=1&pick=' . esc($pick, 'url') . '&type=' . esc($filter, 'url') . '&sort=' . esc($sort, 'url');
-                        ?>
-                        <li class="breadcrumb-item <?= $isLast ? 'active' : '' ?>">
-                            <?php if ($isLast): ?>
-                                <?= esc($bc['name'] ?? 'Racine') ?>
-                            <?php else: ?>
-                                <a href="<?= esc($url) ?>"><?= esc($bc['name'] ?? 'Racine') ?></a>
-                            <?php endif; ?>
-                        </li>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </ol>
-        </nav>
-    <?php endif; ?>
 
     <!-- Toolbar -->
     <div class="media-toolbar mb-3">
@@ -197,7 +171,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
             <div class="p-3">
                 <div id="dropZone" class="dropzone text-center">
                     <div class="fw-semibold">Glisse-dépose tes images ici</div>
-                    <div class="text-muted small mb-2">ou clique pour sélectionner — 4 Mo max / fichier</div>
+                    <div class="text-muted small mb-2">ou clique pour sélectionner — 5 Mo max / fichier</div>
 
                     <input id="fileInput" type="file" class="d-none" multiple accept=".jpg,.jpeg,.png,.webp,.gif">
                     <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">Choisir des fichiers</button>
@@ -221,6 +195,33 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
             </div>
         </div>
     <?php endif ?>
+
+    <!-- Breadcrumbs (uniquement si nouveau mode) -->
+    <?php if (!$isLegacy): ?>
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                <?php if (empty($breadcrumbs)): ?>
+                    <li class="breadcrumb-item active">Racine</li>
+                <?php else: ?>
+                    <?php foreach ($breadcrumbs as $i => $bc): ?>
+                        <?php
+                        $isLast = ($i === count($breadcrumbs)-1);
+                        $id = $bc['id'] ?? null;
+                        $url = $id ? site_url('admin/media/folder/'.$id) : site_url('admin/media');
+                        $url .= '?picker=1&pick=' . esc($pick, 'url') . '&type=' . esc($filter, 'url') . '&sort=' . esc($sort, 'url');
+                        ?>
+                        <li class="breadcrumb-item <?= $isLast ? 'active' : '' ?>">
+                            <?php if ($isLast): ?>
+                                <?= esc($bc['name'] ?? 'Racine') ?>
+                            <?php else: ?>
+                                <a href="<?= esc($url) ?>"><?= esc($bc['name'] ?? 'Racine') ?></a>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </ol>
+        </nav>
+    <?php endif; ?>
 
     <!-- Dossiers (nouveau mode seulement) -->
     <?php if (!$isLegacy): ?>
@@ -470,7 +471,7 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                     const ext = extOf(f.name);
                     if (!allowedExt.includes(ext)) { errs.push(`${f.name} : extension non supportée`); continue; }
                     if (f.size <= 0) { errs.push(`${f.name} : taille invalide`); continue; }
-                    if (f.size > maxSize) { errs.push(`${f.name} : > 4 Mo`); continue; }
+                    if (f.size > maxSize) { errs.push(`${f.name} : > 5 Mo`); continue; }
                     added.push(f);
                 }
 

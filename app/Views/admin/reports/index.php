@@ -2,9 +2,6 @@
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0">Bilans</h1>
-        <a href="<?= site_url('admin/reports/new') ?>" class="btn btn-primary">
-            <i class="bi bi-plus-lg"></i> Nouveau bilan
-        </a>
     </div>
 
     <?php if (!empty($success)): ?>

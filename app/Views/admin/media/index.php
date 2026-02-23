@@ -296,7 +296,7 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
                                     </a>
                                     <span class="text-muted small ellipsis flex-shrink-0"
                                           title="<?= esc('Auteur : ' . $aname) ?>">
-                                          | Auteur : <?= esc($aname) ?>
+                                          | <?= esc($aname) ?>
                                     </span>
                                 </div>
                             </div>
@@ -476,8 +476,9 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
                             <div class="fw-semibold ellipsis" title="<?= esc($f['file_name']) ?>">
                                 <?= esc($f['file_name']) ?>
                             </div>
+
                             <div class="d-flex justify-content-between text-muted small mt-1">
-                                <span><?= esc($f['kind'] ?? '') ?></span>
+                                <span><?= esc($f['kind'] ?? '') ?> | <?= esc($aname) ?></span>
                                 <span><?= humanSize((int)($f['file_size'] ?? 0)) ?></span>
                             </div>
 

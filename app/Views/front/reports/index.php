@@ -39,11 +39,11 @@ $success = $success ?? session('success');
                         <thead class="table">
                         <tr>
                             <th style="width:60px;">ID</th>
-                            <th>Titre</th>
-                            <th>Application</th>
-                            <th>Version de l'application</th>
-                            <th>Version du document</th>
-                            <th>Statut</th>
+                            <th style="width:300px;">Titre</th>
+                            <th style="width:200px;">Application</th>
+                            <th style="width:200px;">Version de l'application</th>
+                            <th style="width:180px;">Version du document</th>
+                            <th style="width:150px;">Statut</th>
                             <th style="width:300px;">Actions</th>
                         </tr>
                         </thead>
@@ -67,6 +67,16 @@ $success = $success ?? session('success');
                                     </span>
                                 </td>
                                 <td class="d-flex flex-wrap gap-2">
+                                    <form action="<?= site_url('report/' . (int)$report['id'] . '/duplicate') ?>"
+                                          method="post"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Dupliquer ce bilan ? Une copie indépendante sera créée.');">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary me-1">
+                                            <i class="fa-solid fa-copy me-1"></i>
+                                            Dupliquer
+                                        </button>
+                                    </form>
                                     <a class="btn btn-sm btn-outline-primary"
                                        href="<?= site_url('report/' . $report['id']) ?>">
                                         <i class="fa-solid fa-eye"></i> Aperçu

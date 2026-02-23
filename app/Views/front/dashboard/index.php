@@ -1,7 +1,6 @@
 <div class="container-xl py-4">
     <div class="text-center mb-4">
-        <h1 class="mb-2">Tableau de bord</h1>
-        <div class="text-muted">Accède rapidement à tes bilans, tes tableaux TabLoad et ta médiathèque.</div>
+        <h1 class="mb-5">Tableau de bord</h1>
     </div>
 
     <div class="row g-3 g-lg-4">

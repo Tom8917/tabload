@@ -6,76 +6,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .sticky-th thead th {
+        /* ===== Sticky header ===== */
+        .sticky-th { position: relative; } /* contexte */
+
+        .sticky-th thead th{
             position: sticky;
             top: 0;
-            z-index: 2;
-        }
-        body {
-            background-color: white;
-        }
-        textarea#raw {
-            min-height: 260px;
-        }
-        .group-config-card {
-            font-size: 0.8rem;
+            z-index: 20; /* plus haut */
+            background: var(--bs-body-bg); /* ou #fff si tu veux */
         }
 
-        .table {
+        .sticky-th thead .header-cell { background-color:#ff8000 !important; }
+        .sticky-th thead .title-cell  { background-color:#2a6099 !important; z-index:21; }
+
+        /* Si tu as une ligne de titre (title-cell) sticky aussi */
+        .sticky-th thead .title-cell {
+            z-index: 11;
+        }
+
+        textarea#raw { min-height: 260px; }
+
+        .group-config-card { font-size: .8rem; }
+
+        /* ===== Table look ===== */
+        /* Évite le conflit "table-borderless" vs tes bordures perso.
+           Si tu veux des espacements, ok, mais stabilise les bordures. */
+        table.table {
             border-collapse: separate;
-            border-spacing: 0 0.25rem;
-        }
-        .table td,
-        .table th {
-            border: solid 1px;
+            border-spacing: 0 .25rem;
         }
 
+        table.table td,
+        table.table th {
+            border: 1px solid var(--bs-border-color); /* couleur stable */
+            background-clip: padding-box;             /* évite artefacts de spacing */
+        }
+
+        /* (Optionnel) arrondir un peu chaque ligne (effet carte) */
+        table.table tbody tr td:first-child { border-top-left-radius: .35rem; border-bottom-left-radius: .35rem; }
+        table.table tbody tr td:last-child  { border-top-right-radius: .35rem; border-bottom-right-radius: .35rem; }
+
+        /* ===== Inputs ===== */
         .cell-input,
         .header-input,
         .threshold-input {
-            border: none !important;
+            border: 0 !important;
             box-shadow: none !important;
-            background-color: transparent;
-            padding-left: 0.1rem;
-            padding-right: 0.1rem;
+            background: transparent !important;
+            padding-left: .1rem;
+            padding-right: .1rem;
         }
 
-        .cell-green {
-            background-color: #00ff00 !important;
-            color: #ffffff !important;
-        }
-        .cell-orange {
-            background-color: #fe7f00 !important;
-            color: #ffffff !important;
-        }
-        .cell-red {
-            background-color: #dc0000 !important;
-            color: #ffffff !important;
+        .cell-input:focus,
+        .header-input:focus,
+        .threshold-input:focus {
+            outline: 2px solid rgba(13,110,253,.35); /* focus visible (bootstrap primary) */
+            outline-offset: 1px;
+            border-radius: .2rem;
         }
 
+        /* ===== Cell colors ===== */
+        .cell-green  { background-color: #00ff00 !important; color: #fff !important; }
+        .cell-orange { background-color: #fe7f00 !important; color: #fff !important; }
+        .cell-red    { background-color: #dc0000 !important; color: #fff !important; }
+
+        /* Forcer la couleur de texte dans les inputs aussi */
+        .cell-green .cell-input,
+        .cell-orange .cell-input,
+        .cell-red .cell-input { color: #fff !important; }
+
+        /* ===== Toggles ===== */
         .col-toggle-wrap {
             border-radius: .25rem;
             padding: .15rem .35rem;
-            background-color: #f8f9fa;
+            background-color: var(--bs-tertiary-bg);
         }
-        .col-toggle-wrap.drag-over {
-            outline: 2px dashed #0d6efd;
-        }
+        .col-toggle-wrap.drag-over { outline: 2px dashed #0d6efd; }
 
-        .title-cell {
-            background-color: #2a6099 !important;
-            color: #ffffff !important;
-        }
-        .header-cell {
+        /* ===== Headers custom ===== */
+        .title-cell  { background-color: #2a6099 !important; color: #fff !important; }
+        .header-cell { background-color: #ff8000 !important; color: #fff !important; }
+
+        .header-cell .header-input { color: #fff !important; }
+
+        /* Si tu veux que les th "orange" restent orange même sticky */
+        .sticky-th thead .header-cell {
             background-color: #ff8000 !important;
-            color: #ffffff !important;
-        }
-        .header-cell .header-input {
-            color: #ffffff !important;
         }
     </style>
 </head>
-<body>
+
 <main class="container-fluid">
     <div class="row g-4">
         <div class="col-12">
@@ -733,7 +753,7 @@
             const displayCols = buildDisplayColumns(res);
             if (!displayCols.length) {
                 wrapEl.innerHTML = '<p class="text-body-secondary mb-0">Aucune colonne sélectionnée.</p>';
-                toolsEl.style.display = '';
+                toolsEl.style.display = 'flex';
                 colCountEl.textContent = String(headers.length);
                 renderColumnToggles(headers);
                 renderGroupConfigs(headers, rows);
@@ -928,7 +948,7 @@
 
             tbody += '</tbody>';
 
-            wrapEl.innerHTML = `<table class="table table-sm align-middle table-borderless">${thead}${tbody}</table>`;
+            wrapEl.innerHTML = `<table class="table table-sm align-middle">${thead}${tbody}</table>`;
 
             toolsEl.style.display = '';
             colCountEl.textContent = String(headers.length);

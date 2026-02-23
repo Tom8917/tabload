@@ -105,6 +105,35 @@ $cb = function (bool $checked): string {
                 <h1 class="h3 mb-1">Aperçu : <?= esc($report['title'] ?? '') ?></h1>
             </div>
             <div>
+                <form action="<?= site_url('report/' . (int)$report['id'] . '/duplicate') ?>"
+                      method="post"
+                      class="d-inline"
+                      onsubmit="return confirm('Dupliquer ce bilan ? Une copie indépendante sera créée.');">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary me-1">
+                        <i class="fa-solid fa-copy me-1"></i>
+                        Dupliquer
+                    </button>
+                </form>
+
+                <form action="<?= site_url('report/' . (int)$report['id'] . '/pdf') ?>"
+                      method="get"
+                      class="d-inline me-1">
+
+                    <button type="submit" name="download" value="1"
+                            class="btn btn-primary me-1">
+                        <i class="fa-solid fa-file-arrow-down me-1"></i>
+                        Télécharger PDF
+                    </button>
+
+                    <button type="submit" name="download" value="0"
+                            formtarget="_blank"
+                            class="btn btn-outline-primary">
+                        <i class="fa-solid fa-file-pdf me-1"></i>
+                        Ouvrir PDF
+                    </button>
+                </form>
+
                 <a href="<?= site_url('report/' . $report['id'] . '/sections') ?>" class="btn btn-outline-primary me-1">
                     Retour à la rédaction
                 </a>
