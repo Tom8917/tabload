@@ -77,8 +77,8 @@ class TableUser extends Migration
         ];
 
         $data2 = [
-            'firstname' => 'user',
-            'lastname' => 'user',
+            'firstname' => 'User',
+            'lastname' => 'USER',
             'email' => 'user@user.fr',
             'password' => password_hash('user', PASSWORD_DEFAULT),
             'id_permission' => 3,
@@ -87,8 +87,20 @@ class TableUser extends Migration
             'updated_at' => date('Y-m-d H:i:s'),
         ];
 
+        $data3 = [
+            'firstname' => 'Test',
+            'lastname' => 'TEST',
+            'email' => 'test@test.fr',
+            'password' => password_hash('test', PASSWORD_DEFAULT),
+            'id_permission' => 3,
+            'counter_user' => 3,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
         $this->db->table('user')->insert($data);
         $this->db->table('user')->insert($data2);
+        $this->db->table('user')->insert($data3);
     }
 
     public function down()

@@ -240,7 +240,7 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
                                 </div>
 
                                 <div class="col-12 col-md-6 info-cell info-cell-top info-cell-left">
-                                    <h5 class="fw-semibold mb-1">Date de validation</h5>
+                                    <h5 class="fw-semibold mb-1">Date de dernière validation</h5>
                                     <p class="mb-0"><?= esc($fmtDate($validatedAt ?? null)) ?></p>
                                 </div>
                             </div>

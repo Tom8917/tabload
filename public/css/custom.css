@@ -1,13 +1,13 @@
-.media-mask {
-    min-width:100%;
-    min-height:100%;
-    position:absolute;
-    box-sizing:border-box;
-    top:0;
-    bottom:0;
-    left:0;
-    right:0;
-}
-.media {
-    aspect-ratio: 1/1; /* Maintenir un carré */
-}
+/*.media-mask {*/
+/*    min-width:100%;*/
+/*    min-height:100%;*/
+/*    position:absolute;*/
+/*    box-sizing:border-box;*/
+/*    top:0;*/
+/*    bottom:0;*/
+/*    left:0;*/
+/*    right:0;*/
+/*}*/
+/*.media {*/
+/*    aspect-ratio: 1/1; !* Maintenir un carré *!*/
+/*}*/

@@ -175,7 +175,7 @@ $toN   = min($total, $page * $limit);
     <!-- Header -->
     <div class="d-flex align-items-start justify-content-between mb-3 flex-wrap toolbar">
         <div>
-            <div class="section-title">Journal d’activité</div>
+            <div class="h3">Journal d’activité</div>
             <div class="subline">
                 Affichage <?= (int)$fromN ?> - <?= (int)$toN ?> sur <?= (int)$total ?> · Page <?= (int)$page ?>/<?= (int)$pages ?>
             </div>
@@ -224,7 +224,7 @@ $toN   = min($total, $page * $limit);
                 <div class="col-6 col-lg-2">
                     <label class="form-label mb-1">ID du bilan</label>
                     <input type="text" name="entity_id" class="form-control" value="<?= esc($filters['entity_id'] ?? '') ?>"
-                           placeholder="ex: 123">
+                           placeholder="ex: 1">
                 </div>
 
                 <div class="col-6 col-lg-2">
@@ -365,11 +365,11 @@ $toN   = min($total, $page * $limit);
                                             <div class="diff-cols">
                                                 <div class="diff-col">
                                                     <div class="diff-label">Avant</div>
-                                                    <div class="diff-val mono"><?= esc($fmt($chg['from'] ?? null)) ?></div>
+                                                    <div class="diff-val mono"><?= ($fmt($chg['from'] ?? null)) ?></div>
                                                 </div>
                                                 <div class="diff-col">
                                                     <div class="diff-label">Après</div>
-                                                    <div class="diff-val mono"><?= esc($fmt($chg['to'] ?? null)) ?></div>
+                                                    <div class="diff-val mono"><?= ($fmt($chg['to'] ?? null)) ?></div>
                                                 </div>
                                             </div>
                                         </div>

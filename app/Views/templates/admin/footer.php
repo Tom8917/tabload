@@ -1,6 +1,6 @@
 </div>
 </div>
-</div>
+
 <footer class="footer px-4 mt-4" style="background-color: transparent">
     <div>
         Outil développé par Tom MARTIN.

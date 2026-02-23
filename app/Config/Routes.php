@@ -38,6 +38,7 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
     $routes->get('report/(:num)/edit',     'Report::getEdit/$1');
     $routes->post('report/(:num)/update',  'Report::postUpdate/$1');
     $routes->post('report/(:num)/delete',  'Report::postDelete/$1');
+    $routes->post('report/(:num)/duplicate', 'Report::postDuplicate/$1');
 
     // SECTIONS
     $routes->get('report/(:num)/sections',                'Report::getSections/$1');
@@ -52,6 +53,8 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
     $routes->post('report/(:num)/sections/meta', 'Report::postUpdateMetaInline/$1');
     $routes->post('report/(:num)/sections/(:num)/move-up', 'Report::postMoveRootUp/$1/$2');
     $routes->post('report/(:num)/sections/(:num)/move-down', 'Report::postMoveRootDown/$1/$2');
+
+    $routes->get('report/(:num)/pdf', 'Report::getPdf/$1');
 
 //    $routes->post('report/(:num)/meta', 'Report::updateMeta/$1');
 
@@ -105,7 +108,6 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
 
     // REPORTS
     $routes->get('reports',                 'Report::getIndex');
-    $routes->get('reports/new',             'Report::getNew');
     $routes->post('reports',                'Report::postCreate');
 
     $routes->get('reports/(:num)',          'Report::getShow/$1');

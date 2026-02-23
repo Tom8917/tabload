@@ -13,6 +13,8 @@ use CodeIgniter\Exceptions\PageNotFoundException;
 
 use App\Models\LogModel;
 use App\Services\LogService;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class Report extends BaseController
 {
@@ -365,6 +367,151 @@ class Report extends BaseController
 
         return redirect()->to(site_url('report/' . $id))->with('success', 'Bilan mis à jour.');
     }
+
+
+    public function postDuplicate(int $id)
+    {
+        $src = $this->findReportWithUsersOr404($id);
+        $this->requireOwnerOrAdmin($src);
+
+        $db = \Config\Database::connect();
+        $db->transStart();
+
+        try {
+            // 1) Crée le nouveau report
+            $now = date('Y-m-d H:i:s');
+
+            // Titre : "XXX (copie)" avec un petit suffixe si tu veux éviter les doublons exacts
+            $newTitle = trim((string)($src['title'] ?? 'Bilan')) . ' (copie)';
+
+            $newReportData = [
+                'user_id'              => $this->userId(), // tu peux aussi garder $src['user_id'] si tu veux
+                'title'                => $newTitle,
+                'application_name'     => $src['application_name'] ?? '',
+                'application_version'  => $src['application_version'] ?? null,
+                'file_media_id'        => !empty($src['file_media_id']) ? (int)$src['file_media_id'] : null, // on copie la référence (pas de lien fonctionnel)
+                'author_name'          => $this->currentUserFullName(),
+                'status'               => 'brouillon',
+                'doc_status'           => 'work',
+                'doc_version'          => 'v0.1',
+                'modification_kind'    => $src['modification_kind'] ?? 'creation',
+                'version_date'         => $now,
+                'author_updated_at'    => $now,
+
+                // IMPORTANT : ne pas recopier validated_by / corrected_by / dates de validation, etc.
+                'validated_by'         => null,
+                'validated_at'         => null,
+                'corrected_by'         => null,
+                'corrected_at'         => null,
+                'comments'             => null,
+            ];
+
+            $newId = (int) $this->reports->insert($newReportData, true);
+
+            // LOG : création (nouveau report)
+            $this->log(
+                'create',
+                'report',
+                $newId,
+                'Duplication : création du nouveau bilan',
+                [
+                    'source_report_id' => (int)$id,
+                    'changes' => [
+                        'title' => ['from' => null, 'to' => $newTitle],
+                        'application_name' => ['from' => null, 'to' => $newReportData['application_name']],
+                        'application_version' => ['from' => null, 'to' => $newReportData['application_version']],
+                        'file_media_id' => ['from' => null, 'to' => $newReportData['file_media_id']],
+                        'status' => ['from' => null, 'to' => 'brouillon'],
+                        'doc_status' => ['from' => null, 'to' => 'work'],
+                        'doc_version' => ['from' => null, 'to' => 'v0.1'],
+                    ],
+                ]
+            );
+
+            // 2) Duplique toutes les sections (en conservant l’arbre)
+            // On récupère toutes les sections source
+            $srcSections = $this->sections
+                ->where('report_id', (int)$id)
+                ->orderBy('level', 'ASC')
+                ->orderBy('id', 'ASC')
+                ->findAll();
+
+            // Mapping old_id => new_id
+            $map = [];
+
+            // Petite fonction insert section en conservant parent via mapping
+            foreach ($srcSections as $s) {
+                $oldId = (int)($s['id'] ?? 0);
+
+                $oldParent = (int)($s['parent_id'] ?? 0);
+                $newParent = null;
+                if ($oldParent > 0) {
+                    $newParent = $map[$oldParent] ?? null;
+                }
+
+                // Nettoyage champs techniques à ne pas copier
+                $insert = $s;
+
+                unset(
+                    $insert['id'],
+                    $insert['created_at'],
+                    $insert['updated_at']
+                );
+
+                $insert['report_id'] = $newId;
+                $insert['parent_id'] = $newParent;
+
+                // (optionnel) si tu as des champs d’ordre / sort / position, copie-les tel quel
+                // On garde code/level si tu les stockes en base, sinon recompute plus bas.
+
+                $newSectionId = (int) $this->sections->insert($insert, true);
+                $map[$oldId] = $newSectionId;
+            }
+
+            // 3) Recompute codes pour être sûr (si ton service gère code/level)
+            // (Même si tu as copié code/level, ça sécurise l’intégrité)
+            $this->sectionsService->recomputeCodes($newId);
+
+            // 4) Crée une version initiale pour le nouveau report
+            $rv = new \App\Models\ReportVersionModel();
+            $rv->insert([
+                'report_id'     => $newId,
+                'version_label' => 'v0.1',
+                'change_type'   => 'draft',
+                'doc_status'    => 'work',
+                'changed_by'    => $this->userId(),
+                'comment'       => 'Dupliqué depuis le bilan #' . (int)$id,
+            ]);
+
+            // LOG : action duplicate (optionnel)
+            $this->log(
+                'create',
+                'report_duplicate',
+                $newId,
+                'Bilan dupliqué depuis #' . (int)$id,
+                [
+                    'source_report_id' => (int)$id,
+                    'sections_copied'  => count($srcSections),
+                ]
+            );
+
+            $db->transComplete();
+
+            if ($db->transStatus() === false) {
+                return redirect()->back()->with('errors', ['dup' => 'Erreur lors de la duplication.']);
+            }
+
+            return redirect()->to(site_url('report/' . $newId . '/sections'))
+                ->with('success', 'Bilan dupliqué. Vous pouvez modifier la copie sans impacter l’original.');
+
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            return redirect()->back()->with('errors', [
+                'dup' => 'Duplication impossible : ' . $e->getMessage(),
+            ]);
+        }
+    }
+
 
     public function getSections(int $id)
     {
@@ -756,5 +903,84 @@ class Report extends BaseController
 
         $this->success('Informations mises à jour.');
         return $this->redirect()->back();
+    }
+
+
+
+
+    public function getPdf(int $id)
+    {
+        helper('html_helper');
+
+        $report = $this->findReportWithUsersOr404($id);
+        $this->requireOwnerOrAdmin($report);
+
+        $sectionsTree = $this->sectionsService->getTreeForReport($id);
+
+        $versions = model(\App\Models\ReportVersionModel::class)
+            ->where('report_id', $id)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+
+        $author    = (string)($report['author_name'] ?? $this->currentUserFullName());
+        $createdAt = (string)($report['created_at'] ?? '');
+        $updatedAt = (string)($report['author_updated_at'] ?? ($report['updated_at'] ?? ''));
+
+        $fmtDateTime = function (?string $value): string {
+            if (empty($value)) return '—';
+            try { return (new \DateTime($value))->format('d/m/Y H:i'); }
+            catch (\Throwable $e) { return (string)$value; }
+        };
+
+        $html = view('front/reports/pdf', [
+            'report'       => $report,
+            'sectionsTree' => $sectionsTree,
+            'versions'     => $versions,
+            'author'       => $author,
+            'createdAt'    => $fmtDateTime($createdAt),
+            'updatedAt'    => $fmtDateTime($updatedAt),
+            'generatedAt'  => date('d/m/Y H:i'),
+        ]);
+
+        // Dompdf
+        $options = new \Dompdf\Options();
+        $options->set('isRemoteEnabled', true);             // si tu as encore des images externes
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('tempDir', WRITEPATH . 'cache/dompdf');
+
+        $options->set('chroot', FCPATH);
+
+        $dompdf = new \Dompdf\Dompdf($options);
+        $dompdf->setPaper('A4', 'portrait');
+
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->render();
+
+        $canvas = $dompdf->getCanvas();
+        $w = $canvas->get_width();
+        $h = $canvas->get_height();
+
+        $text = "Page {PAGE_NUM} / {PAGE_COUNT}";
+        $font = $dompdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $size = 9;
+
+        $textWidth = $dompdf->getFontMetrics()->getTextWidth($text, $font, $size);
+
+        $rightMargin = 150;
+
+        $x = $w - $textWidth - $rightMargin;
+
+        $y = $h - 25;
+
+        $canvas->page_text($x, $y, $text, $font, $size, [0.3, 0.3, 0.3]);
+
+        $download = ((int)($this->request->getGet('download') ?? 0) === 1);
+        $filename = 'bilan_' . (int)$id . '.pdf';
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', ($download ? 'attachment' : 'inline') . '; filename="' . $filename . '"')
+            ->setBody($dompdf->output());
     }
 }

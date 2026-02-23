@@ -86,7 +86,9 @@
                 <ul class="dropdown-menu">
                     <li class="p-2"><img class="img-thumbnail mx-auto d-block" height="80px"
                                          src="<?= base_url($user->getProfileImage()); ?>"></li>
-                    Utilisateur connecté : <?= $user->id ?>
+                    <li class="ms-3 me-2 text-muted">ID admin : <?= $user->id ?>
+                    <br> <?= $user->firstname . ' ' . $user->lastname ?>
+                    </li>
                     <?php if ($user->id_permission === 1) { ?>
                         <li><a class="dropdown-item" href="<?= base_url('/admin/user/'); ?><?= $user->id; ?>">Modifier
                                 mon compte</a></li>
