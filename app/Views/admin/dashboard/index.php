@@ -63,14 +63,14 @@
     <div class="container-xl py-4">
         <div class="row g-3 g-lg-4">
 
-            <!-- Créer un bilan -->
+            <!-- Créer un user -->
             <div class="col-12 col-md-6 col-xl-3">
-                <a href="<?= base_url('admin/reports/new') ?>" class="tdb-card tdb-primary">
+                <a href="<?= base_url('admin/user/new') ?>" class="tdb-card tdb-primary">
                     <div class="tdb-icon"><i class="fa-solid fa-plus"></i></div>
-                    <div class="tdb-title">Créer un bilan</div>
-                    <div class="tdb-desc">Démarre un nouveau document avec tes sections, notes et tableaux.</div>
+                    <div class="tdb-title">Créer un Utilisateur</div>
+                    <div class="tdb-desc">Configurer les paramètres d'un utilisateur.</div>
                     <div class="tdb-cta">
-                        <span>Commencer</span>
+                        <span>Créer</span>
                         <i class="fa-solid fa-arrow-right"></i>
                     </div>
                 </a>

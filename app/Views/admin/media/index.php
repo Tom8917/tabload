@@ -21,8 +21,8 @@ function humanSize(int $bytes): string
 function isImageRow(array $f): bool
 {
     $mime = strtolower((string)($f['mime_type'] ?? ''));
-    $kind = strtolower((string)($f['kind'] ?? ''));
-    return $kind === 'image' || str_starts_with($mime, 'image/');
+    $type = strtolower((string)($f['type'] ?? ''));
+    return $type === 'image' || str_starts_with($mime, 'image/');
 }
 
 function fileExt(string $name): string
@@ -454,17 +454,32 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
         <?php else: ?>
             <?php foreach ($files as $f): ?>
                 <?php
-                $url = $baseUrl . '/' . ltrim((string)$f['file_path'], '/');
+                $id    = (int)($f['id'] ?? 0);
+                $name  = (string)($f['name'] ?? '');
+                $mime  = (string)($f['mime_type'] ?? '');
+                $type  = (string)($f['type'] ?? '');
+                $size  = (int)($f['file_size'] ?? 0);
+
+                // ✅ DB-only : URL via endpoints
+                $openUrl     = site_url('admin/media/file/' . $id);      // inline (img/pdf)
+                $downloadUrl = site_url('admin/media/download/' . $id);  // attachment
+
                 $isImg = isImageRow($f);
-                $ext = fileExt((string)$f['file_name']);
+                $ext = fileExt($name);
                 [$icon, $label] = fileIcon($ext);
-                $safeNameJs = esc(addslashes((string)($f['file_name'] ?? '')));
+
+                $safeNameJs = esc(addslashes($name));
+
+                // ⚠️ Auteur : dans ton code actuel, $aname vient de la boucle dossier -> faux ici.
+                // Solution simple sans toucher controller : affiche juste type.
+                // (Si tu veux l’auteur aussi, je te donne le patch controller après.)
                 ?>
                 <div class="col-12 col-md-6 col-lg-3 file-item"
-                     data-name="<?= esc(strtolower($f['file_name'] ?? ''), 'attr') ?>">
+                     data-name="<?= esc(strtolower($name), 'attr') ?>">
                     <div class="card-soft allow-overflow file-card h-100">
+
                         <?php if ($isImg): ?>
-                            <img src="<?= esc($url) ?>" class="thumb" alt="<?= esc($f['file_name']) ?>">
+                            <img src="<?= esc($openUrl) ?>" class="thumb" alt="<?= esc($name) ?>">
                         <?php else: ?>
                             <div class="file-hero">
                                 <div style="font-size:42px;"><?= $icon ?></div>
@@ -473,43 +488,46 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
                         <?php endif; ?>
 
                         <div class="p-3">
-                            <div class="fw-semibold ellipsis" title="<?= esc($f['file_name']) ?>">
-                                <?= esc($f['file_name']) ?>
+                            <div class="fw-semibold ellipsis" title="<?= esc($name) ?>">
+                                <?= esc($name) ?>
                             </div>
 
                             <div class="d-flex justify-content-between text-muted small mt-1">
-                                <span><?= esc($f['kind'] ?? '') ?> | <?= esc($aname) ?></span>
-                                <span><?= humanSize((int)($f['file_size'] ?? 0)) ?></span>
+                                <span><?= esc($type ?: ($isImg ? 'image' : 'document')) ?></span>
+                                <span><?= humanSize($size) ?></span>
                             </div>
 
                             <div class="d-flex gap-2 mt-3">
                                 <a class="btn btn-outline-secondary btn-sm rounded-pill flex-grow-1"
-                                   href="<?= esc($url) ?>" target="_blank" rel="noopener">Ouvrir</a>
+                                   href="<?= esc($openUrl) ?>" target="_blank" rel="noopener">Ouvrir</a>
+
+                                <a class="btn btn-outline-secondary btn-sm rounded-pill"
+                                   href="<?= esc($downloadUrl) ?>" target="_blank" rel="noopener">
+                                    Télécharger
+                                </a>
 
                                 <button class="btn btn-outline-primary btn-sm rounded-pill"
                                         type="button"
-                                        onclick="copyToClipboard('<?= esc($url) ?>')">Copier
-                                </button>
+                                        onclick="copyToClipboard('<?= esc($openUrl) ?>')">Copier</button>
 
                                 <div class="dropdown">
                                     <button class="btn btn-outline-secondary btn-sm rounded-pill"
-                                            data-bs-toggle="dropdown">⋯
-                                    </button>
-                                    <div class="dropdown-menu dropdown-menu-end">
+                                            data-bs-toggle="dropdown">⋯</button>
 
+                                    <div class="dropdown-menu dropdown-menu-end">
                                         <button type="button" class="dropdown-item"
-                                                onclick="openMoveCopyModal('move', <?= (int)$f['id'] ?>, '<?= $safeNameJs ?>')">
+                                                onclick="openMoveCopyModal('move', <?= $id ?>, '<?= $safeNameJs ?>')">
                                             Déplacer…
                                         </button>
 
                                         <button type="button" class="dropdown-item"
-                                                onclick="openMoveCopyModal('copy', <?= (int)$f['id'] ?>, '<?= $safeNameJs ?>')">
+                                                onclick="openMoveCopyModal('copy', <?= $id ?>, '<?= $safeNameJs ?>')">
                                             Copier…
                                         </button>
 
                                         <div class="dropdown-divider"></div>
 
-                                        <form action="<?= site_url('admin/media/delete/' . $f['id']) ?>" method="post"
+                                        <form action="<?= site_url('admin/media/delete/' . $id) ?>" method="post"
                                               onsubmit="return confirm('Supprimer ce fichier ?')">
                                             <?= csrf_field() ?>
                                             <button class="dropdown-item text-danger" type="submit">Supprimer</button>

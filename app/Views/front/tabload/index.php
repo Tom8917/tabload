@@ -76,7 +76,7 @@
     </style>
 </head>
 <body>
-<main class="container-fluid my-4">
+<main class="container-fluid my-2">
     <div class="row g-4">
         <div class="col-12">
             <div class="card">

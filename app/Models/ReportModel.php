@@ -27,6 +27,7 @@ class ReportModel extends Model
         'doc_version',
         'modification_kind',
         'file_media_id',
+        'media_folder_id',
         'version_date',
         'author_updated_at',
         'corrected_by',

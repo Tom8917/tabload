@@ -1,9 +1,8 @@
 <?php
 $filter = $filter ?? 'all';
-$sort = $sort ?? 'date_desc';
-$currentFolderId = $currentFolder['id'] ?? null;
+$sort   = $sort ?? 'date_desc';
 
-$baseUrl = rtrim(base_url(), '/');
+$currentFolderId = $currentFolder['id'] ?? null;
 
 function humanSize(int $bytes): string
 {
@@ -11,24 +10,20 @@ function humanSize(int $bytes): string
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
     $i = 0;
     $v = (float)$bytes;
-    while ($v >= 1024 && $i < count($units) - 1) {
-        $v /= 1024;
-        $i++;
-    }
+    while ($v >= 1024 && $i < count($units) - 1) { $v /= 1024; $i++; }
     return $i === 0 ? (int)$v . ' ' . $units[$i] : number_format($v, 1, ',', ' ') . ' ' . $units[$i];
 }
 
 function isImageRow(array $f): bool
 {
     $mime = strtolower((string)($f['mime_type'] ?? ''));
-    $kind = strtolower((string)($f['kind'] ?? ''));
-    return $kind === 'image' || str_starts_with($mime, 'image/');
+    $type = strtolower((string)($f['type'] ?? ''));
+    return $type === 'image' || str_starts_with($mime, 'image/');
 }
 
 function fileExt(string $name): string
 {
-    $p = pathinfo($name, PATHINFO_EXTENSION);
-    return strtolower((string)$p);
+    return strtolower((string)pathinfo($name, PATHINFO_EXTENSION));
 }
 
 function fileIcon(string $ext): array
@@ -43,48 +38,13 @@ function fileIcon(string $ext): array
     };
 }
 
-$user = session('user');
+// contrôles reçus du controller
+$canWriteHere = !empty($canWriteHere);
+$folders = $folders ?? [];
+$files   = $files ?? [];
+$breadcrumbs = $breadcrumbs ?? [];
 
-$userId = 0;
-if (is_object($user)) {
-    $userId = (int)($user->id ?? 0);
-} elseif (is_array($user)) {
-    $userId = (int)($user['id'] ?? 0);
-}
-
-/**
- * Front: seul le owner voit les actions.
- * Ici: un dossier appartient à l'user si folder.user_id == userId
- */
-// owner du dossier courant (quand tu es dans /media/folder/{id})
-$currentFolderOwnerId = (int)($currentFolder['user_id'] ?? 0);
-
-// helper: récup ownerId d'un folder de la liste
-$folderOwnerId = function (array $folder) use ($currentFolderOwnerId): int {
-    // cas normal: la liste contient user_id
-    if (isset($folder['user_id']) && $folder['user_id'] !== null) {
-        return (int)$folder['user_id'];
-    }
-    // fallback: si ton controller ne renvoie pas user_id dans la liste,
-    // on ne peut pas deviner l’owner de CHAQUE dossier.
-    // -> on renvoie -1 pour forcer "pas de manage" (sécurisé)
-    return -1;
-};
-
-$canManageFolder = function (array $folder) use ($userId, $folderOwnerId): bool {
-    if ($userId <= 0) return false;
-    return $folderOwnerId($folder) === $userId;
-};
-
-/**
- * Front: pour les fichiers, on n’a pas user_id dans media (chez toi),
- * donc on se base sur le bool fourni par le controller si tu l’ajoutes.
- * Sinon: on fait simple => on autorise actions seulement si currentFolder appartient à l'user
- * (car tes fichiers listés = ceux du folder courant, qui est owned).
- */
-$canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === $userId);
 ?>
-
 <style>
     .media-toolbar {
         border: 1px solid rgba(0, 0, 0, .08);
@@ -92,7 +52,6 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
         padding: 14px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, .04);
     }
-
     .chip {
         border: 1px solid rgba(0, 0, 0, .12);
         border-radius: 999px;
@@ -102,12 +61,9 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
         align-items: center;
         gap: 8px;
         text-decoration: none;
+        color: inherit;
     }
-
-    .chip.active {
-        border-color: rgba(13, 110, 253, .55);
-    }
-
+    .chip.active { border-color: rgba(13, 110, 253, .55); }
     .dropzone {
         border: 2px dashed rgba(0, 0, 0, .18);
         border-radius: 18px;
@@ -115,38 +71,24 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
         cursor: pointer;
         transition: .15s ease;
     }
-
     .dropzone.dragover {
         border-color: rgba(13, 110, 253, .65);
         transform: translateY(-1px);
     }
-
     .card-soft {
         border: 1px solid rgba(0, 0, 0, .08);
         border-radius: 18px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, .04);
         overflow: hidden;
+        background: var(--bs-body-bg);
     }
-
-    .card-soft.allow-overflow {
-        overflow: visible;
-    }
-
+    .card-soft.allow-overflow { overflow: visible; }
     .folder-card:hover, .file-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 14px 34px rgba(0, 0, 0, .07);
     }
-
-    .folder-card, .file-card {
-        transition: .15s ease;
-    }
-
-    .thumb {
-        height: 170px;
-        width: 100%;
-        object-fit: cover;
-    }
-
+    .folder-card, .file-card { transition: .15s ease; }
+    .thumb { height: 170px; width: 100%; object-fit: cover; }
     .file-hero {
         height: 170px;
         display: flex;
@@ -155,17 +97,8 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
         flex-direction: column;
         gap: 6px;
     }
-
-    .ellipsis {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .tree-wrap {
-        max-height: 52vh;
-        overflow: auto;
-    }
+    .ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree-wrap { max-height: 52vh; overflow: auto; }
 </style>
 
 <div class="container-fluid">
@@ -184,60 +117,66 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
             <div class="text-muted small">Dossiers & fichiers — images et documents</div>
         </div>
 
-        <div class="ms-auto d-flex gap-2">
-            <button class="btn btn-outline-success rounded-pill px-3" type="button" data-bs-toggle="modal"
-                    data-bs-target="#modalFolder">
-                <i class="fa-solid fa-plus me-1"></i> Nouveau dossier
-            </button>
-        </div>
-    </div>
-
-    <!-- Upload -->
-    <div class="card-soft mb-4">
-        <div class="p-3 p-md-4">
-            <div id="dropZone" class="dropzone text-center">
-                <div class="fw-semibold">Glisser-déposer des fichiers ici</div>
-                <div class="text-muted small mb-3">5 Mo max / fichier</div>
-
-                <input id="fileInput" type="file" class="d-none" multiple
-                       accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
-                <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">Choisir des fichiers
+        <?php if ($canWriteHere): ?>
+            <div class="ms-auto d-flex gap-2">
+                <button class="btn btn-outline-success rounded-pill px-3" type="button"
+                        data-bs-toggle="modal" data-bs-target="#modalFolder">
+                    <i class="fa-solid fa-plus me-1"></i> Nouveau dossier
                 </button>
             </div>
+        <?php endif; ?>
+    </div>
 
-            <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
-                <div class="text-muted small" id="fileCount">0 fichier</div>
-                <div class="ms-auto d-flex gap-2">
-                    <button id="btnClear" type="button" class="btn btn-outline-secondary rounded-pill" disabled>Vider
+    <!-- Upload (uniquement si owner du dossier courant / autorisé) -->
+    <?php if ($canWriteHere): ?>
+        <div class="card-soft mb-4">
+            <div class="p-3 p-md-4">
+                <div id="dropZone" class="dropzone text-center">
+                    <div class="fw-semibold">Glisser-déposer des fichiers ici</div>
+                    <div class="text-muted small mb-3">5 Mo max / fichier</div>
+
+                    <input id="fileInput" type="file" class="d-none" multiple
+                           accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+                    <button id="btnPick" type="button" class="btn btn-primary rounded-pill px-4">
+                        Choisir des fichiers
                     </button>
-                    <button id="btnUpload" type="button" class="btn btn-success rounded-pill" disabled>Uploader</button>
+                </div>
+
+                <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
+                    <div class="text-muted small" id="fileCount">0 fichier</div>
+                    <div class="ms-auto d-flex gap-2">
+                        <button id="btnClear" type="button" class="btn btn-outline-secondary rounded-pill" disabled>Vider</button>
+                        <button id="btnUpload" type="button" class="btn btn-success rounded-pill" disabled>Uploader</button>
+                    </div>
+                </div>
+
+                <div class="progress mt-3 d-none" id="uploadProgressWrap" style="height: 10px;">
+                    <div class="progress-bar" id="uploadProgress" role="progressbar" style="width: 0%"></div>
+                </div>
+
+                <div class="mt-3">
+                    <div id="uploadResult" class="small"></div>
                 </div>
             </div>
-
-            <div class="progress mt-3 d-none" id="uploadProgressWrap" style="height: 10px;">
-                <div class="progress-bar" id="uploadProgress" role="progressbar" style="width: 0%"></div>
-            </div>
-
-            <div class="mt-3">
-                <div id="uploadResult" class="small"></div>
-            </div>
         </div>
-    </div>
+    <?php endif; ?>
 
     <!-- Toolbar -->
     <div class="media-toolbar mb-4">
         <div class="d-flex flex-wrap gap-2 align-items-center">
 
-            <a class="chip <?= $filter === 'all' ? 'active' : '' ?>"
-               href="<?= esc(($currentFolderId ? site_url('media/folder/' . $currentFolderId) : site_url('media')) . '?type=all&sort=' . $sort) ?>">
-                Tous
-            </a>
-            <a class="chip <?= $filter === 'image' ? 'active' : '' ?>"
-               href="<?= esc(($currentFolderId ? site_url('media/folder/' . $currentFolderId) : site_url('media')) . '?type=image&sort=' . $sort) ?>">
+            <?php
+            $baseIndex = $currentFolderId ? site_url('media/folder/' . $currentFolderId) : site_url('media');
+            $mkUrl = function(string $type, string $sort) use ($baseIndex) {
+                return $baseIndex . '?type=' . $type . '&sort=' . $sort;
+            };
+            ?>
+
+            <a class="chip <?= $filter === 'all' ? 'active' : '' ?>" href="<?= esc($mkUrl('all', $sort)) ?>">Tous</a>
+            <a class="chip <?= $filter === 'image' ? 'active' : '' ?>" href="<?= esc($mkUrl('image', $sort)) ?>">
                 <i class="fa-solid fa-image"></i> Images
             </a>
-            <a class="chip <?= $filter === 'document' ? 'active' : '' ?>"
-               href="<?= esc(($currentFolderId ? site_url('media/folder/' . $currentFolderId) : site_url('media')) . '?type=document&sort=' . $sort) ?>">
+            <a class="chip <?= $filter === 'document' ? 'active' : '' ?>" href="<?= esc($mkUrl('document', $sort)) ?>">
                 <i class="fa-solid fa-file"></i> Documents
             </a>
 
@@ -245,8 +184,9 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
 
             <!-- Recherche -->
             <div class="input-group" style="max-width: 340px;">
-                <span class="input-group-text border-0" style="border-radius: 999px 0 0 999px;"><i
-                            class="fa-solid fa-magnifying-glass"></i></span>
+                <span class="input-group-text border-0" style="border-radius: 999px 0 0 999px;">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
                 <input id="searchInput" type="text" class="form-control border-0"
                        style="border-radius: 0 999px 999px 0;"
                        placeholder="Rechercher...">
@@ -255,11 +195,11 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
             <div class="ms-auto d-flex gap-2">
                 <select class="form-select rounded-pill" style="max-width:220px" id="sortSelect">
                     <option value="date_desc" <?= $sort === 'date_desc' ? 'selected' : '' ?>>Date ↓</option>
-                    <option value="date_asc" <?= $sort === 'date_asc' ? 'selected' : '' ?>>Date ↑</option>
-                    <option value="name_asc" <?= $sort === 'name_asc' ? 'selected' : '' ?>>Nom A→Z</option>
+                    <option value="date_asc"  <?= $sort === 'date_asc'  ? 'selected' : '' ?>>Date ↑</option>
+                    <option value="name_asc"  <?= $sort === 'name_asc'  ? 'selected' : '' ?>>Nom A→Z</option>
                     <option value="name_desc" <?= $sort === 'name_desc' ? 'selected' : '' ?>>Nom Z→A</option>
                     <option value="size_desc" <?= $sort === 'size_desc' ? 'selected' : '' ?>>Taille ↓</option>
-                    <option value="size_asc" <?= $sort === 'size_asc' ? 'selected' : '' ?>>Taille ↑</option>
+                    <option value="size_asc"  <?= $sort === 'size_asc'  ? 'selected' : '' ?>>Taille ↑</option>
                 </select>
             </div>
         </div>
@@ -268,7 +208,7 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
     <!-- Breadcrumbs -->
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb mb-0">
-            <?php foreach (($breadcrumbs ?? []) as $i => $bc): ?>
+            <?php foreach ($breadcrumbs as $i => $bc): ?>
                 <?php
                 $isLast = ($i === count($breadcrumbs) - 1);
                 $id = $bc['id'] ?? null;
@@ -289,7 +229,8 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
     <!-- Dossiers -->
     <div class="d-flex align-items-center mb-2">
         <div class="h5 m-0">Dossiers</div>
-        <div class="ms-auto text-muted small"><span id="foldersCount"><?= count($folders ?? []) ?></span> dossier(s)
+        <div class="ms-auto text-muted small">
+            <span id="foldersCount"><?= count($folders) ?></span> dossier(s)
         </div>
     </div>
 
@@ -300,39 +241,36 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
             </div>
         <?php else: ?>
             <?php foreach ($folders as $d): ?>
+                <?php
+                $fid   = (int)($d['id'] ?? 0);
+                $fname = (string)($d['name'] ?? '');
+                $isOwnerFolder = !empty($d['is_owner']); // ✅ clé
+                ?>
                 <div class="col-12 col-md-6 col-lg-4 col-xl-3 folder-item"
-                     data-name="<?= esc(strtolower($d['name'] ?? ''), 'attr') ?>">
+                     data-name="<?= esc(strtolower($fname), 'attr') ?>">
                     <div class="card-soft allow-overflow folder-card">
                         <div class="p-3 d-flex align-items-center gap-3">
                             <div style="font-size:30px;"><i class="fa-solid fa-folder-open"></i></div>
+
                             <div class="flex-grow-1">
-                                <div class="fw-semibold ellipsis" style="text-decoration: underline"
-                                     title="<?= esc($d['name']) ?>">
+                                <div class="fw-semibold ellipsis" style="text-decoration: underline" title="<?= esc($fname) ?>">
                                     <a class="text-decoration-none"
-                                       href="<?= site_url('media/folder/' . $d['id'] . '?type=' . $filter . '&sort=' . $sort) ?>">
-                                        <?= esc($d['name']) ?>
+                                       href="<?= site_url('media/folder/' . $fid . '?type=' . $filter . '&sort=' . $sort) ?>">
+                                        <?= esc($fname) ?>
                                     </a>
                                 </div>
                             </div>
 
-                            <?php
-                            $fid = (int)($d['id'] ?? 0);
-                            $fname = (string)($d['name'] ?? '');
-                            $manage = $canManageFolder($d);
-                            ?>
-
-                            <?php if ($manage): ?>
+                            <!-- Actions dossier : owner uniquement -->
+                            <?php if ($isOwnerFolder): ?>
                                 <div class="dropdown">
                                     <button class="btn btn-sm btn-outline-secondary rounded-pill"
                                             data-bs-toggle="dropdown"
                                             type="button"
-                                            aria-expanded="false">
-                                        ⋯
-                                    </button>
+                                            aria-expanded="false">⋯</button>
 
                                     <div class="dropdown-menu dropdown-menu-end">
-                                        <button class="dropdown-item"
-                                                type="button"
+                                        <button class="dropdown-item" type="button"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalRenameFolder"
                                                 data-folder-id="<?= $fid ?>"
@@ -342,8 +280,7 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
 
                                         <div class="dropdown-divider"></div>
 
-                                        <button class="dropdown-item text-danger"
-                                                type="button"
+                                        <button class="dropdown-item text-danger" type="button"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalDeleteFolder"
                                                 data-folder-id="<?= $fid ?>"
@@ -353,6 +290,7 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
                                     </div>
                                 </div>
                             <?php endif; ?>
+
                         </div>
                     </div>
                 </div>
@@ -377,9 +315,7 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">
-                        Annuler
-                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
                     <button type="submit" class="btn btn-primary rounded-pill">Renommer</button>
                 </div>
             </form>
@@ -407,57 +343,19 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">
-                        Annuler
-                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
                     <button type="submit" class="btn btn-danger rounded-pill">Supprimer</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-
-            const renameModal = document.getElementById('modalRenameFolder');
-            const renameForm = document.getElementById('renameFolderForm');
-            const renameInput = document.getElementById('renameFolderInput');
-
-            if (renameModal) {
-                renameModal.addEventListener('show.bs.modal', (event) => {
-                    const btn = event.relatedTarget;
-                    const id = btn.getAttribute('data-folder-id');
-                    const name = btn.getAttribute('data-folder-name') || '';
-
-                    renameForm.action = "<?= site_url('media/folder') ?>/" + id + "/rename";
-                    renameInput.value = name;
-
-                    setTimeout(() => renameInput.focus(), 150);
-                });
-            }
-
-            const deleteModal = document.getElementById('modalDeleteFolder');
-            const deleteForm = document.getElementById('deleteFolderForm');
-            const deleteName = document.getElementById('deleteFolderName');
-
-            if (deleteModal) {
-                deleteModal.addEventListener('show.bs.modal', (event) => {
-                    const btn = event.relatedTarget;
-                    const id = btn.getAttribute('data-folder-id');
-                    const name = btn.getAttribute('data-folder-name') || '';
-
-                    deleteForm.action = "<?= site_url('media/folder/delete') ?>/" + id;
-                    deleteName.textContent = name;
-                });
-            }
-
-        });
-    </script>
-
     <!-- Fichiers -->
     <div class="d-flex align-items-center mb-2">
         <div class="h5 m-0">Fichiers</div>
-        <div class="ms-auto text-muted small"><span id="filesCount"><?= count($files ?? []) ?></span> fichier(s)</div>
+        <div class="ms-auto text-muted small">
+            <span id="filesCount"><?= count($files) ?></span> fichier(s)
+        </div>
     </div>
 
     <div class="row g-3" id="filesGrid">
@@ -468,17 +366,27 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
         <?php else: ?>
             <?php foreach ($files as $f): ?>
                 <?php
-                $url = $baseUrl . '/' . ltrim((string)$f['file_path'], '/');
+                $id    = (int)($f['id'] ?? 0);
+                $name  = (string)($f['name'] ?? '');
+                $type  = (string)($f['type'] ?? '');
+                $size  = (int)($f['file_size'] ?? 0);
+
+                $openUrl     = site_url('media/file/' . $id);
+                $downloadUrl = site_url('media/download/' . $id);
+
                 $isImg = isImageRow($f);
-                $ext = fileExt((string)$f['file_name']);
+                $ext = fileExt($name);
                 [$icon, $label] = fileIcon($ext);
-                $safeNameJs = esc(addslashes((string)($f['file_name'] ?? '')));
+
+                $safeNameJs = esc(addslashes($name));
+                $isOwnerFile = !empty($f['is_owner']); // ✅ clé
                 ?>
                 <div class="col-12 col-md-6 col-lg-3 file-item"
-                     data-name="<?= esc(strtolower($f['file_name'] ?? ''), 'attr') ?>">
+                     data-name="<?= esc(strtolower($name), 'attr') ?>">
                     <div class="card-soft allow-overflow file-card h-100">
+
                         <?php if ($isImg): ?>
-                            <img src="<?= esc($url) ?>" class="thumb" alt="<?= esc($f['file_name']) ?>">
+                            <img src="<?= esc($openUrl) ?>" class="thumb" alt="<?= esc($name) ?>">
                         <?php else: ?>
                             <div class="file-hero">
                                 <div style="font-size:42px;"><?= $icon ?></div>
@@ -487,52 +395,57 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
                         <?php endif; ?>
 
                         <div class="p-3">
-                            <div class="fw-semibold ellipsis" title="<?= esc($f['file_name']) ?>">
-                                <?= esc($f['file_name']) ?>
-                            </div>
-                            <div class="d-flex justify-content-between text-muted small mt-1">
-                                <span><?= esc($f['kind'] ?? '') ?></span>
-                                <span><?= humanSize((int)($f['file_size'] ?? 0)) ?></span>
+                            <div class="fw-semibold ellipsis" title="<?= esc($name) ?>">
+                                <?= esc($name) ?>
                             </div>
 
-                            <div class="d-flex gap-2 mt-3">
-                                <a class="btn btn-outline-secondary btn-sm rounded-pill flex-grow-1"
-                                   href="<?= esc($url) ?>" target="_blank" rel="noopener">Ouvrir</a>
+                            <div class="d-flex justify-content-between text-muted small mt-1">
+                                <span><?= esc($type ?: ($isImg ? 'image' : 'document')) ?></span>
+                                <span><?= humanSize($size) ?></span>
+                            </div>
+
+                            <div class="d-flex gap-2 mt-3 flex-wrap">
+                                <a class="btn btn-outline-secondary btn-sm rounded-pill"
+                                   href="<?= esc($openUrl) ?>" target="_blank" rel="noopener">Ouvrir</a>
+
+                                <a class="btn btn-outline-secondary btn-sm rounded-pill"
+                                   href="<?= esc($downloadUrl) ?>" target="_blank" rel="noopener">Télécharger</a>
 
                                 <button class="btn btn-outline-primary btn-sm rounded-pill"
                                         type="button"
-                                        onclick="copyToClipboard('<?= esc($url) ?>')">Copier
+                                        onclick="copyToClipboard('<?= esc($openUrl) ?>')">
+                                    Copier
                                 </button>
 
-                                <?php if ($manage): ?>
+                                <!-- Actions fichier : owner uniquement -->
+                                <?php if ($isOwnerFile): ?>
                                     <div class="dropdown">
                                         <button class="btn btn-outline-secondary btn-sm rounded-pill"
-                                                data-bs-toggle="dropdown">⋯
-                                        </button>
+                                                data-bs-toggle="dropdown" type="button">⋯</button>
                                         <div class="dropdown-menu dropdown-menu-end">
 
                                             <button type="button" class="dropdown-item"
-                                                    onclick="openMoveCopyModal('move', <?= (int)$f['id'] ?>, '<?= $safeNameJs ?>')">
+                                                    onclick="openMoveCopyModal('move', <?= $id ?>, '<?= $safeNameJs ?>')">
                                                 Déplacer…
                                             </button>
 
                                             <button type="button" class="dropdown-item"
-                                                    onclick="openMoveCopyModal('copy', <?= (int)$f['id'] ?>, '<?= $safeNameJs ?>')">
+                                                    onclick="openMoveCopyModal('copy', <?= $id ?>, '<?= $safeNameJs ?>')">
                                                 Copier…
                                             </button>
 
                                             <div class="dropdown-divider"></div>
 
-                                            <form action="<?= site_url('media/delete/' . $f['id']) ?>" method="post"
+                                            <form action="<?= site_url('media/delete/' . $id) ?>" method="post"
                                                   onsubmit="return confirm('Supprimer ce fichier ?')">
                                                 <?= csrf_field() ?>
-                                                <button class="dropdown-item text-danger" type="submit">Supprimer
+                                                <button class="dropdown-item text-danger" type="submit">
+                                                    Supprimer
                                                 </button>
                                             </form>
                                         </div>
                                     </div>
-                                <?php endif ?>
-
+                                <?php endif; ?>
                             </div>
 
                         </div>
@@ -544,7 +457,7 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
 
 </div>
 
-<!-- Modal pour créer un Nouveau dossier -->
+<!-- Modal Créer dossier -->
 <div class="modal fade" id="modalFolder" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <form class="modal-content" action="<?= site_url('media/folder/create') ?>" method="post">
@@ -563,15 +476,14 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler
-                </button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
                 <button type="submit" class="btn btn-success rounded-pill">Créer</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Modal pour Déplacer / Copier -->
+<!-- Modal Déplacer / Copier -->
 <div class="modal fade" id="modalMoveCopy" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable">
         <form class="modal-content" id="moveCopyForm" method="post">
@@ -604,8 +516,7 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler
-                </button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
                 <button type="submit" class="btn btn-primary rounded-pill" id="moveCopySubmit">Valider</button>
             </div>
         </form>
@@ -674,7 +585,7 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
     }
 
     /* =========================================================
-       4) Upload drag & drop
+       4) Upload drag & drop (seulement si bloc upload présent)
        ========================================================= */
     (() => {
         const dropZone = document.getElementById('dropZone');
@@ -687,16 +598,16 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
         const progressWrap = document.getElementById('uploadProgressWrap');
         const progressBar = document.getElementById('uploadProgress');
 
+        // si upload caché => pas d'init
         if (!dropZone || !fileInput) return;
 
         let queue = [];
-        const maxSize = 4 * 1024 * 1024;
-        const allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
-
+        const maxSize = 5 * 1024 * 1024;
+        const allowedExt = ['jpg','jpeg','png','webp','gif','pdf','doc','docx','xls','xlsx','ppt','pptx'];
         const currentFolderId = "<?= esc((string)$currentFolderId) ?>";
 
         function extOf(name) {
-            const p = name.split('.');
+            const p = String(name || '').split('.');
             return (p.length > 1 ? p.pop() : '').toLowerCase();
         }
 
@@ -712,18 +623,9 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
 
             for (const f of files) {
                 const ext = extOf(f.name);
-                if (!allowedExt.includes(ext)) {
-                    errs.push(`${f.name} : extension non supportée`);
-                    continue;
-                }
-                if (f.size <= 0) {
-                    errs.push(`${f.name} : taille invalide`);
-                    continue;
-                }
-                if (f.size > maxSize) {
-                    errs.push(`${f.name} : > 5 Mo`);
-                    continue;
-                }
+                if (!allowedExt.includes(ext)) { errs.push(`${f.name} : extension non supportée`); continue; }
+                if (f.size <= 0) { errs.push(`${f.name} : taille invalide`); continue; }
+                if (f.size > maxSize) { errs.push(`${f.name} : > 5 Mo`); continue; }
                 added.push(f);
             }
 
@@ -731,7 +633,7 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
 
             resultBox.innerHTML = '';
             if (added.length) resultBox.innerHTML += `<div class="text-success">+ ${added.length} fichier(s) ajouté(s)</div>`;
-            if (errs.length) resultBox.innerHTML += `<div class="text-danger">${errs.map(e => `• ${e}`).join('<br>')}</div>`;
+            if (errs.length) resultBox.innerHTML += `<div class="text-danger">${errs.map(e => `• ${escapeHtml(e)}`).join('<br>')}</div>`;
             setUI();
         }
 
@@ -747,18 +649,16 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
             fileInput.value = '';
         });
 
-        ['dragenter', 'dragover'].forEach(evt => {
+        ['dragenter','dragover'].forEach(evt => {
             dropZone.addEventListener(evt, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+                e.preventDefault(); e.stopPropagation();
                 dropZone.classList.add('dragover');
             });
         });
 
-        ['dragleave', 'drop'].forEach(evt => {
+        ['dragleave','drop'].forEach(evt => {
             dropZone.addEventListener(evt, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+                e.preventDefault(); e.stopPropagation();
                 dropZone.classList.remove('dragover');
             });
         });
@@ -799,8 +699,8 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
 
                     xhr.onload = () => (xhr.status >= 200 && xhr.status < 400) ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
                     xhr.onerror = () => reject(new Error('Network error'));
-                    form.append("<?= csrf_token() ?>", "<?= csrf_hash() ?>");
 
+                    form.append("<?= csrf_token() ?>", "<?= csrf_hash() ?>");
                     xhr.send(form);
                 });
 
@@ -810,7 +710,7 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
                 setTimeout(() => window.location.reload(), 600);
 
             } catch (err) {
-                resultBox.innerHTML = `<div class="text-danger">Erreur upload : ${err.message}</div>`;
+                resultBox.innerHTML = `<div class="text-danger">Erreur upload : ${escapeHtml(err.message)}</div>`;
             } finally {
                 setTimeout(() => {
                     progressWrap.classList.add('d-none');
@@ -823,16 +723,53 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
     })();
 
     /* =========================================================
-       5) Modal Déplacer / Copier (arbre dossiers uniquement)
+       5) Modals dossier (rename / delete)
+       ========================================================= */
+    document.addEventListener('DOMContentLoaded', () => {
+        const renameModal = document.getElementById('modalRenameFolder');
+        const renameForm  = document.getElementById('renameFolderForm');
+        const renameInput = document.getElementById('renameFolderInput');
+
+        if (renameModal) {
+            renameModal.addEventListener('show.bs.modal', (event) => {
+                const btn  = event.relatedTarget;
+                const id   = btn.getAttribute('data-folder-id');
+                const name = btn.getAttribute('data-folder-name') || '';
+
+                renameForm.action = "<?= site_url('media/folder') ?>/" + id + "/rename";
+                renameInput.value = name;
+
+                setTimeout(() => renameInput.focus(), 150);
+            });
+        }
+
+        const deleteModal = document.getElementById('modalDeleteFolder');
+        const deleteForm  = document.getElementById('deleteFolderForm');
+        const deleteName  = document.getElementById('deleteFolderName');
+
+        if (deleteModal) {
+            deleteModal.addEventListener('show.bs.modal', (event) => {
+                const btn  = event.relatedTarget;
+                const id   = btn.getAttribute('data-folder-id');
+                const name = btn.getAttribute('data-folder-name') || '';
+
+                deleteForm.action = "<?= site_url('media/folder/delete') ?>/" + id;
+                deleteName.textContent = name;
+            });
+        }
+    });
+
+    /* =========================================================
+       6) Modal Déplacer / Copier (arbre folders-tree)
        ========================================================= */
     let __foldersCache = null;
 
     function openMoveCopyModal(action, fileId, fileName) {
-        const modalEl = document.getElementById('modalMoveCopy');
-        const form = document.getElementById('moveCopyForm');
-        const title = document.getElementById('moveCopyTitle');
+        const modalEl  = document.getElementById('modalMoveCopy');
+        const form     = document.getElementById('moveCopyForm');
+        const title    = document.getElementById('moveCopyTitle');
         const subtitle = document.getElementById('moveCopySubtitle');
-        const submit = document.getElementById('moveCopySubmit');
+        const submit   = document.getElementById('moveCopySubmit');
 
         if (!modalEl || !form || !title || !subtitle || !submit) return;
 
@@ -846,10 +783,12 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
 
         selectFolder(null);
 
-        loadFoldersTree().then(renderFoldersTree).catch(() => {
-            const wrap = document.getElementById('foldersTree');
-            if (wrap) wrap.innerHTML = '<div class="text-danger small">Impossible de charger les dossiers.</div>';
-        });
+        loadFoldersTree()
+            .then(renderFoldersTree)
+            .catch(() => {
+                const wrap = document.getElementById('foldersTree');
+                if (wrap) wrap.innerHTML = '<div class="text-danger small">Impossible de charger les dossiers.</div>';
+            });
 
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
@@ -858,7 +797,6 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
     function selectFolder(folderId) {
         const input = document.getElementById('targetFolderId');
         const label = document.getElementById('selectedFolderLabel');
-
         if (!input) return;
 
         input.value = (folderId === null || folderId === undefined) ? '' : String(folderId);
@@ -875,13 +813,10 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
     async function loadFoldersTree() {
         if (__foldersCache) return __foldersCache;
 
-        const resp = await fetch("<?= site_url('media/folders-tree') ?>", {
-            headers: {'Accept': 'application/json'}
-        });
-
+        const resp = await fetch("<?= site_url('media/folders-tree') ?>", { headers: {'Accept': 'application/json'} });
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const json = await resp.json();
 
+        const json = await resp.json();
         __foldersCache = Array.isArray(json.folders) ? json.folders : [];
         return __foldersCache;
     }
@@ -920,23 +855,23 @@ $canManageFilesHere = ($userId > 0 && (int)($currentFolder['user_id'] ?? 0) === 
 
                 const caret = hasKids
                     ? `<button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 me-2"
-                   data-toggle="kids" data-id="${f.id}">+</button>`
+                           data-toggle="kids" data-id="${f.id}">+</button>`
                     : `<span class="me-2" style="display:inline-block;width:28px;"></span>`;
 
                 html += `
-        <li class="py-1">
-          <div class="d-flex align-items-center">
-            ${caret}
-            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill"
-                    onclick="selectFolder(${f.id})">
-              ${escapeHtml(f.name)}
-            </button>
-          </div>
-          <div class="kids mt-1" id="kids-${f.id}" style="display:none;">
-            ${node(f.id, level + 1)}
-          </div>
-        </li>
-      `;
+                <li class="py-1">
+                  <div class="d-flex align-items-center">
+                    ${caret}
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill"
+                            onclick="selectFolder(${f.id})">
+                      ${escapeHtml(f.name)}
+                    </button>
+                  </div>
+                  <div class="kids mt-1" id="kids-${f.id}" style="display:none;">
+                    ${node(f.id, level + 1)}
+                  </div>
+                </li>
+            `;
             }
             html += `</ul>`;
             return html;

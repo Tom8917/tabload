@@ -166,16 +166,16 @@ class MediaFolderModel extends Model
 
     public function getFoldersWithAuthor(): array
     {
-        return $this->select('media_folders.*, users.firstname, users.lastname')
-            ->join('users', 'users.id = media_folders.user_id', 'left')
+        return $this->select('media_folders.*, u.firstname, u.lastname')
+            ->join('`user` u', 'u.id = media_folders.user_id', 'left')
             ->orderBy('media_folders.created_at', 'DESC')
             ->findAll();
     }
 
     public function getByIdWithAuthor(int $id): ?array
     {
-        $row = $this->select('media_folders.*, user.firstname, user.lastname')
-            ->join('user', 'user.id = media_folders.user_id', 'left')
+        $row = $this->select('media_folders.*, u.firstname, u.lastname')
+            ->join('`user` u', 'u.id = media_folders.user_id', 'left')
             ->where('media_folders.id', $id)
             ->first();
 
@@ -184,8 +184,8 @@ class MediaFolderModel extends Model
 
     public function getChildrenWithAuthor(?int $parentId): array
     {
-        $b = $this->select('media_folders.*, user.firstname, user.lastname')
-            ->join('user', 'user.id = media_folders.user_id', 'left');
+        $b = $this->select('media_folders.*, u.firstname, u.lastname')
+            ->join('`user` u', 'u.id = media_folders.user_id', 'left');
 
         if ($parentId === null) {
             $b->where('media_folders.parent_id IS NULL', null, false);

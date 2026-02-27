@@ -7,6 +7,7 @@ use App\Controllers\BaseController;
 use App\Models\ReportModel;
 use App\Models\ReportSectionModel;
 use App\Models\UserModel;
+use App\Models\MediaFolderModel;
 use App\Services\ReportSectionService;
 use App\Services\ReportTemplateService;
 use CodeIgniter\Exceptions\PageNotFoundException;
@@ -130,8 +131,9 @@ class Report extends BaseController
             CONCAT(cu.firstname, " ", cu.lastname) AS corrected_by,
 
             m.id        AS file_media_id_join,
-            m.file_name AS file_name,
-            m.file_path AS file_path
+            m.name      AS file_name,
+            m.mime_type AS file_mime_type,
+            m.file_size AS file_size
         ')
             ->join('user vu', 'vu.id = reports.validated_by', 'left')
             ->join('user cu', 'cu.id = reports.corrected_by', 'left')
@@ -149,16 +151,22 @@ class Report extends BaseController
     private function requireOwnerOrAdmin(array $report): void
     {
         $ownerId = (int)($report['user_id'] ?? 0);
+
         if ($ownerId !== $this->userId() && !$this->isAdmin()) {
-            throw new PageForbiddenException('Accès refusé');
+            $this->error('Accès refusé.');
+            redirect()->back()->send();
+            exit;
         }
     }
 
     private function requireOwner(array $report): void
     {
         $ownerId = (int)($report['user_id'] ?? 0);
+
         if ($ownerId !== $this->userId()) {
-            throw new PageForbiddenException('Accès refusé');
+            $this->error('Accès refusé.');
+            redirect()->back()->send();
+            exit;
         }
     }
 
@@ -237,72 +245,107 @@ class Report extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $id = $this->reports->insert([
-            'user_id'              => $this->userId(),
-            'title'                => $post['title'],
-            'application_name'     => $post['application_name'],
-            'application_version'  => $post['application_version'] ?? null,
-            'file_media_id'        => $post['file_media_id'] ?? null,
-            'author_name'          => $this->currentUserFullName(),
-            'status'               => 'brouillon',
-            'doc_status'           => 'work',
-            'doc_version'          => 'v0.1',
-            'modification_kind'    => $post['modification_kind'],
-        ], true);
+        $db = \Config\Database::connect();
+        $db->transStart();
 
-        // LOG : création report
-        $this->log(
-            'create',
-            'report',
-            (int) $id,
-            'Création du bilan',
-            [
-                'changes' => [
-                    'title' => ['from' => null, 'to' => $post['title'] ?? null],
-                    'application_name' => ['from' => null, 'to' => $post['application_name'] ?? null],
-                    'application_version' => ['from' => null, 'to' => $post['application_version'] ?? null],
-                    'file_media_id' => ['from' => null, 'to' => $post['file_media_id'] ?? null],
-                    'status' => ['from' => null, 'to' => 'brouillon'],
-                    'doc_status' => ['from' => null, 'to' => 'work'],
-                    'doc_version' => ['from' => null, 'to' => 'v0.1'],
-                    'modification_kind' => ['from' => null, 'to' => $post['modification_kind'] ?? null],
+        try {
+            $reportId = (int) $this->reports->insert([
+                'user_id'              => $this->userId(),
+                'title'                => $post['title'],
+                'application_name'     => $post['application_name'],
+                'application_version'  => $post['application_version'] ?? null,
+                'file_media_id'        => $post['file_media_id'] ?? null,
+                'author_name'          => $this->currentUserFullName(),
+                'status'               => 'brouillon',
+                'doc_status'           => 'work',
+                'doc_version'          => 'v0.1',
+                'modification_kind'    => $post['modification_kind'],
+            ], true);
+
+            $folderModel = new MediaFolderModel();
+
+            $folderName = trim((string)($post['application_name'] ?? ''));
+            if ($folderName === '') $folderName = 'Application';
+
+            $folderId = (int) $folderModel->insert([
+                'name'       => $folderName,
+                'parent_id'  => null,
+                'user_id'    => $this->userId(),
+                'sort_order' => 0,
+            ], true);
+
+            $this->reports->update($reportId, [
+                'media_folder_id' => $folderId,
+            ]);
+
+            $this->log(
+                'create',
+                'report',
+                $reportId,
+                'Création du bilan',
+                [
+                    'changes' => [
+                        'title' => ['from' => null, 'to' => $post['title'] ?? null],
+                        'application_name' => ['from' => null, 'to' => $post['application_name'] ?? null],
+                        'application_version' => ['from' => null, 'to' => $post['application_version'] ?? null],
+                        'file_media_id' => ['from' => null, 'to' => $post['file_media_id'] ?? null],
+                        'media_folder_id' => ['from' => null, 'to' => $folderId],
+                        'status' => ['from' => null, 'to' => 'brouillon'],
+                        'doc_status' => ['from' => null, 'to' => 'work'],
+                        'doc_version' => ['from' => null, 'to' => 'v0.1'],
+                        'modification_kind' => ['from' => null, 'to' => $post['modification_kind'] ?? null],
+                    ],
+                ]
+            );
+
+            $config = [
+                'tests' => [
+                    'target' => [
+                        'enabled' => !empty($post['tpl_target_enabled']),
+                        'target'  => (string)($post['tpl_target_value'] ?? ''),
+                    ],
+                    'endurance' => ['enabled' => !empty($post['tpl_endurance_enabled'])],
+                    'limits'    => ['enabled' => !empty($post['tpl_limits_enabled'])],
+                    'overload'  => ['enabled' => !empty($post['tpl_overload_enabled'])],
                 ],
-            ]
-        );
+            ];
 
-        $config = [
-            'tests' => [
-                'target' => [
-                    'enabled' => !empty($post['tpl_target_enabled']),
-                    'target'  => (string)($post['tpl_target_value'] ?? ''),
-                ],
-                'endurance' => ['enabled' => !empty($post['tpl_endurance_enabled'])],
-                'limits'    => ['enabled' => !empty($post['tpl_limits_enabled'])],
-                'overload'  => ['enabled' => !empty($post['tpl_overload_enabled'])],
-            ],
-        ];
+            $tpl = new ReportTemplateService(new ReportSectionModel(), $this->sectionsService);
+            $tpl->buildReportSkeleton($reportId, $config);
 
-        $tpl = new ReportTemplateService(new ReportSectionModel(), $this->sectionsService);
-        $tpl->buildReportSkeleton((int)$id, $config);
+            $now = date('Y-m-d H:i:s');
+            $this->reports->update($reportId, [
+                'version_date'      => $now,
+                'author_updated_at' => $now,
+            ]);
 
-        $now = date('Y-m-d H:i:s');
-        $this->reports->update((int)$id, [
-            'version_date'      => $now,
-            'author_updated_at' => $now,
-        ]);
+            $rv = new \App\Models\ReportVersionModel();
+            $rv->insert([
+                'report_id'     => $reportId,
+                'version_label' => 'v0.1',
+                'change_type'   => 'draft',
+                'doc_status'    => 'work',
+                'changed_by'    => $this->userId(),
+                'comment'       => 'Version initiale',
+            ]);
 
-        $rv = new \App\Models\ReportVersionModel();
-        $rv->insert([
-            'report_id'     => (int)$id,
-            'version_label' => 'v0.1',
-            'change_type'   => 'draft',
-            'doc_status'    => 'work',
-            'changed_by'    => $this->userId(),
-            'comment'       => 'Version initiale',
-        ]);
+            $db->transComplete();
 
-        return redirect()->to(site_url('report/' . $id . '/sections'))
-            ->with('success', 'Bilan créé avec son squelette. Vous pouvez commencer la rédaction.');
+            if ($db->transStatus() === false) {
+                return redirect()->back()->withInput()->with('errors', [
+                    'create' => 'Erreur lors de la création du bilan.',
+                ]);
+            }
+
+            return redirect()->to(site_url('report/' . $reportId . '/sections'))
+                ->with('success', 'Bilan créé avec son squelette. Vous pouvez commencer la rédaction.');
+
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            return redirect()->back()->withInput()->with('errors', [
+                'create' => 'Création impossible : ' . $e->getMessage(),
+            ]);
+        }
     }
 
 
@@ -372,24 +415,20 @@ class Report extends BaseController
     public function postDuplicate(int $id)
     {
         $src = $this->findReportWithUsersOr404($id);
-        $this->requireOwnerOrAdmin($src);
 
         $db = \Config\Database::connect();
         $db->transStart();
 
         try {
-            // 1) Crée le nouveau report
             $now = date('Y-m-d H:i:s');
-
-            // Titre : "XXX (copie)" avec un petit suffixe si tu veux éviter les doublons exacts
             $newTitle = trim((string)($src['title'] ?? 'Bilan')) . ' (copie)';
 
             $newReportData = [
-                'user_id'              => $this->userId(), // tu peux aussi garder $src['user_id'] si tu veux
+                'user_id'              => $this->userId(),
                 'title'                => $newTitle,
                 'application_name'     => $src['application_name'] ?? '',
                 'application_version'  => $src['application_version'] ?? null,
-                'file_media_id'        => !empty($src['file_media_id']) ? (int)$src['file_media_id'] : null, // on copie la référence (pas de lien fonctionnel)
+                'file_media_id'        => !empty($src['file_media_id']) ? (int)$src['file_media_id'] : null,
                 'author_name'          => $this->currentUserFullName(),
                 'status'               => 'brouillon',
                 'doc_status'           => 'work',
@@ -398,7 +437,6 @@ class Report extends BaseController
                 'version_date'         => $now,
                 'author_updated_at'    => $now,
 
-                // IMPORTANT : ne pas recopier validated_by / corrected_by / dates de validation, etc.
                 'validated_by'         => null,
                 'validated_at'         => null,
                 'corrected_by'         => null,
@@ -408,38 +446,54 @@ class Report extends BaseController
 
             $newId = (int) $this->reports->insert($newReportData, true);
 
-            // LOG : création (nouveau report)
+            // LOG : duplication report
+            $before = [
+                'title'               => $src['title'] ?? null,
+                'application_name'    => $src['application_name'] ?? null,
+                'application_version' => $src['application_version'] ?? null,
+                'file_media_id'       => $src['file_media_id'] ?? null,
+                'status'              => $src['status'] ?? null,
+                'doc_status'          => $src['doc_status'] ?? null,
+                'doc_version'         => $src['doc_version'] ?? null,
+                'modification_kind'   => $src['modification_kind'] ?? null,
+            ];
+
+            $after = [
+                'title'               => $newTitle,
+                'application_name'    => $newReportData['application_name'] ?? null,
+                'application_version' => $newReportData['application_version'] ?? null,
+                'file_media_id'       => $newReportData['file_media_id'] ?? null,
+                'status'              => $newReportData['status'] ?? null,
+                'doc_status'          => $newReportData['doc_status'] ?? null,
+                'doc_version'         => $newReportData['doc_version'] ?? null,
+                'modification_kind'   => $newReportData['modification_kind'] ?? null,
+            ];
+
+            $before['file_media_id'] = (int)($before['file_media_id'] ?? 0) ?: null;
+            $after['file_media_id']  = (int)($after['file_media_id'] ?? 0) ?: null;
+
+            $changes = $this->buildDiff($before, $after);
+
             $this->log(
-                'create',
+                'duplicate',
                 'report',
                 $newId,
-                'Duplication : création du nouveau bilan',
+                'Duplication du bilan #' . (int)$id . ' vers #' . (int)$newId,
                 [
                     'source_report_id' => (int)$id,
-                    'changes' => [
-                        'title' => ['from' => null, 'to' => $newTitle],
-                        'application_name' => ['from' => null, 'to' => $newReportData['application_name']],
-                        'application_version' => ['from' => null, 'to' => $newReportData['application_version']],
-                        'file_media_id' => ['from' => null, 'to' => $newReportData['file_media_id']],
-                        'status' => ['from' => null, 'to' => 'brouillon'],
-                        'doc_status' => ['from' => null, 'to' => 'work'],
-                        'doc_version' => ['from' => null, 'to' => 'v0.1'],
-                    ],
+                    'target_report_id' => (int)$newId,
+                    'changes'          => $changes,
                 ]
             );
 
-            // 2) Duplique toutes les sections (en conservant l’arbre)
-            // On récupère toutes les sections source
             $srcSections = $this->sections
                 ->where('report_id', (int)$id)
                 ->orderBy('level', 'ASC')
                 ->orderBy('id', 'ASC')
                 ->findAll();
 
-            // Mapping old_id => new_id
             $map = [];
 
-            // Petite fonction insert section en conservant parent via mapping
             foreach ($srcSections as $s) {
                 $oldId = (int)($s['id'] ?? 0);
 
@@ -449,7 +503,6 @@ class Report extends BaseController
                     $newParent = $map[$oldParent] ?? null;
                 }
 
-                // Nettoyage champs techniques à ne pas copier
                 $insert = $s;
 
                 unset(
@@ -461,18 +514,12 @@ class Report extends BaseController
                 $insert['report_id'] = $newId;
                 $insert['parent_id'] = $newParent;
 
-                // (optionnel) si tu as des champs d’ordre / sort / position, copie-les tel quel
-                // On garde code/level si tu les stockes en base, sinon recompute plus bas.
-
                 $newSectionId = (int) $this->sections->insert($insert, true);
                 $map[$oldId] = $newSectionId;
             }
 
-            // 3) Recompute codes pour être sûr (si ton service gère code/level)
-            // (Même si tu as copié code/level, ça sécurise l’intégrité)
             $this->sectionsService->recomputeCodes($newId);
 
-            // 4) Crée une version initiale pour le nouveau report
             $rv = new \App\Models\ReportVersionModel();
             $rv->insert([
                 'report_id'     => $newId,
@@ -482,18 +529,6 @@ class Report extends BaseController
                 'changed_by'    => $this->userId(),
                 'comment'       => 'Dupliqué depuis le bilan #' . (int)$id,
             ]);
-
-            // LOG : action duplicate (optionnel)
-            $this->log(
-                'create',
-                'report_duplicate',
-                $newId,
-                'Bilan dupliqué depuis #' . (int)$id,
-                [
-                    'source_report_id' => (int)$id,
-                    'sections_copied'  => count($srcSections),
-                ]
-            );
 
             $db->transComplete();
 
@@ -944,7 +979,7 @@ class Report extends BaseController
 
         // Dompdf
         $options = new \Dompdf\Options();
-        $options->set('isRemoteEnabled', true);             // si tu as encore des images externes
+        $options->set('isRemoteEnabled', true);
         $options->set('isHtml5ParserEnabled', true);
         $options->set('defaultFont', 'DejaVu Sans');
         $options->set('tempDir', WRITEPATH . 'cache/dompdf');

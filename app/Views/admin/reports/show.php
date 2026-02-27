@@ -56,7 +56,7 @@ $mediaId = (int)($report['file_media_id'] ?? 0);
 $entFile = '';
 if ($mediaId > 0) {
     $m = model(\App\Models\MediaModel::class)->find($mediaId);
-    $entFile = trim((string)($m['file_name'] ?? ''));
+    $entFile = trim((string)($m['name'] ?? ''));
 }
 if ($entFile === '') $entFile = 'Aucun document renseigné';
 
@@ -65,7 +65,7 @@ $appVersion  = (string)($report['application_version'] ?? '');
 $docVersion  = (string)($report['doc_version'] ?? '');
 $author      = (string)($report['author_name'] ?? '');
 $fileId      = (string)($report['file_media_id'] ?? '');
-$fileName    = (string)($report['file_name'] ?? '');
+$fileName    = (string)($report['name'] ?? '');
 $corrector   = (string)($report['corrected_by'] ?? '');
 $validator   = (string)($report['validated_by'] ?? '');
 $validatedAt = $report['validated_at'] ?? null;
@@ -94,6 +94,24 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
             <h1 class="h3 mb-1">Aperçu : <?= esc($report['title'] ?? '') ?></h1>
         </div>
         <div class="d-flex gap-2">
+            <form action="<?= site_url('admin/report/' . (int)$report['id'] . '/pdf') ?>"
+                  method="get"
+                  class="d-inline me-1">
+
+                <button type="submit" name="download" value="1"
+                        class="btn btn-primary me-1">
+                    <i class="fa-solid fa-file-arrow-down me-1"></i>
+                    Télécharger PDF
+                </button>
+
+                <button type="submit" name="download" value="0"
+                        formtarget="_blank"
+                        class="btn btn-outline-primary">
+                    <i class="fa-solid fa-file-pdf me-1"></i>
+                    Ouvrir PDF
+                </button>
+            </form>
+
             <a href="<?= site_url('admin/reports/' . (int)$report['id'] . '/sections') ?>" class="btn btn-outline-primary">
                 Retour à la rédaction
             </a>
@@ -145,17 +163,19 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
                         </div>
 
                         <div class="col-12">
-                            <?php if (!empty($report['file_path'])): ?>
-                                <?php $fileUrl = base_url(ltrim((string)$report['file_path'], '/')); ?>
+                            <?php if ($mediaId > 0 && $entFile !== '' && $entFile !== 'Aucun document renseigné'): ?>
+                                <?php
+                                $fileUrl      = site_url('media/file/' . $mediaId);
+                                $downloadUrl  = site_url('media/download/' . $mediaId);
+                                ?>
                                 <div class="mt-3 mb-1">
                                     <span class="fw-bold">Fichier :</span>
                                     <a href="<?= esc($fileUrl) ?>" target="_blank" rel="noopener">
-                                        <?= esc($fileName ?: 'Ouvrir le fichier') ?>
+                                        <?= esc($entFile) ?>
                                     </a>
                                 </div>
                                 <div class="mt-2">
-                                    <a class="btn btn-sm btn-outline-secondary"
-                                       href="<?= esc($fileUrl) ?>" download>
+                                    <a class="btn btn-sm btn-outline-secondary" href="<?= esc($downloadUrl) ?>">
                                         Télécharger
                                     </a>
                                 </div>

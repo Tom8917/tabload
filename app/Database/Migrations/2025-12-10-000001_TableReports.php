@@ -65,6 +65,11 @@ class TableReports extends Migration
                 'unsigned'   => true,
                 'null'       => true,
             ],
+            'media_folder_id' => [
+                'type'       => 'INT',
+                'constraint' => 11,
+                'null'       => true,
+            ],
             'version_date' => [
                 'type' => 'DATETIME',
                 'null' => true,
