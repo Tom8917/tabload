@@ -14,6 +14,7 @@ $filters = $filters ?? [];
 $badge = function(string $action): array {
     return match ($action) {
         'create'    => ['label' => 'Création',    'class' => 'badge-soft badge-soft-success'],
+        'duplicate'    => ['label' => 'Duplication',    'class' => 'badge-soft badge-soft-info'],
         'update'    => ['label' => 'Mise à jour', 'class' => 'badge-soft badge-soft-primary'],
         'delete'    => ['label' => 'Suppression', 'class' => 'badge-soft badge-soft-danger'],
         'forbidden' => ['label' => 'Refusé',      'class' => 'badge-soft badge-soft-warning'],
@@ -21,10 +22,10 @@ $badge = function(string $action): array {
     };
 };
 
-// Petite pastille décorative (couleur ok car non-textuelle)
 $dot = function(string $action): string {
     return match ($action) {
         'create'    => 'dot-success',
+        'duplicate'    => 'dot-info',
         'update'    => 'dot-primary',
         'delete'    => 'dot-danger',
         'forbidden' => 'dot-warning',
@@ -32,7 +33,6 @@ $dot = function(string $action): string {
     };
 };
 
-// Affichage d'une valeur "diff"
 $fmt = function($v): string {
     if ($v === null || $v === '') return '—';
     if (is_bool($v)) return $v ? 'true' : 'false';
@@ -40,7 +40,6 @@ $fmt = function($v): string {
     return (string)$v;
 };
 
-// Helper querystring (conserve filtres)
 function qs(array $override = []): string {
     $cur = $_GET ?? [];
     foreach ($override as $k => $v) {
@@ -50,7 +49,6 @@ function qs(array $override = []): string {
     return http_build_query($cur);
 }
 
-// Pagination "fenêtre"
 function pageWindow(int $page, int $pages, int $radius = 2): array {
     if ($pages <= 1) return [1];
     $out = [];
@@ -116,6 +114,7 @@ $toN   = min($total, $page * $limit);
 
     .dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(0,0,0,.25); }
     .dot-success { background: rgba(25,135,84,.65); }
+    .dot-info    { background: rgba(13,202,240,.65); }
     .dot-primary { background: rgba(13,110,253,.65); }
     .dot-danger  { background: rgba(220,53,69,.65); }
     .dot-warning { background: rgba(255,193,7,.85); }
@@ -134,6 +133,7 @@ $toN   = min($total, $page * $limit);
         background: rgba(0,0,0,.02);
     }
     .badge-soft-success { background: rgba(25,135,84,.08); border-color: rgba(25,135,84,.18); }
+    .badge-soft-info { background: rgba(13,202,240,.08); border-color: rgba(13,202,240,.18); }
     .badge-soft-primary { background: rgba(13,110,253,.08); border-color: rgba(13,110,253,.18); }
     .badge-soft-danger  { background: rgba(220,53,69,.08); border-color: rgba(220,53,69,.18); }
     .badge-soft-warning { background: rgba(255,193,7,.10); border-color: rgba(255,193,7,.25); }
@@ -209,6 +209,7 @@ $toN   = min($total, $page * $limit);
                         <?php $a = (string)($filters['action'] ?? ''); ?>
                         <option value="">Toutes</option>
                         <option value="create"    <?= $a==='create'?'selected':'' ?>>Création</option>
+                        <option value="duplicate"    <?= $a==='duplicate'?'selected':'' ?>>Duplication</option>
                         <option value="update"    <?= $a==='update'?'selected':'' ?>>Mise à jour</option>
                         <option value="delete"    <?= $a==='delete'?'selected':'' ?>>Suppression</option>
                         <option value="forbidden" <?= $a==='forbidden'?'selected':'' ?>>Refusé</option>

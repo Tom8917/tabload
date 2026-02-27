@@ -1,36 +1,39 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h4>Liste des utilisateurs</h4>
-        <!--        <button id="btnsetAllRequestLimits" class="btn btn-outline-primary me-2">Limiter les requêtes API</button>-->
-        <span>
-        <a href="<?= base_url('/admin/token/'); ?>" class="m-4">Token <i class="fa-solid fa-map-pin"></i></a>
-        <a href="<?= base_url('/admin/user/new'); ?>">Créer un utilisateur <i class="fa-solid fa-user-plus"></i></a>
+        <h4 class="mb-0">Liste des utilisateurs</h4>
+
+        <span class="d-flex gap-3 align-items-center">
+            <a href="<?= base_url('/admin/token'); ?>" class="text-decoration-none">
+                Token <i class="fa-solid fa-map-pin"></i>
+            </a>
+            <a href="<?= base_url('/admin/user/new'); ?>" class="text-decoration-none">
+                Créer un utilisateur <i class="fa-solid fa-user-plus"></i>
+            </a>
         </span>
     </div>
+
     <div class="card-body">
         <div class="table-responsive">
-            <table id="tableUsers" class="table table-hover">
+            <table id="tableUsers" class="table table-hover align-middle mb-0 w-100">
                 <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Avatar</th>
+                    <th style="width:70px;">ID</th>
                     <th>Prénom</th>
                     <th>Nom</th>
                     <th>Mail</th>
                     <th>Rôle</th>
-                    <th>Modifier</th>
-                    <th>Supprimer</th>
-                    <th>Actif</th>
+                    <th style="width:90px;">Modifier</th>
+                    <th style="width:90px;">Supprimer</th>
+                    <th style="width:90px;">Actif</th>
                 </tr>
                 </thead>
-                <tbody>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 </div>
 
-<!-- Modal pour afficher les informations utilisateur -->
+<!-- Modal infos utilisateur -->
 <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -38,154 +41,139 @@
                 <h5 class="modal-title" id="userModalLabel">Informations utilisateur</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+
             <div class="modal-body">
-                <img id="userAvatar" class="mx-auto d-block" width="150px" src="/assets/img/avatars/unknow.png"
-                     alt="Avatar">
-                <p><strong>ID :</strong> <span id="userId"></span></p>
-                <p><strong>Prénom :</strong> <span id="userFirstname"></span></p>
-                <p><strong>Nom :</strong> <span id="userLastname"></span></p>
-                <p><strong>Email :</strong> <span id="userEmail"></span></p>
-                <p><strong>Rôle:</strong> <span id="userRole"></span></p>
+                <p class="mb-1"><strong>ID :</strong> <span id="userId"></span></p>
+                <p class="mb-1"><strong>Prénom :</strong> <span id="userFirstname"></span></p>
+                <p class="mb-1"><strong>Nom :</strong> <span id="userLastname"></span></p>
+                <p class="mb-1"><strong>Email :</strong> <span id="userEmail"></span></p>
+                <p class="mb-0"><strong>Rôle :</strong> <span id="userRole"></span></p>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    $(document).ready(function () {
-        var baseUrl = "<?= base_url(); ?>";
-
+    $(function () {
+        const baseUrl = "<?= rtrim(base_url(), '/') . '/' ?>";
         const csrfName = "<?= csrf_token() ?>";
-        const csrfHash = "<?= csrf_hash() ?>";
+        let csrfHash   = "<?= csrf_hash() ?>";
 
-        $('#tableUsers').DataTable({
+        const table = $('#tableUsers').DataTable({
             serverSide: true,
             processing: true,
+            responsive: true,
+            autoWidth: false,
+
             ajax: {
                 url: baseUrl + "admin/user/search-user",
                 type: "POST",
                 data: function (d) {
                     d[csrfName] = csrfHash;
                     return d;
+                },
+                dataSrc: function (json) {
+                    if (json && (json.csrfHash || json.csrf_token || json.token)) {
+                        csrfHash = json.csrfHash || json.csrf_token || json.token;
+                    }
+                    return json.data || json.aaData || [];
+                },
+                error: function (xhr) {
+                    console.error("DataTables AJAX error:", xhr.status, xhr.responseText);
                 }
             },
-            "columns": [
-                {"data": "id"},
-                {
-                    data: 'avatar_url',
-                    sortable: false,
+
+            columns: [
+                { data: "id", defaultContent: "—",
                     render: function (data, type, row) {
-                        return `<a href="#" data-bs-toggle="modal" data-bs-target="#userModal" class="user-info" data-id="${row.id}" data-firstname="${row.firstname}" data-lastname="${row.lastname}" data-email="${row.email}" data-role="${row.permission_name}" data-job="${row.id_job}">
-                                    <img src="${baseUrl}${data || 'assets/img/avatars/unknow.png'}" alt="Avatar" style="max-width: 20px; height: auto;">
+                        const firstname = row.firstname ?? '';
+                        const lastname  = row.lastname ?? '';
+                        const email     = row.email ?? '';
+                        const role      = row.permission_name ?? '—';
+
+                        return `
+                          <a href="#" class="user-info text-decoration-none"
+                             data-bs-toggle="modal" data-bs-target="#userModal"
+                             data-id="${row.id ?? ''}"
+                             data-firstname="${String(firstname).replaceAll('"','&quot;')}"
+                             data-lastname="${String(lastname).replaceAll('"','&quot;')}"
+                             data-email="${String(email).replaceAll('"','&quot;')}"
+                             data-role="${String(role).replaceAll('"','&quot;')}">
+                             ${data ?? '—'}
+                          </a>
+                        `;
+                    }
+                },
+                { data: "firstname", defaultContent: "—" },
+                { data: "lastname",  defaultContent: "—" },
+                { data: "email",     defaultContent: "—" },
+                { data: "permission_name", defaultContent: "—" },
+
+                {
+                    data: "id",
+                    orderable: false,
+                    searchable: false,
+                    render: function (id) {
+                        return `<a href="${baseUrl}admin/user/${id}" title="Modifier"><i class="fa-solid fa-pencil"></i></a>`;
+                    }
+                },
+                {
+                    data: "id",
+                    orderable: false,
+                    searchable: false,
+                    render: function (id) {
+                        return `<a href="${baseUrl}admin/user/delete/${id}" title="Supprimer"
+                                   onclick="return confirm('Supprimer cet utilisateur ?');">
+                                   <i class="fa-solid fa-trash text-danger"></i>
                                 </a>`;
                     }
                 },
-                {"data": "firstname"},
-                {"data": "lastname"},
-                {"data": "email"},
-                {"data": "permission_name"},
                 {
-                    data: 'id',
-                    sortable: false,
-                    render: function (data) {
-                        return `<a href="${baseUrl}admin/user/${data}"><i class="fa-solid fa-pencil"></i></a>`;
-                    }
-                },
-                {
-                    data: 'id',
-                    sortable: false,
-                    render: function (data) {
-                        return `<a href='${baseUrl}admin/user/delete/${data}'><i class="fa-solid fa-trash text-danger"></i></a>`;
-                    }
-                },
-                {
-                    data: 'id',
-                    sortable: true,
+                    data: null,
+                    orderable: true,
+                    searchable: false,
                     render: function (data, type, row) {
-                        return (row.deleted_at === null ?
-                            `<a title="Désactiver l'utilisateur" href="${baseUrl}admin/user/deactivate/${row.id}"><i class="fa-solid fa-xl fa-toggle-on text-success"></i></a>` :
-                            `<a title="Activer un utilisateur" href="${baseUrl}admin/user/activate/${row.id}"><i class="fa-solid fa-toggle-off fa-xl text-danger"></i></a>`);
+                        const active = (row.deleted_at === null || row.deleted_at === '' || typeof row.deleted_at === 'undefined');
+                        return active
+                            ? `<a title="Désactiver l'utilisateur" href="${baseUrl}admin/user/deactivate/${row.id}">
+                                   <i class="fa-solid fa-toggle-on fa-xl text-success"></i>
+                               </a>`
+                            : `<a title="Activer l'utilisateur" href="${baseUrl}admin/user/activate/${row.id}">
+                                   <i class="fa-solid fa-toggle-off fa-xl text-danger"></i>
+                               </a>`;
                     }
-                },
-            ]
-        });
+                }
+            ],
 
-        // Gérer l'affichage du modal avec les données utilisateur
-        $('#tableUsers tbody').on('click', 'a.user-info', function () {
-            $('#userId').text($(this).data('id'));
-            $('#userFirstname').text($(this).data('firstname'));
-            $('#userLastname').text($(this).data('lastname'));
-            $('#userEmail').text($(this).data('email'));
-            $('#userPassword').text($(this).data('password'));
-            $('#userRole').text($(this).data('role'));
-            const avatar = $(this).find('img').attr('src') || '/assets/img/avatars/1.jpg';
-            $('#userAvatar').attr('src', avatar);
-        });
-    });
+            order: [[0, "desc"]],
 
-
-    document.addEventListener('DOMContentLoaded', function () {
-        const button = document.getElementById('btnsetAllRequestLimits');
-
-        const modal = document.createElement('div');
-        modal.id = 'apiLimitModal';
-        modal.style.display = 'none';
-        modal.style.position = 'fixed';
-        modal.style.top = '0';
-        modal.style.left = '0';
-        modal.style.width = '100%';
-        modal.style.height = '100%';
-        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        modal.style.alignItems = 'center';
-        modal.style.justifyContent = 'center';
-
-        modal.innerHTML = `
-        <div style="background: white; padding: 20px; border-radius: 10px; max-width: 300px; width: 100%; text-align: center;">
-            <h3>Définir la limite API</h3>
-            <select id="apiLimitSelect" class="form-select mb-3">
-                <option value="10">10 requêtes/jour</option>
-                <option value="100">100 requêtes/jour</option>
-                <option value="200">200 requêtes/jour</option>
-                <option value="infinite">Illimité</option>
-            </select>
-            <div class="d-flex justify-content-between">
-                <button id="saveApiLimit" class="btn btn-success">Enregistrer</button>
-                <button id="closeApiLimitModal" class="btn btn-secondary">Fermer</button>
-            </div>
-        </div>
-    `;
-        document.body.appendChild(modal);
-
-        button.addEventListener('click', function () {
-            modal.style.display = 'flex';
-        });
-
-        document.addEventListener('click', function (event) {
-            if (event.target.id === 'closeApiLimitModal' || event.target === modal) {
-                modal.style.display = 'none';
+            language: {
+                processing: "Traitement...",
+                search: "Rechercher :",
+                lengthMenu: "Afficher _MENU_ éléments",
+                info: "Affichage de _START_ à _END_ sur _TOTAL_ éléments",
+                infoEmpty: "Affichage de 0 à 0 sur 0 élément",
+                infoFiltered: "(filtré de _MAX_ éléments au total)",
+                loadingRecords: "Chargement...",
+                zeroRecords: "Aucun résultat trouvé",
+                emptyTable: "Aucune donnée disponible",
+                paginate: { first: "Premier", previous: "Précédent", next: "Suivant", last: "Dernier" },
+                aria: {
+                    sortAscending: ": activer pour trier la colonne par ordre croissant",
+                    sortDescending: ": activer pour trier la colonne par ordre décroissant"
+                }
             }
         });
 
-        document.getElementById('saveApiLimit').addEventListener('click', function () {
-            const selectedLimit = document.getElementById('apiLimitSelect').value;
-            var baseUrl = "<?= base_url(); ?>";
-            fetch(baseUrl + '/api/login/setAllRequestLimits', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({limit: selectedLimit})
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Limite de requêtes mise à jour : ' + selectedLimit);
-                    } else {
-                        alert('Erreur : ' + data.message);
-                    }
-                    modal.style.display = 'none';
-                })
-                .catch(error => console.error('Erreur lors de la mise à jour :', error));
+        // Modal infos utilisateur
+        $('#tableUsers tbody').on('click', 'a.user-info', function (e) {
+            e.preventDefault();
+            const $a = $(this);
+            $('#userId').text($a.data('id') ?? '—');
+            $('#userFirstname').text($a.data('firstname') ?? '—');
+            $('#userLastname').text($a.data('lastname') ?? '—');
+            $('#userEmail').text($a.data('email') ?? '—');
+            $('#userRole').text($a.data('role') ?? '—');
         });
     });
 </script>
@@ -195,13 +183,13 @@
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
-        max-width: 150px;
+        max-width: 180px;
     }
 
     @media (max-width: 768px) {
         #tableUsers th, #tableUsers td {
             font-size: 12px;
-            max-width: 100px;
+            max-width: 120px;
         }
     }
 </style>

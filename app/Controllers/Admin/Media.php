@@ -3,33 +3,28 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
-use App\Models\MediaFolderModel;
 use App\Models\MediaModel;
+use App\Models\MediaBlobModel;
+use App\Models\MediaFolderModel;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
 class Media extends BaseController
 {
-    protected string $uploadPath;
-    protected MediaModel $mediaModel;
-    protected MediaFolderModel $folderModel;
+    protected $require_auth = true;
+    protected $requiredPermissions = ['administrateur'];
+
+    protected MediaModel $media;
+    protected MediaBlobModel $blob;
+    protected MediaFolderModel $folders;
 
     public function __construct()
     {
-        $this->uploadPath = FCPATH . 'uploads/media/';
-        if (!is_dir($this->uploadPath)) {
-            @mkdir($this->uploadPath, 0775, true);
-        }
+        $this->media   = new MediaModel();
+        $this->blob    = new MediaBlobModel();
+        $this->folders = new MediaFolderModel();
 
-        $this->mediaModel  = new MediaModel();
-        $this->folderModel = new MediaFolderModel();
-        $this->title = 'Médias';
+        $this->title = 'Médiathèque';
         $this->menu  = 'media';
-    }
-
-    private function userId(): int
-    {
-        $u = session('user');
-        return (int)($u->id ?? 0);
     }
 
     public function getIndex()
@@ -37,479 +32,368 @@ class Media extends BaseController
         return $this->renderExplorer(null);
     }
 
-    public function getFolder(int $folderId)
+    public function getFolder(int $id)
     {
-        return $this->renderExplorer($folderId);
+        return $this->renderExplorer($id);
     }
 
     private function renderExplorer(?int $folderId)
     {
-        $picker = (bool) $this->request->getGet('picker');
-        $filter = (string) ($this->request->getGet('type') ?? 'all');
-        $sort   = (string) ($this->request->getGet('sort') ?? 'date_desc');
+        $filter = (string)($this->request->getGet('type') ?? 'all'); // all|image|document
+        $sort   = (string)($this->request->getGet('sort') ?? 'date_desc');
 
+        // dossier courant
         $currentFolder = null;
         if ($folderId !== null) {
-            $currentFolder = $this->folderModel->getByIdWithAuthor($folderId);
-
-            if (!$currentFolder) {
-                throw new PageNotFoundException('Dossier introuvable');
-            }
+            $currentFolder = $this->folders->find($folderId);
+            if (!$currentFolder) throw new PageNotFoundException('Dossier introuvable');
         }
 
-        $breadcrumbs = $this->buildBreadcrumbs($currentFolder);
-        $folders     = $this->folderModel->getChildrenWithAuthor($folderId);
+        // dossiers enfants
+        $folderQuery = $this->folders
+            ->select('media_folders.*, u.firstname, u.lastname')
+            ->join('`user` u', 'u.id = media_folders.user_id', 'left');
 
-        $q = $this->mediaModel;
-        $q = ($folderId === null) ? $q->where('folder_id', null) : $q->where('folder_id', $folderId);
-
-        if ($filter === 'image') {
-            $q = $q->where('kind', 'image');
-        } elseif ($filter === 'document') {
-            $q = $q->where('kind', 'document');
+        if ($folderId === null) {
+            $folderQuery->where('media_folders.parent_id IS NULL', null, false);
+        } else {
+            $folderQuery->where('media_folders.parent_id', $folderId);
         }
+
+        $folders = $folderQuery
+            ->orderBy('media_folders.name', 'ASC')
+            ->findAll();
+
+        // fichiers
+        $fileQuery = $this->media->where('deleted_at', null);
+
+        if ($folderId === null) $fileQuery->where('folder_id', null);
+        else $fileQuery->where('folder_id', $folderId);
+
+        if ($filter === 'image')      $fileQuery->where('type', 'image');
+        elseif ($filter === 'document') $fileQuery->where('type', 'document');
 
         switch ($sort) {
-            case 'date_asc':  $q = $q->orderBy('created_at', 'ASC'); break;
-            case 'name_asc':  $q = $q->orderBy('file_name', 'ASC'); break;
-            case 'name_desc': $q = $q->orderBy('file_name', 'DESC'); break;
-            case 'size_asc':  $q = $q->orderBy('file_size', 'ASC'); break;
-            case 'size_desc': $q = $q->orderBy('file_size', 'DESC'); break;
-            default:          $q = $q->orderBy('created_at', 'DESC'); break;
+            case 'date_asc':  $fileQuery->orderBy('created_at', 'ASC');  break;
+            case 'name_asc':  $fileQuery->orderBy('name', 'ASC');        break;
+            case 'name_desc': $fileQuery->orderBy('name', 'DESC');       break;
+            case 'size_asc':  $fileQuery->orderBy('file_size', 'ASC');   break;
+            case 'size_desc': $fileQuery->orderBy('file_size', 'DESC');  break;
+            default:          $fileQuery->orderBy('created_at', 'DESC'); break;
         }
 
-        $files = $q->findAll();
+        $files = $fileQuery->findAll();
 
-        $rootUrl = site_url('admin/media') . $this->buildQueryKeep([
-                'picker' => $picker ? '1' : null,
-                'type'   => $filter,
-                'sort'   => $sort
-            ]);
+        $breadcrumbs = $this->buildBreadcrumbs($currentFolder);
 
-        if ($currentFolder && !empty($currentFolder['parent_id'])) {
-            $backUrl = site_url('admin/media/folder/' . (int)$currentFolder['parent_id']) . $this->buildQueryKeep([
-                    'picker' => $picker ? '1' : null,
-                    'type'   => $filter,
-                    'sort'   => $sort
-                ]);
-        } else {
-            $backUrl = $rootUrl;
-        }
-
-        $fname = $currentFolder ? (string)($currentFolder['name'] ?? '—') : 'Racine';
-
-        $aname = '—';
-        if ($currentFolder) {
-            $aname = trim(
-                (string)($currentFolder['firstname'] ?? '') . ' ' . (string)($currentFolder['lastname'] ?? '')
-            );
-            if ($aname === '') $aname = '—';
-        }
-
-        $data = [
-            'picker'        => $picker,
+        return $this->view('admin/media/index', [
+            'title'         => 'Médiathèque',
             'filter'        => $filter,
             'sort'          => $sort,
             'currentFolder' => $currentFolder,
-            'breadcrumbs'   => $breadcrumbs,
             'folders'       => $folders,
             'files'         => $files,
-
-            'fname'         => $fname,
-            'aname'         => $aname,
-
-            'uploadUrl'     => site_url('admin/media/upload'),
-            'rootUrl'       => $rootUrl,
-            'backUrl'       => $backUrl,
-        ];
-
-        if ($picker) {
-            return view('admin/media/index_picker', $data);
-        }
-
-        return $this->view('admin/media/index', $data, true);
-    }
-
-    private function buildQueryKeep(array $override = []): string
-    {
-        $qs = [];
-        parse_str((string)($this->request->getServer('QUERY_STRING') ?? ''), $qs);
-
-        foreach ($override as $k => $v) {
-            if ($v === null) unset($qs[$k]);
-            else $qs[$k] = $v;
-        }
-
-        $q = http_build_query($qs);
-        return $q ? ('?' . $q) : '';
-    }
-
-    private function buildBreadcrumbs(?array $currentFolder): array
-    {
-        $trail = [['id' => null, 'name' => 'Racine']];
-        if (!$currentFolder) return $trail;
-
-        $stack = [];
-        $node = $currentFolder;
-
-        $guard = 0;
-        while ($node) {
-            $stack[] = ['id' => (int)$node['id'], 'name' => (string)$node['name']];
-            $pid = $node['parent_id'] ?? null;
-            if (!$pid) break;
-            $node = $this->folderModel->getById((int)$pid);
-            $guard++;
-            if ($guard > 50) break;
-        }
-
-        $stack = array_reverse($stack);
-        return array_merge($trail, $stack);
-    }
-
-    /**
-     * ADMIN : création dossier (user_id = admin qui crée)
-     */
-    public function postCreateFolder()
-    {
-        $userId = $this->userId();
-        if ($userId <= 0) {
-            return redirect()->to(site_url('admin/login'))->with('error', 'Connexion requise.');
-        }
-
-        $name = trim((string) $this->request->getPost('name'));
-        $parentRaw = $this->request->getPost('parent_id');
-        $parentId = is_numeric($parentRaw) ? (int)$parentRaw : null;
-
-        if ($name === '') {
-            return redirect()->back()->with('error', 'Nom de dossier requis.');
-        }
-
-        if ($parentId !== null) {
-            $p = $this->folderModel->getById($parentId);
-            if (!$p) return redirect()->back()->with('error', 'Dossier parent introuvable.');
-        }
-
-        $this->folderModel->insert([
-            'name'       => $name,
-            'parent_id'  => $parentId,
-            'user_id'    => $userId,
-            'sort_order' => 0,
-        ]);
-
-        $redirectUrl = $parentId ? site_url('admin/media/folder/' . $parentId) : site_url('admin/media');
-        return redirect()->to($redirectUrl . $this->buildQueryKeep())->with('message', 'Dossier créé.');
-    }
-
-    /**
-     * ADMIN : rename dossier
-     */
-    public function postRenameFolder(int $folderId)
-    {
-        $name = trim((string) $this->request->getPost('name'));
-        if ($name === '') {
-            return redirect()->back()->with('error', 'Nom de dossier requis.');
-        }
-
-        $folder = $this->folderModel->getById($folderId);
-        if (!$folder) {
-            return redirect()->back()->with('error', 'Dossier introuvable.');
-        }
-
-        if (!$this->folderModel->renameFolder($folderId, $name)) {
-            return redirect()->back()->with('error', 'Impossible de renommer (nom invalide ?).');
-        }
-
-        return redirect()->back()->with('message', 'Dossier renommé.');
-    }
-
-    /**
-     * ADMIN : suppression dossier (pas de contrainte owner)
-     * Je garde ta règle "vide" pour éviter les mauvaises surprises.
-     */
-    public function postDeleteFolder(int $folderId)
-    {
-        $folder = $this->folderModel->getById($folderId);
-        if (!$folder) return redirect()->back()->with('error', 'Dossier introuvable.');
-
-        $children = $this->folderModel->where('parent_id', $folderId)->countAllResults();
-        if ($children > 0) {
-            return redirect()->back()->with('error', 'Dossier non vide : il contient des sous-dossiers.');
-        }
-
-        $files = $this->mediaModel->where('folder_id', $folderId)->countAllResults();
-        if ($files > 0) {
-            return redirect()->back()->with('error', 'Dossier non vide : il contient des fichiers.');
-        }
-
-        $parentId = $folder['parent_id'] ?? null;
-
-        $this->folderModel->delete($folderId);
-
-        $redirectUrl = $parentId ? site_url('admin/media/folder/' . (int)$parentId) : site_url('admin/media');
-        return redirect()->to($redirectUrl . $this->buildQueryKeep())->with('message', 'Dossier supprimé.');
+            'breadcrumbs'   => $breadcrumbs,
+        ], true);
     }
 
     public function getFoldersTree()
     {
-        $rows = $this->folderModel
+        $rows = $this->folders
             ->select('id, name, parent_id')
             ->orderBy('parent_id', 'ASC')
             ->orderBy('name', 'ASC')
             ->findAll();
 
-        return $this->response->setJSON([
-            'folders' => array_map(fn($r) => [
-                'id'        => (int)$r['id'],
-                'name'      => (string)$r['name'],
-                'parent_id' => $r['parent_id'] !== null ? (int)$r['parent_id'] : null,
-            ], $rows)
-        ]);
+        $folders = array_map(static function ($r) {
+            return [
+                'id'        => (int)($r['id'] ?? 0),
+                'name'      => (string)($r['name'] ?? ''),
+                'parent_id' => ($r['parent_id'] !== null) ? (int)$r['parent_id'] : null,
+            ];
+        }, $rows ?: []);
+
+        return $this->response->setJSON(['folders' => $folders]);
     }
 
-    public function postDelete(int $id)
+    public function postCreateFolder()
     {
-        $row = $this->mediaModel->getById($id);
-        if (!$row) {
-            return redirect()->back()->with('error', 'Fichier introuvable.');
+        $name = trim((string)$this->request->getPost('name'));
+        $parentId = $this->request->getPost('parent_id');
+        $parentId = is_numeric($parentId) ? (int)$parentId : null;
+
+        if ($name === '') return redirect()->back()->with('error', 'Nom requis.');
+        if (mb_strlen($name) > 150) return redirect()->back()->with('error', 'Nom trop long (150 max).');
+
+        if ($parentId !== null) {
+            $parent = $this->folders->find($parentId);
+            if (!$parent) return redirect()->back()->with('error', 'Dossier parent introuvable.');
         }
 
-        $this->mediaModel->deleteMedia((int)$id);
+        $adminId = (int)(session('user')->id ?? 0);
 
-        return redirect()->back()->with('message', 'Fichier supprimé.');
+        $this->folders->insert([
+            'name'      => $name,
+            'parent_id' => $parentId,
+            'user_id'   => $adminId,
+        ]);
+
+        return redirect()->back()->with('message', 'Dossier créé.');
+    }
+
+    public function postRenameFolder(int $id)
+    {
+        $folder = $this->folders->find($id);
+        if (!$folder) return redirect()->back()->with('error', 'Dossier introuvable.');
+
+        $name = trim((string)$this->request->getPost('name'));
+        if ($name === '') return redirect()->back()->with('error', 'Nom requis.');
+        if (mb_strlen($name) > 150) return redirect()->back()->with('error', 'Nom trop long (150 max).');
+
+        $this->folders->update($id, ['name' => $name]);
+
+        return redirect()->back()->with('message', 'Dossier renommé.');
+    }
+
+    public function postDeleteFolder(int $id)
+    {
+        $folder = $this->folders->find($id);
+        if (!$folder) return redirect()->back()->with('error', 'Dossier introuvable.');
+
+        $children = $this->folders->where('parent_id', $id)->countAllResults();
+        if ($children > 0) return redirect()->back()->with('error', 'Dossier non vide (sous-dossiers).');
+
+        $files = $this->media->where('folder_id', $id)->where('deleted_at', null)->countAllResults();
+        if ($files > 0) return redirect()->back()->with('error', 'Dossier non vide (fichiers).');
+
+        $this->folders->delete($id);
+
+        return redirect()->back()->with('message', 'Dossier supprimé.');
     }
 
     public function postUpload()
     {
-        $uploaded = $this->request->getFiles();
-        $ok = 0;
-        $errors = [];
+        $isAjax = $this->request->isAJAX();
 
-        $files = $uploaded['files'] ?? null;
+        $folderId = $this->request->getPost('folder_id');
+        $folderId = is_numeric($folderId) ? (int)$folderId : null;
 
-        if ($files instanceof \CodeIgniter\HTTP\Files\UploadedFile) {
-            $files = [$files];
-        }
-
-        if (is_array($files)) {
-            foreach ($files as $file) {
-                $res = $this->storeOne($file);
-                if ($res === true) $ok++;
-                else $errors[] = $res;
+        if ($folderId !== null) {
+            $folder = $this->folders->find($folderId);
+            if (!$folder) {
+                if ($isAjax) return $this->response->setStatusCode(400)->setJSON(['ok'=>0,'errors'=>['Dossier cible introuvable.']]);
+                return redirect()->back()->with('error', 'Dossier cible introuvable.');
             }
         }
 
-        if ($ok === 0 && empty($errors)) {
-            $errors[] = "Aucun fichier reçu (vérifie post_max_size/upload_max_filesize).";
+        $uploaded = $this->request->getFiles();
+        $files = $uploaded['files'] ?? ($uploaded['files[]'] ?? null);
+        if ($files instanceof \CodeIgniter\HTTP\Files\UploadedFile) $files = [$files];
+
+        if (!is_array($files) || empty($files)) {
+            if ($isAjax) return $this->response->setStatusCode(400)->setJSON(['ok'=>0,'errors'=>['Aucun fichier reçu.']]);
+            return redirect()->back()->with('error', 'Aucun fichier reçu.');
         }
 
-        if ($this->request->isAJAX()) {
-            return $this->response->setJSON([
-                'ok'     => $ok,
-                'errors' => $errors,
-            ]);
+        $ok = 0; $errors = [];
+
+        foreach ($files as $file) {
+            $result = $this->storeOneFile($file, $folderId);
+            if ($result === true) $ok++;
+            else $errors[] = $result;
         }
 
-        $folderIdRaw = $this->request->getPost('folder_id');
-        $folderId    = is_numeric($folderIdRaw) ? (int)$folderIdRaw : null;
-
-        $redirectUrl = $folderId ? site_url('admin/media/folder/' . $folderId) : site_url('admin/media');
-        $redirectUrl .= $this->buildQueryKeep();
-
-        if ($ok > 0) {
-            return redirect()->to($redirectUrl)
-                ->with('message', "$ok fichier(s) ajouté(s).")
-                ->with('error', !empty($errors) ? implode("\n", $errors) : null);
+        if ($isAjax) {
+            return $this->response->setStatusCode($ok ? 200 : 400)->setJSON(['ok'=>$ok,'errors'=>$errors]);
         }
 
-        return redirect()->to($redirectUrl)->with('error', implode("\n", $errors));
+        if ($ok > 0) return redirect()->back()->with('message', $ok . ' fichier(s) ajouté(s).');
+        return redirect()->back()->with('error', implode("\n", $errors));
     }
 
-    public function postMove(int $id)
+    private function storeOneFile($file, ?int $folderId)
     {
-        $row = $this->mediaModel->getById($id);
-        if (!$row) return redirect()->back()->with('error', 'Fichier introuvable.');
+        if (!$file || !$file->isValid()) return 'Fichier invalide.';
+        $size = (int)$file->getSize();
+        if ($size <= 0) return 'Taille invalide.';
+        if ($size > 5 * 1024 * 1024) return 'Fichier > 5 Mo.';
 
-        $targetRaw = $this->request->getPost('target_folder_id');
-        $targetId  = is_numeric($targetRaw) ? (int)$targetRaw : null;
+        $mime = strtolower((string)$file->getMimeType());
+        $allowed = [
+            'image/jpeg','image/png','image/webp','image/gif',
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        ];
+        if (!in_array($mime, $allowed, true)) return 'Type non supporté : ' . $mime;
 
-        if ($targetId !== null && !$this->folderModel->getById($targetId)) {
-            return redirect()->back()->with('error', 'Dossier cible introuvable.');
-        }
+        $type = str_starts_with($mime, 'image/') ? 'image' : 'document';
 
-        $currentId = $row['folder_id'] ?? null;
-        if (($currentId === null && $targetId === null) || ((int)$currentId === (int)$targetId)) {
-            return redirect()->back()->with('message', 'Déjà dans ce dossier.');
-        }
+        $name = trim((string)$file->getClientName());
+        if ($name === '') $name = 'fichier';
 
-        $this->mediaModel->update($id, ['folder_id' => $targetId]);
-        return redirect()->back()->with('message', 'Fichier déplacé.');
-    }
+        $tmp = $file->getTempName();
+        $data = ($tmp && is_file($tmp)) ? @file_get_contents($tmp) : false;
+        if ($data === false) return 'Lecture impossible.';
 
-    public function postCopy(int $id)
-    {
-        $row = $this->mediaModel->getById($id);
-        if (!$row) return redirect()->back()->with('error', 'Fichier introuvable.');
+        $db = $this->media->db;
+        $db->transStart();
 
-        $targetRaw = $this->request->getPost('target_folder_id');
-        $targetId  = is_numeric($targetRaw) ? (int)$targetRaw : null;
-
-        if ($targetId !== null && !$this->folderModel->getById($targetId)) {
-            return redirect()->back()->with('error', 'Dossier cible introuvable.');
-        }
-
-        $srcRel  = (string)$row['file_path'];
-        $srcFull = FCPATH . ltrim($srcRel, '/');
-        if (!is_file($srcFull)) {
-            return redirect()->back()->with('error', 'Fichier physique introuvable.');
-        }
-
-        $srcName = (string)$row['file_name'];
-        $base    = pathinfo($srcName, PATHINFO_FILENAME);
-        $ext     = pathinfo($srcName, PATHINFO_EXTENSION);
-        $candidate = $base . '-copy' . ($ext ? '.'.$ext : '');
-
-        $newName = $this->uniqueFilename($this->uploadPath, $candidate);
-        $newFull = $this->uploadPath . $newName;
-
-        if (!@copy($srcFull, $newFull)) {
-            return redirect()->back()->with('error', 'Impossible de copier le fichier sur le disque.');
-        }
-
-        $newRel = 'uploads/media/' . $newName;
-
-        $data = [
-            'folder_id'   => $targetId,
-            'file_name'   => $newName,
-            'file_path'   => $newRel,
-            'mime_type'   => $row['mime_type'] ?? null,
-            'file_size'   => (int)($row['file_size'] ?? filesize($newFull)),
-            'kind'        => $row['kind'] ?? (str_starts_with((string)$row['mime_type'], 'image/') ? 'image' : 'document'),
+        $mediaId = $this->media->insert([
+            'folder_id'   => $folderId,
+            'name'        => $name,
+            'mime_type'   => $mime,
+            'file_size'   => $size,
+            'type'        => $type,
             'entity_type' => null,
             'entity_id'   => null,
-        ];
+        ], true);
 
-        if (!$this->mediaModel->insert($data)) {
-            @unlink($newFull);
-            $errs = $this->mediaModel->errors();
-            return redirect()->back()->with('error', 'Copie OK mais insert BDD KO: ' . (!empty($errs) ? implode(' | ', $errs) : 'erreur inconnue'));
-        }
+        if (!$mediaId) { $db->transRollback(); return 'Insert media KO.'; }
 
-        return redirect()->back()->with('message', 'Fichier copié.');
-    }
+        $ok = $this->blob->upsertBlob((int)$mediaId, $data);
+        if (!$ok) { $db->transRollback(); return 'Insert blob KO.'; }
 
-    protected function storeOne($file)
-    {
-        if (!$file) return "Aucun fichier.";
-        if (!$file->isValid()) return "Upload invalide: {$file->getErrorString()} (code {$file->getError()}).";
-        if ($file->hasMoved()) return "Fichier déjà déplacé.";
-
-        $size = (int) $file->getSize();
-        if ($size <= 0) return "Taille de fichier nulle (post_max_size/upload_max_filesize ?).";
-        if ($size > 5 * 1024 * 1024) return "Fichier trop volumineux (> 5 Mo).";
-
-        $clientMime = strtolower((string) $file->getClientMimeType());
-        $realMime   = strtolower((string) $file->getMimeType());
-
-        $allowedMimes = [
-            'image/jpeg' => 'jpg',
-            'image/png'  => 'png',
-            'image/webp' => 'webp',
-            'image/gif'  => 'gif',
-
-            'application/pdf' => 'pdf',
-            'application/msword' => 'doc',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
-            'application/vnd.ms-excel' => 'xls',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
-            'application/vnd.ms-powerpoint' => 'ppt',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
-        ];
-
-        $targetExt = $allowedMimes[$realMime] ?? ($allowedMimes[$clientMime] ?? null);
-        if ($targetExt === null) {
-            if (in_array($realMime, ['image/heic','image/heif','image/x-heic','image/x-heif'], true)) {
-                return "HEIC/HEIF non supporté. Convertis en JPG/PNG avant upload.";
-            }
-            return "Type non supporté (MIME client: {$clientMime}, réel: {$realMime}).";
-        }
-
-        $original = $file->getClientName();
-        $base     = pathinfo($original, PATHINFO_FILENAME);
-        $origExt  = strtolower(pathinfo($original, PATHINFO_EXTENSION));
-
-        $safeBase = $this->slugifyFilename($base);
-        if ($safeBase === '') $safeBase = 'fichier';
-
-        $finalExt = $targetExt;
-        if ($targetExt === 'jpg' && in_array($origExt, ['jpg','jpeg'], true)) $finalExt = $origExt;
-        if ($targetExt === 'png' && $origExt === 'png') $finalExt = 'png';
-        if ($targetExt === 'webp' && $origExt === 'webp') $finalExt = 'webp';
-        if ($targetExt === 'gif' && $origExt === 'gif') $finalExt = 'gif';
-        if ($targetExt === 'pdf' && $origExt === 'pdf') $finalExt = 'pdf';
-
-        $finalName = $this->uniqueFilename($this->uploadPath, $safeBase . '.' . $finalExt);
-
-        if (!$file->move($this->uploadPath, $finalName)) {
-            $errStr = method_exists($file, 'getErrorString') ? $file->getErrorString() : 'erreur inconnue';
-            $err    = method_exists($file, 'getError') ? $file->getError() : 0;
-            return "Échec déplacement ({$errStr}, code {$err}).";
-        }
-
-        $relativePath = 'uploads/media/' . $finalName;
-
-        $folderIdRaw = $this->request->getPost('folder_id');
-        $folderId    = is_numeric($folderIdRaw) ? (int) $folderIdRaw : null;
-
-        $mimeForKind = $realMime ?: $clientMime;
-        $kind = str_starts_with($mimeForKind, 'image/') ? 'image' : 'document';
-
-        $data = [
-            'folder_id' => $folderId,
-            'file_name' => $finalName,
-            'file_path' => $relativePath,
-            'mime_type' => $mimeForKind,
-            'file_size' => $size,
-            'kind'      => $kind,
-        ];
-
-        if (!$this->mediaModel->insert($data)) {
-            @unlink($this->uploadPath . $finalName);
-            $errs = $this->mediaModel->errors();
-            return "Upload OK mais insert BDD KO: " . (!empty($errs) ? implode(' | ', $errs) : 'erreur inconnue');
-        }
-
+        $db->transComplete();
         return true;
     }
 
-    private function slugifyFilename(string $name): string
+    public function postMove(int $mediaId)
     {
-        if (function_exists('iconv')) $name = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name);
-        $name = strtolower($name);
-        $name = preg_replace('~[^a-z0-9-_\.]+~', '-', $name);
-        $name = preg_replace('~-+~', '-', $name);
-        $name = trim($name, '-_.');
-        if (strlen($name) > 120) $name = substr($name, 0, 120);
-        $reserved = ['con','prn','aux','nul','com1','lpt1'];
-        if (in_array($name, $reserved, true)) $name .= '-file';
-        return $name;
+        $m = $this->media->getById($mediaId);
+        if (!$m || !empty($m['deleted_at'])) return redirect()->back()->with('error', 'Fichier introuvable.');
+
+        $target = $this->request->getPost('target_folder_id');
+        $target = is_numeric($target) ? (int)$target : null;
+
+        if ($target !== null) {
+            $folder = $this->folders->find($target);
+            if (!$folder) return redirect()->back()->with('error', 'Dossier cible introuvable.');
+        }
+
+        $this->media->update($mediaId, ['folder_id' => $target]);
+        return redirect()->back()->with('message', 'Fichier déplacé.');
     }
 
-    private function uniqueFilename(string $dir, string $filename): string
+    public function postCopy(int $mediaId)
     {
-        $dir = rtrim($dir, '/\\') . DIRECTORY_SEPARATOR;
-        $base = pathinfo($filename, PATHINFO_FILENAME);
-        $ext  = pathinfo($filename, PATHINFO_EXTENSION);
+        $m = $this->media->getById($mediaId);
+        if (!$m || !empty($m['deleted_at'])) return redirect()->back()->with('error', 'Fichier introuvable.');
 
-        $candidate = $filename;
-        $i = 1;
-        while (is_file($dir . $candidate)) {
-            $candidate = $base . '-' . $i . ($ext ? '.' . $ext : '');
-            $i++;
-            if ($i > 5000) {
-                $candidate = $base . '-' . uniqid() . ($ext ? '.' . $ext : '');
-                break;
-            }
+        $target = $this->request->getPost('target_folder_id');
+        $target = is_numeric($target) ? (int)$target : null;
+
+        if ($target !== null) {
+            $folder = $this->folders->find($target);
+            if (!$folder) return redirect()->back()->with('error', 'Dossier cible introuvable.');
         }
-        return $candidate;
+
+        $blob = $this->blob->getBlob($mediaId);
+        if ($blob === null) return redirect()->back()->with('error', 'Contenu (blob) introuvable.');
+
+        $db = $this->media->db;
+        $db->transStart();
+
+        $newId = $this->media->insert([
+            'folder_id'   => $target,
+            'name'        => (string)($m['name'] ?? 'copie'),
+            'mime_type'   => $m['mime_type'] ?? null,
+            'file_size'   => (int)($m['file_size'] ?? strlen($blob)),
+            'type'        => $m['type'] ?? 'document',
+            'entity_type' => null,
+            'entity_id'   => null,
+        ], true);
+
+        if (!$newId) { $db->transRollback(); return redirect()->back()->with('error', 'Copie impossible (insert).'); }
+        if (!$this->blob->upsertBlob((int)$newId, $blob)) { $db->transRollback(); return redirect()->back()->with('error', 'Copie impossible (blob).'); }
+
+        $db->transComplete();
+        return redirect()->back()->with('message', 'Fichier copié.');
+    }
+
+    public function postDelete(int $mediaId)
+    {
+        $m = $this->media->getById($mediaId);
+        if (!$m || !empty($m['deleted_at'])) return redirect()->back()->with('error', 'Fichier introuvable.');
+
+        $this->media->deleteMedia($mediaId);
+        return redirect()->back()->with('message', 'Fichier supprimé.');
+    }
+
+    public function getFile(int $id)
+    {
+        $m = $this->media->find($id);
+        if (!$m || !empty($m['deleted_at'])) throw new PageNotFoundException('Fichier introuvable');
+
+        $blob = $this->blob->getBlob($id);
+        if ($blob === null) throw new PageNotFoundException('Contenu introuvable');
+
+        $mime = (string)($m['mime_type'] ?? 'application/octet-stream');
+        $name = $this->safeFilename((string)($m['name'] ?? ('file-' . $id)));
+        $inline = str_starts_with($mime, 'image/') || $mime === 'application/pdf';
+
+        return $this->response
+            ->setHeader('Content-Type', $mime)
+            ->setHeader('Content-Disposition', ($inline ? 'inline' : 'attachment') . '; filename="' . $name . '"')
+            ->setHeader('X-Content-Type-Options', 'nosniff')
+            ->setBody($blob);
+    }
+
+    public function getDownload(int $id)
+    {
+        $m = $this->media->find($id);
+        if (!$m || !empty($m['deleted_at'])) throw new PageNotFoundException('Fichier introuvable');
+
+        $blob = $this->blob->getBlob($id);
+        if ($blob === null) throw new PageNotFoundException('Contenu introuvable');
+
+        $mime = (string)($m['mime_type'] ?? 'application/octet-stream');
+        $name = $this->safeFilename((string)($m['name'] ?? ('file-' . $id)));
+
+        return $this->response
+            ->setHeader('Content-Type', $mime)
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $name . '"')
+            ->setHeader('X-Content-Type-Options', 'nosniff')
+            ->setBody($blob);
+    }
+
+    private function safeFilename(string $name): string
+    {
+        $name = trim(str_replace(["\r","\n","\0"], '', $name));
+        $name = preg_replace('~[\/\\\\:\*\?"<>\|]+~', '-', $name);
+        return $name !== '' ? $name : 'file';
+    }
+
+    private function buildBreadcrumbs(?array $currentFolder): array
+    {
+        $crumbs = [['id' => null, 'name' => 'Racine']];
+        if (!$currentFolder) return $crumbs;
+
+        $seen  = [];
+        $stack = [];
+
+        $f = $currentFolder;
+
+        while (is_array($f) && !empty($f)) {
+            $fid = (int)($f['id'] ?? 0);
+            if ($fid <= 0) break;
+
+            if (isset($seen[$fid])) break;
+            $seen[$fid] = true;
+
+            $stack[] = ['id' => $fid, 'name' => (string)($f['name'] ?? ('Dossier #' . $fid))];
+
+            $pid = $f['parent_id'] ?? null;
+            if ($pid === null) break;
+
+            $f = $this->folders->find((int)$pid);
+            if (!$f) break;
+        }
+
+        return array_merge($crumbs, array_reverse($stack));
     }
 }

@@ -4,7 +4,7 @@ namespace App\Database\Migrations;
 
 use CodeIgniter\Database\Migration;
 
-class MediaFolders extends Migration
+class TableMediaFolders extends Migration
 {
     public function up()
     {

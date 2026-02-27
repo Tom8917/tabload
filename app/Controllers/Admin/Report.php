@@ -10,6 +10,8 @@ use App\Services\ReportTemplateService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\Exceptions\HTTPException;
 use CodeIgniter\HTTP\ResponseInterface;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class Report extends BaseController
 {
@@ -68,8 +70,7 @@ class Report extends BaseController
                 CONCAT(cu.firstname, " ", cu.lastname) AS corrected_by,
 
                 m.id        AS file_media_id_join,
-                m.file_name AS file_name,
-                m.file_path AS file_path
+                m.name AS name,
             ')
             ->join('user vu', 'vu.id = reports.validated_by', 'left')
             ->join('user cu', 'cu.id = reports.corrected_by', 'left')
@@ -608,5 +609,82 @@ class Report extends BaseController
 
         return redirect()->to(site_url('admin/reports/' . $id . '/sections'))
             ->with('success', 'Bilan validé.');
+    }
+
+
+    public function getPdf(int $id)
+    {
+        helper('html_helper');
+
+        $report = $this->findReportWithUsersOr404($id);
+        $this->requireOwnerOrAdmin($report);
+
+        $sectionsTree = $this->sectionsService->getTreeForReport($id);
+
+        $versions = model(\App\Models\ReportVersionModel::class)
+            ->where('report_id', $id)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+
+        $author    = (string)($report['author_name'] ?? $this->currentUserFullName());
+        $createdAt = (string)($report['created_at'] ?? '');
+        $updatedAt = (string)($report['author_updated_at'] ?? ($report['updated_at'] ?? ''));
+
+        $fmtDateTime = function (?string $value): string {
+            if (empty($value)) return '—';
+            try { return (new \DateTime($value))->format('d/m/Y H:i'); }
+            catch (\Throwable $e) { return (string)$value; }
+        };
+
+        $html = view('admin/reports/pdf', [
+            'report'       => $report,
+            'sectionsTree' => $sectionsTree,
+            'versions'     => $versions,
+            'author'       => $author,
+            'createdAt'    => $fmtDateTime($createdAt),
+            'updatedAt'    => $fmtDateTime($updatedAt),
+            'generatedAt'  => date('d/m/Y H:i'),
+        ]);
+
+        // Dompdf
+        $options = new \Dompdf\Options();
+        $options->set('isRemoteEnabled', true);
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('tempDir', WRITEPATH . 'cache/dompdf');
+
+        $options->set('chroot', FCPATH);
+
+        $dompdf = new \Dompdf\Dompdf($options);
+        $dompdf->setPaper('A4', 'portrait');
+
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->render();
+
+        $canvas = $dompdf->getCanvas();
+        $w = $canvas->get_width();
+        $h = $canvas->get_height();
+
+        $text = "Page {PAGE_NUM} / {PAGE_COUNT}";
+        $font = $dompdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $size = 9;
+
+        $textWidth = $dompdf->getFontMetrics()->getTextWidth($text, $font, $size);
+
+        $rightMargin = 150;
+
+        $x = $w - $textWidth - $rightMargin;
+
+        $y = $h - 25;
+
+        $canvas->page_text($x, $y, $text, $font, $size, [0.3, 0.3, 0.3]);
+
+        $download = ((int)($this->request->getGet('download') ?? 0) === 1);
+        $filename = 'bilan_' . (int)$id . '.pdf';
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', ($download ? 'attachment' : 'inline') . '; filename="' . $filename . '"')
+            ->setBody($dompdf->output());
     }
 }

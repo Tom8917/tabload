@@ -77,13 +77,24 @@ class User extends Entity
     public function getProfileImage(): string
     {
         $mediaModel = model('MediaModel');
+
         $media = $mediaModel
+            ->select('id, mime_type') // pas de file_path dans DB-only
             ->where('entity_id', (int) $this->attributes['id'])
             ->where('entity_type', 'user')
             ->orderBy('created_at', 'DESC')
             ->first();
 
-        return $media ? $media['file_path'] . '?v=' . time() : '/assets/img/avatars/unknow.png';
+        if (!$media || empty($media['id'])) {
+            return base_url('/assets/img/avatars/unknow.png');
+        }
+
+        $mime = strtolower((string)($media['mime_type'] ?? ''));
+        if ($mime === '' || !str_starts_with($mime, 'image/')) {
+            return base_url('/assets/img/avatars/unknow.png');
+        }
+
+        return site_url('media/file/' . (int)$media['id']) . '?v=' . time();
     }
 
     static public function permission_levels(): array

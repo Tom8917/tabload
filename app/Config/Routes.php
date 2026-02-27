@@ -61,16 +61,22 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
     $routes->get('tabload',         'Tabload::getIndex');
 
     $routes->group('media', function($routes) {
-        $routes->get('/',                     'Media::getIndex');
-        $routes->get('folder/(:num)',         'Media::getFolder/$1');
-        $routes->post('upload',               'Media::postUpload');
-        $routes->post('folder/create',        'Media::postCreateFolder');
+        $routes->get('/', 'Media::getIndex');
+        $routes->get('folder/(:num)', 'Media::getFolder/$1');
+
+        $routes->post('folder/create', 'Media::postCreateFolder');
         $routes->post('folder/(:num)/rename', 'Media::postRenameFolder/$1');
         $routes->post('folder/delete/(:num)', 'Media::postDeleteFolder/$1');
-        $routes->post('delete/(:num)',        'Media::postDelete/$1');
-        $routes->get('folders-tree',          'Media::getFoldersTree');
-        $routes->post('move/(:num)',          'Media::postMove/$1');
-        $routes->post('copy/(:num)',          'Media::postCopy/$1');
+
+        $routes->get('folders-tree', 'Media::getFoldersTree');
+
+        $routes->post('upload', 'Media::postUpload');
+        $routes->post('move/(:num)', 'Media::postMove/$1');
+        $routes->post('copy/(:num)', 'Media::postCopy/$1');
+        $routes->post('delete/(:num)', 'Media::postDelete/$1');
+
+        $routes->get('file/(:num)', 'Media::getFile/$1');
+        $routes->get('download/(:num)', 'Media::getDownload/$1');
     });
 });
 
@@ -135,6 +141,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
 
     $routes->post('reports/sections/upload-image', 'Report::postUploadSectionImage');
 
+    $routes->get('report/(:num)/pdf', 'Report::getPdf/$1');
+
     $routes->get('tabload', 'Tabload::getIndex');
 
     // logs
@@ -142,20 +150,22 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
 
 
     $routes->group('media', function($routes) {
-        $routes->get('/',                       'Media::getIndex');
-        $routes->get('folder/(:num)',           'Media::getFolder/$1');
+        $routes->get('/', 'Media::getIndex');
+        $routes->get('folder/(:num)', 'Media::getFolder/$1');
 
-        $routes->post('upload',                 'Media::postUpload');
+        $routes->post('folder/create', 'Media::postCreateFolder');
+        $routes->post('folder/(:num)/rename', 'Media::postRenameFolder/$1');
+        $routes->post('folder/delete/(:num)', 'Media::postDeleteFolder/$1');
 
-        $routes->post('folder/create',          'Media::postCreateFolder');
-        $routes->post('folder/(:num)/rename',   'Media::postRenameFolder/$1');
-        $routes->post('folder/delete/(:num)',   'Media::postDeleteFolder/$1');
+        $routes->get('folders-tree', 'Media::getFoldersTree');
 
-        $routes->post('delete/(:num)',          'Media::postDelete/$1');
+        $routes->post('upload', 'Media::postUpload');
+        $routes->post('move/(:num)', 'Media::postMove/$1');
+        $routes->post('copy/(:num)', 'Media::postCopy/$1');
+        $routes->post('delete/(:num)', 'Media::postDelete/$1');
 
-        $routes->get('folders-tree',            'Media::getFoldersTree');
-        $routes->post('move/(:num)',            'Media::postMove/$1');
-        $routes->post('copy/(:num)',            'Media::postCopy/$1');
+        $routes->get('file/(:num)', 'Media::getFile/$1');
+        $routes->get('download/(:num)', 'Media::getDownload/$1');
     });
 });
 

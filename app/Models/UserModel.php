@@ -33,7 +33,6 @@ class UserModel extends Model
     protected $validationRules = [
         'email'         => 'required|valid_email|is_unique[user.email,id,{id}]',
         'id_permission' => 'required|is_natural_no_zero',
-        // password géré au cas par cas : en création obligatoire, en update optionnel
     ];
 
     protected $validationMessages = [
@@ -51,10 +50,6 @@ class UserModel extends Model
     protected $beforeInsert = ['hashPasswordIfProvided'];
     protected $beforeUpdate = ['hashPasswordIfProvided'];
 
-    /**
-     * Hash le mot de passe UNIQUEMENT si fourni et non vide.
-     * Evite le double hash.
-     */
     protected function hashPasswordIfProvided(array $data): array
     {
         if (! isset($data['data']) || ! is_array($data['data'])) {
@@ -64,14 +59,11 @@ class UserModel extends Model
         if (array_key_exists('password', $data['data'])) {
             $pwd = (string) $data['data']['password'];
 
-            // si vide => ne pas modifier
             if (trim($pwd) === '') {
                 unset($data['data']['password']);
                 return $data;
             }
 
-            // si déjà hashé (optionnel) : on pourrait détecter, mais on hash quand même une string "hash" => dangereux
-            // donc on suppose ici qu'on reçoit un mot de passe en clair.
             $data['data']['password'] = password_hash($pwd, PASSWORD_DEFAULT);
         }
 
@@ -87,8 +79,7 @@ class UserModel extends Model
 
     public function getUserById(int $id): ?array
     {
-        $this->select('user.*, media.file_path as avatar_url, user_blacklist.id_user as blacklistid_user');
-        $this->join('media', 'user.id = media.entity_id AND media.entity_type = "user"', 'left');
+        $this->select('user.*, user_blacklist.id_user as blacklistid_user');
         $this->join('user_blacklist', 'user.id = user_blacklist.id_user', 'left');
 
         return $this->find($id) ?: null;
@@ -101,13 +92,11 @@ class UserModel extends Model
 
     public function createUser(array $data)
     {
-        // ici, password doit être fourni en clair, le hook hash
         return $this->insert($data);
     }
 
     public function updateUser(int $id, array $data): bool
     {
-        // password peut être vide => hook le retire
         return (bool) $this->update($id, $data);
     }
 
@@ -160,20 +149,31 @@ class UserModel extends Model
         $builder = $this->builder();
 
         $builder->join('user_permission', 'user.id_permission = user_permission.id', 'left');
-        $builder->join('media', 'user.id = media.entity_id AND media.entity_type = "user"', 'left');
-        $builder->select('user.*, user_permission.name as permission_name, media.file_path as avatar_url');
+        $builder->select('user.*, user_permission.name as permission_name');
 
-        if (! empty($searchValue)) {
+        if (!empty($searchValue)) {
             $builder->groupStart()
-                ->like('firstname', $searchValue)
-                ->orLike('email', $searchValue)
+                ->like('user.firstname', $searchValue)
+                ->orLike('user.lastname', $searchValue)
+                ->orLike('user.email', $searchValue)
                 ->orLike('user_permission.name', $searchValue)
                 ->groupEnd();
         }
 
-        if ($orderColumnName && $orderDirection) {
-            $builder->orderBy($orderColumnName, $orderDirection);
-        }
+        // whitelist orderBy (évite avatar_url / colonnes inexistantes)
+        $allowed = [
+            'id'              => 'user.id',
+            'firstname'       => 'user.firstname',
+            'lastname'        => 'user.lastname',
+            'email'           => 'user.email',
+            'permission_name' => 'user_permission.name',
+            'deleted_at'      => 'user.deleted_at',
+        ];
+
+        $col = $allowed[$orderColumnName ?? 'id'] ?? 'user.id';
+        $dir = strtolower((string)$orderDirection) === 'desc' ? 'DESC' : 'ASC';
+
+        $builder->orderBy($col, $dir);
 
         $builder->limit($length, $start);
         return $builder->get()->getResultArray();
@@ -189,20 +189,17 @@ class UserModel extends Model
         $builder = $this->builder();
 
         $builder->join('user_permission', 'user.id_permission = user_permission.id', 'left');
-        $builder->join('media', 'user.id = media.entity_id AND media.entity_type = "user"', 'left');
-        $builder->join('user_blacklist', 'user.id = user_blacklist.id_user', 'left');
-        $builder->select('user.*, user_permission.name as permission_name, media.file_path as avatar_url');
 
-        if (! empty($searchValue)) {
+        if (!empty($searchValue)) {
             $builder->groupStart()
-                ->like('firstname', $searchValue)
-                ->orLike('lastname', $searchValue)
-                ->orLike('email', $searchValue)
+                ->like('user.firstname', $searchValue)
+                ->orLike('user.lastname', $searchValue)
+                ->orLike('user.email', $searchValue)
                 ->orLike('user_permission.name', $searchValue)
                 ->groupEnd();
         }
 
-        return $builder->countAllResults();
+        return (int) $builder->countAllResults();
     }
 
     public function getAllEmails(): array
