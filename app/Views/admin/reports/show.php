@@ -1,6 +1,7 @@
 <?php
 $sectionsTree = $sectionsTree ?? [];
-$canEdit      = $canEdit ?? true; // admin => true
+$canEdit      = $canEdit ?? true;
+$versions     = $versions ?? [];
 
 $indentClass = function (int $level): string {
     return match (true) {
@@ -26,52 +27,17 @@ $badgeLevel = function (int $level): string {
     };
 };
 
-$roots        = $sectionsTree;
+$roots = $sectionsTree;
 $scrollOffset = 90;
 
 $docStatus = (string)($report['doc_status'] ?? 'work');
 $modKind   = (string)($report['modification_kind'] ?? 'creation');
-
-$versions = $versions ?? [];
 
 $cb = function (bool $checked): string {
     return $checked ? '<i class="fa-regular fa-circle-check"></i>' : '<i class="fa-regular fa-circle"></i>';
 };
 
 helper('html');
-
-$fmtDate = function ($value): string {
-    if (empty($value)) return '—';
-    try {
-        return (new DateTime((string)$value))->format('d/m/Y');
-    } catch (\Throwable $e) {
-        return (string)$value;
-    }
-};
-
-$status      = (string)($report['status'] ?? '');
-$statusLabel = $status !== '' ? $status : '—';
-
-$mediaId = (int)($report['file_media_id'] ?? 0);
-$entFile = '';
-if ($mediaId > 0) {
-    $m = model(\App\Models\MediaModel::class)->find($mediaId);
-    $entFile = trim((string)($m['name'] ?? ''));
-}
-if ($entFile === '') $entFile = 'Aucun document renseigné';
-
-$appName     = (string)($report['application_name'] ?? '—');
-$appVersion  = (string)($report['application_version'] ?? '');
-$docVersion  = (string)($report['doc_version'] ?? '');
-$author      = (string)($report['author_name'] ?? '');
-$fileId      = (string)($report['file_media_id'] ?? '');
-$fileName    = (string)($report['name'] ?? '');
-$corrector   = (string)($report['corrected_by'] ?? '');
-$validator   = (string)($report['validated_by'] ?? '');
-$validatedAt = $report['validated_at'] ?? null;
-$createdAt   = $report['created_at'] ?? null;
-
-$updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($report['updated_at'] ?? null));
 ?>
 
 <style>
@@ -86,33 +52,162 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
     <?= view('admin/reports/_steps', [
         'step'     => 'preview',
         'reportId' => (int)($report['id'] ?? 0),
-        'canEdit'  => true,
+        'canEdit'  => $canEdit,
     ]) ?>
+
+    <?php
+    $fmtDate = function ($value): string {
+        if (empty($value)) return '—';
+        try {
+            return (new DateTime((string)$value))->format('d/m/Y');
+        } catch (\Throwable $e) {
+            return (string)$value;
+        }
+    };
+
+    $status = (string)($report['status'] ?? '');
+    $statusLabel = $status !== '' ? $status : '—';
+
+    $mediaId = (int)($report['file_media_id'] ?? 0);
+    $entFile = '';
+
+    if ($mediaId > 0) {
+        $m = model(\App\Models\MediaModel::class)->find($mediaId);
+        $entFile = trim((string)($m['name'] ?? ''));
+    }
+
+    if ($entFile === '') $entFile = 'Aucun document renseigné';
+
+    $appName     = (string)($report['application_name'] ?? '—');
+    $appVersion  = (string)($report['application_version'] ?? '');
+    $docVersion  = (string)($report['doc_version'] ?? '');
+    $author      = (string)($report['author_name'] ?? '');
+    $validator   = (string)($report['validated_by'] ?? '');
+    $validatedAt = $report['validated_at'] ?? null;
+    $createdAt   = $report['created_at'] ?? null;
+    $updatedAt   = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($report['updated_at'] ?? null));
+
+    /**
+     * Fix minimal pour l'admin :
+     * transforme les src/href relatifs de type ../../../../media/file/6
+     * en URL absolue du site.
+     */
+    $fixAdminContent = function (string $content): string {
+        if (trim($content) === '') {
+            return '';
+        }
+
+        $content = preg_replace_callback(
+            '#(<img[^>]+src=["\'])([^"\']+)(["\'])#i',
+            function ($m) {
+                $src = html_entity_decode($m[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+                if (
+                    preg_match('#^(https?:)?//#i', $src) ||
+                    str_starts_with($src, 'data:') ||
+                    str_starts_with($src, '/')
+                ) {
+                    return $m[1] . esc($src, 'attr') . $m[3];
+                }
+
+                if (preg_match('#(?:\.\./)*media/file/(\d+)$#i', $src, $match)) {
+                    return $m[1] . esc(site_url('media/file/' . (int)$match[1]), 'attr') . $m[3];
+                }
+
+                if (preg_match('#(?:\.\./)*media/download/(\d+)$#i', $src, $match)) {
+                    return $m[1] . esc(site_url('media/download/' . (int)$match[1]), 'attr') . $m[3];
+                }
+
+                return $m[1] . esc(base_url(ltrim($src, './')), 'attr') . $m[3];
+            },
+            $content
+        );
+
+        $content = preg_replace_callback(
+            '#(<a[^>]+href=["\'])([^"\']+)(["\'])#i',
+            function ($m) {
+                $href = html_entity_decode($m[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+                if (
+                    preg_match('#^(https?:)?//#i', $href) ||
+                    str_starts_with($href, 'mailto:') ||
+                    str_starts_with($href, 'tel:') ||
+                    str_starts_with($href, '#') ||
+                    str_starts_with($href, '/')
+                ) {
+                    return $m[1] . esc($href, 'attr') . $m[3];
+                }
+
+                if (preg_match('#(?:\.\./)*media/file/(\d+)$#i', $href, $match)) {
+                    return $m[1] . esc(site_url('media/file/' . (int)$match[1]), 'attr') . $m[3];
+                }
+
+                if (preg_match('#(?:\.\./)*media/download/(\d+)$#i', $href, $match)) {
+                    return $m[1] . esc(site_url('media/download/' . (int)$match[1]), 'attr') . $m[3];
+                }
+
+                return $m[1] . esc(base_url(ltrim($href, './')), 'attr') . $m[3];
+            },
+            $content
+        );
+
+        return clean_html($content);
+    };
+    ?>
 
     <div class="d-flex justify-content-between mb-4">
         <div>
             <h1 class="h3 mb-1">Aperçu : <?= esc($report['title'] ?? '') ?></h1>
         </div>
-        <div class="d-flex gap-2">
-            <form action="<?= site_url('admin/report/' . (int)$report['id'] . '/pdf') ?>"
-                  method="get"
-                  class="d-inline me-1">
-
-                <button type="submit" name="download" value="1"
-                        class="btn btn-primary me-1">
-                    <i class="fa-solid fa-file-arrow-down me-1"></i>
-                    Télécharger PDF
+        <div>
+            <div class="dropdown d-inline">
+                <button class="btn btn-outline-success dropdown-toggle me-1" type="button" data-bs-toggle="dropdown">
+                    <i class="fa-solid fa-download me-1"></i>
+                    Export
                 </button>
 
-                <button type="submit" name="download" value="0"
-                        formtarget="_blank"
-                        class="btn btn-outline-primary">
-                    <i class="fa-solid fa-file-pdf me-1"></i>
-                    Ouvrir PDF
-                </button>
-            </form>
+                <ul class="dropdown-menu">
+                    <li class="dropdown-header">HTML</li>
+                    <li>
+                        <form action="<?= site_url('admin/report/' . (int)$report['id'] . '/html') ?>" method="get">
+                            <button type="submit" name="download" value="1" class="dropdown-item">
+                                <i class="fa-solid fa-file-code me-2 text-success"></i>
+                                Télécharger HTML
+                            </button>
+                        </form>
+                    </li>
+                    <li>
+                        <form action="<?= site_url('admin/report/' . (int)$report['id'] . '/html') ?>" method="get">
+                            <button type="submit" name="download" value="0" formtarget="_blank" class="dropdown-item">
+                                <i class="fa-solid fa-globe me-2 text-success"></i>
+                                Ouvrir HTML
+                            </button>
+                        </form>
+                    </li>
 
-            <a href="<?= site_url('admin/reports/' . (int)$report['id'] . '/sections') ?>" class="btn btn-outline-primary">
+                    <li><hr class="dropdown-divider"></li>
+
+                    <li class="dropdown-header">PDF</li>
+                    <li>
+                        <form action="<?= site_url('admin/report/' . (int)$report['id'] . '/pdf') ?>" method="get">
+                            <button type="submit" name="download" value="1" class="dropdown-item">
+                                <i class="fa-solid fa-file-arrow-down me-2 text-primary"></i>
+                                Télécharger PDF
+                            </button>
+                        </form>
+                    </li>
+                    <li>
+                        <form action="<?= site_url('admin/report/' . (int)$report['id'] . '/pdf') ?>" method="get">
+                            <button type="submit" name="download" value="0" formtarget="_blank" class="dropdown-item">
+                                <i class="fa-solid fa-file-pdf me-2 text-primary"></i>
+                                Ouvrir PDF
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+
+            <a href="<?= site_url('admin/reports/' . (int)$report['id'] . '/sections') ?>" class="btn btn-outline-primary me-1">
                 Retour à la rédaction
             </a>
             <a href="<?= site_url('admin/reports') ?>" class="btn btn-outline-secondary">
@@ -163,15 +258,15 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
                         </div>
 
                         <div class="col-12">
-                            <?php if ($mediaId > 0 && $entFile !== '' && $entFile !== 'Aucun document renseigné'): ?>
+                            <?php if ($mediaId > 0): ?>
                                 <?php
-                                $fileUrl      = site_url('media/file/' . $mediaId);
-                                $downloadUrl  = site_url('media/download/' . $mediaId);
+                                $fileUrl = site_url('media/file/' . $mediaId);
+                                $downloadUrl = site_url('media/download/' . $mediaId);
                                 ?>
                                 <div class="mt-3 mb-1">
                                     <span class="fw-bold">Fichier :</span>
                                     <a href="<?= esc($fileUrl) ?>" target="_blank" rel="noopener">
-                                        <?= esc($entFile) ?>
+                                        <?= esc($entFile ?: 'Ouvrir le fichier') ?>
                                     </a>
                                 </div>
                                 <div class="mt-2">
@@ -181,7 +276,7 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
                                 </div>
                             <?php else: ?>
                                 <div class="mt-3 mb-1">
-                                    <span class="fw-bold">Fichier :</span> <?= esc($entFile) ?>
+                                    <span class="fw-bold">Fichier : </span><?= esc($entFile) ?>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -198,10 +293,9 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
                             <?php endif; ?>
                         </div>
                     </div>
-
                 </div>
-            </div>
 
+            </div>
         </div>
     </div>
 
@@ -218,11 +312,13 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
                         </div>
                         <div class="card-body">
                             <div class="col-12 mb-4">
-                                <p class="mb-0">
-                                    Ce document a pour objet la description des résultats obtenus lors de la campagne
-                                    de tests de performance menée durant la campagne d'intégration sur
-                                    l'application <?= esc($appName) ?> avant sa mise en production.
-                                </p>
+                                <div>
+                                    <p>
+                                        Ce document a pour objet la description des résultats obtenus lors de la campagne
+                                        de tests de performance menée durant la campagne d'intégration sur
+                                        l'application <?= esc($appName) ?> avant sa mise en production.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -263,6 +359,7 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
                                     <h5 class="fw-semibold mb-1">Date de dernière validation</h5>
                                     <p class="mb-0"><?= esc($fmtDate($validatedAt ?? null)) ?></p>
                                 </div>
+
                             </div>
                         </div>
                     </div>
@@ -282,13 +379,19 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
                         <div class="card-header border-top mb-2">
                             <h5 class="fw-semibold mb-0">Historique des évolutions</h5>
                         </div>
-
                         <div class="card-body text-center">
                             <div class="row info-grid">
+                                <div class="col-12 col-md-3 info-cell">
+                                    <h5 class="fw-semibold">Version</h5>
+                                </div>
 
-                                <div class="col-12 col-md-3 info-cell"><h5 class="fw-semibold">Version</h5></div>
-                                <div class="col-12 col-md-3 info-cell"><h5 class="fw-semibold">Date</h5></div>
-                                <div class="col-12 col-md-6 info-cell"><h5 class="fw-semibold">Commentaires</h5></div>
+                                <div class="col-12 col-md-3 info-cell">
+                                    <h5 class="fw-semibold">Date</h5>
+                                </div>
+
+                                <div class="col-12 col-md-6 info-cell">
+                                    <h5 class="fw-semibold">Commentaires</h5>
+                                </div>
 
                                 <?php if (empty($versions)): ?>
                                     <div class="col-12 info-cell text-muted">
@@ -298,29 +401,28 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
                                     <?php foreach ($versions as $v): ?>
                                         <?php
                                         $versionLabel = (string)($v['version_label'] ?? '—');
-                                        $date         = $v['created_at'] ?? null;
-                                        $comment      = trim((string)($v['comment'] ?? ''));
+                                        $date = $v['created_at'] ?? null;
+                                        $comment = trim((string)($v['comment'] ?? ''));
                                         ?>
                                         <div class="col-12 col-md-3 info-cell">
                                             <span class="mb-0"><?= esc($versionLabel) ?></span>
                                         </div>
+
                                         <div class="col-12 col-md-3 info-cell">
                                             <p class="mb-0"><?= esc($fmtDate($date)) ?></p>
                                         </div>
+
                                         <div class="col-12 col-md-6 info-cell">
                                             <p class="mb-0"><?= esc($comment !== '' ? $comment : '—') ?></p>
                                         </div>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
-
                             </div>
+
                         </div>
-
                     </div>
-
                 </div>
             </div>
-
         </div>
     </div>
 
@@ -343,11 +445,11 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
     <?php endif; ?>
 
     <?php
-    $render = function (array $node) use (&$render, $indentClass, $headingClass, $badgeLevel) {
+    $render = function (array $node) use (&$render, $indentClass, $headingClass, $badgeLevel, $fixAdminContent) {
 
-        $level   = (int)($node['level'] ?? 1);
-        $code    = (string)($node['code'] ?? '');
-        $title   = (string)($node['title'] ?? '');
+        $level = (int)($node['level'] ?? 1);
+        $code = (string)($node['code'] ?? '');
+        $title = (string)($node['title'] ?? '');
         $content = (string)($node['content'] ?? '');
 
         $wrap = $indentClass($level);
@@ -372,7 +474,7 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
 
                     <?php if (trim($content) !== ''): ?>
                         <div class="mt-2 p-3 rounded border report-content">
-                            <?= clean_html($content) ?>
+                            <?= $fixAdminContent($content) ?>
                         </div>
                     <?php endif; ?>
 
@@ -397,10 +499,8 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
 
                 <?php if (trim($content) !== ''): ?>
                     <div class="p-3 rounded border report-content">
-                        <?= clean_html($content) ?>
+                        <?= $fixAdminContent($content) ?>
                     </div>
-                <?php else: ?>
-<!--                    <div class="text-muted small">Contenu non renseigné.</div>-->
                 <?php endif; ?>
 
                 <?php if (!empty($node['children'])): ?>
@@ -424,7 +524,6 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
             <?php $render($root); ?>
         <?php endforeach; ?>
     <?php endif; ?>
-
 </div>
 
 <script>
@@ -455,7 +554,9 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
         });
 
         window.addEventListener('load', function () {
-            if (window.location.hash) scrollToHash(window.location.hash);
+            if (window.location.hash) {
+                scrollToHash(window.location.hash);
+            }
         });
     })();
 </script>
@@ -506,7 +607,12 @@ $updatedAt = $report['corrected_at'] ?? ($report['author_updated_at'] ?? ($repor
     }
 
     @media (max-width: 767.98px) {
-        .info-grid { border-left: 0; }
-        .info-cell { border-right: 0; }
+        .info-grid {
+            border-left: 0;
+        }
+
+        .info-cell {
+            border-right: 0;
+        }
     }
 </style>

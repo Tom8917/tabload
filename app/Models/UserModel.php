@@ -160,7 +160,6 @@ class UserModel extends Model
                 ->groupEnd();
         }
 
-        // whitelist orderBy (évite avatar_url / colonnes inexistantes)
         $allowed = [
             'id'              => 'user.id',
             'firstname'       => 'user.firstname',

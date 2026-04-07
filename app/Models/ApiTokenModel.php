@@ -26,7 +26,7 @@ class ApiTokenModel extends Model
     public function getToken($token)
     {
         return $this->where('token', $token)
-            ->where('expires_at >=', date('Y-m-d H:i:s')) // Token encore valide
+            ->where('expires_at >=', date('Y-m-d H:i:s'))
             ->first();
     }
 
@@ -56,13 +56,11 @@ class ApiTokenModel extends Model
         $builder->join('user', 'api_tokens.id_user = user.id', 'left');
         $builder->select('api_tokens.id, api_tokens.id_user, api_tokens.token, api_tokens.counter');
 
-        // Recherche
         if (!empty($searchValue)) {
             $builder->like('api_tokens.token', $searchValue);
             $builder->orLike('api_tokens.id_user', $searchValue);
         }
 
-        // Tri
         if ($orderColumnName && $orderDirection) {
             $builder->orderBy($orderColumnName, $orderDirection);
         }

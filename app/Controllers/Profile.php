@@ -18,7 +18,6 @@ class Profile extends BaseController
             return redirect()->to(site_url('login'));
         }
 
-        // --- Admin check (slug OU id_permission=1) ---
         $isAdmin = false;
         if (is_object($current)) {
             $isAdmin =
@@ -38,23 +37,18 @@ class Profile extends BaseController
         /** @var UserModel $um */
         $um = model(UserModel::class);
 
-        // 1) On récupère l'utilisateur en "raw" (array ou entity selon ton model)
         $raw = $um->find($id);
         if (! $raw) {
             throw PageNotFoundException::forPageNotFound("Utilisateur #{$id} introuvable");
         }
 
-        // 2) On force une Entity pour l'avatar (car getProfileImage() est dans l'Entity)
-        //    Si ton model est en returnType='array', on instancie manuellement l'Entity User
         $userEntity = $raw;
         if (! is_object($userEntity)) {
             $userEntity = new \App\Entities\User($raw);
         }
 
-        // 3) On convertit en array safe pour la vue
         $user = $this->toArraySafe($raw);
 
-        // 4) Champs calculés propres (fix priorité du ??)
         $first = trim((string)($user['firstname'] ?? ''));
         $last  = trim((string)($user['lastname'] ?? ''));
         $full  = trim($first . ' ' . $last);

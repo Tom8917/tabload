@@ -10,20 +10,14 @@ class MediaBlobModel extends Model
     protected $primaryKey = 'media_id';
     protected $returnType = 'array';
 
-    // champs réels
     protected $allowedFields = ['media_id', 'data'];
 
-    // recommandé pour éviter les surprises avec les champs non listés
     protected $protectFields = true;
 
-    /**
-     * Upsert robuste (évite certains échecs silencieux de update/insert Model CI4).
-     */
     public function upsertBlob(int $mediaId, string $data): bool
     {
         $builder = $this->db->table($this->table);
 
-        // existe ?
         $exists = $builder->select('media_id')
             ->where('media_id', $mediaId)
             ->get()
@@ -41,7 +35,6 @@ class MediaBlobModel extends Model
         }
 
         if (!$ok) {
-            // log SQL error (visible dans writable/logs/)
             $err = $this->db->error();
             log_message('error', 'MediaBlobModel upsertBlob FAILED media_id=' . $mediaId . ' err=' . json_encode($err));
         }
@@ -49,9 +42,6 @@ class MediaBlobModel extends Model
         return (bool) $ok;
     }
 
-    /**
-     * Récupération du blob (raw string).
-     */
     public function getBlob(int $mediaId): ?string
     {
         $row = $this->db->table($this->table)

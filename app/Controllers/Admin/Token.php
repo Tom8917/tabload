@@ -18,7 +18,6 @@ class Token extends BaseController
         $atm = Model("ApiTokenModel");
         $um  = Model("UserModel");
 
-        // Cas suppression : ?delete=1
         if ($id !== null && $this->request->getGet('delete') == 1) {
             if ($atm->delete($id)) {
                 $this->success("Le token ID $id a bien été supprimé.");
@@ -28,20 +27,17 @@ class Token extends BaseController
             return $this->redirect('/admin/token');
         }
 
-        // Si pas d'ID → listing
         if ($id === null) {
             $tokens = $atm->findAll();
             return $this->view("/admin/token/index.php", ['tokens' => $tokens], true);
         }
 
-        // Si ID → récupération du token correspondant
         $tokenData = $atm->find($id);
         if (!$tokenData) {
             $this->error("Le token avec l'ID $id n'existe pas.");
             return $this->redirect("/admin/token");
         }
 
-        // Récupération de l'utilisateur lié
         $user = $um->getUserById($tokenData['id_user']);
         $tokenData['user'] = $user;
 
@@ -54,18 +50,15 @@ class Token extends BaseController
 
     public function postupdate()
     {
-        // Récupérer les données du formulaire
         $id = $this->request->getPost('id');
         $id_user = $this->request->getPost('id_user');
         $token = $this->request->getPost('token');
         $counter = $this->request->getPost('counter');
 
-        // Validation des données (tu peux ajouter des règles supplémentaires ici)
         if (!$id || !$id_user || !$token || !$counter) {
             return redirect()->back()->with('error', 'Tous les champs sont obligatoires');
         }
 
-        // Mettre à jour le token dans la base de données
         $atm = Model("ApiTokenModel");
         $tokenData = [
             'id_user' => $id_user,

@@ -25,6 +25,8 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
     $routes->get('/',                'Dashboard::getIndex');
     $routes->get('dashboard',        'Dashboard::getIndex');
 
+    $routes->get('test',        'Test::getIndex');
+
     // Profile
     $routes->get('profile',          'Profile::getMe');
     $routes->get('profile/(:num)',   'Profile::getIndex/$1');
@@ -39,6 +41,7 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
     $routes->post('report/(:num)/update',  'Report::postUpdate/$1');
     $routes->post('report/(:num)/delete',  'Report::postDelete/$1');
     $routes->post('report/(:num)/duplicate', 'Report::postDuplicate/$1');
+    $routes->get('report/(:num)/html', 'Report::getHtml/$1');
 
     // SECTIONS
     $routes->get('report/(:num)/sections',                'Report::getSections/$1');
@@ -74,9 +77,6 @@ $routes->group('', ['filter' => ['auth', 'frontOnly']], static function ($routes
         $routes->post('move/(:num)', 'Media::postMove/$1');
         $routes->post('copy/(:num)', 'Media::postCopy/$1');
         $routes->post('delete/(:num)', 'Media::postDelete/$1');
-
-        $routes->get('file/(:num)', 'Media::getFile/$1');
-        $routes->get('download/(:num)', 'Media::getDownload/$1');
     });
 });
 
@@ -142,6 +142,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     $routes->post('reports/sections/upload-image', 'Report::postUploadSectionImage');
 
     $routes->get('report/(:num)/pdf', 'Report::getPdf/$1');
+    $routes->get('report/(:num)/html', 'Report::getHtml/$1');
 
     $routes->get('tabload', 'Tabload::getIndex');
 
@@ -169,6 +170,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'ad
     });
 });
 
+$routes->get('media/file/(:num)', 'Media::getFile/$1');
+$routes->get('media/download/(:num)', 'Media::getDownload/$1');
 
 // API
 $routes->group('api', ['namespace' => 'App\Controllers\Api'], static function ($routes) {

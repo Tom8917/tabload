@@ -9,10 +9,8 @@ class UserPermissionModel extends Model
     protected $table = 'user_permission';
     protected $primaryKey = 'id';
 
-    // Champs permis pour les opérations d'insertion et de mise à jour
     protected $allowedFields = ['name', 'slug'];
 
-    // Validation
     protected $validationRules = [
         'name' => 'required|min_length[3]|max_length[100]',
     ];
@@ -27,17 +25,16 @@ class UserPermissionModel extends Model
 
     public function hasPermission($userId, $permission)
     {
-        return $this->db->table('user_permission')  // Remplacez 'user_permissions' par le nom réel de votre table
-            ->where('id', $userId)          // Assurez-vous que 'user_id' est le bon nom de la colonne dans votre table
-            ->where('name', $permission)   // Assurez-vous que 'permission' est le bon nom de la colonne pour la permission dans votre table
-            ->countAllResults() > 0;             // Retourne vrai si l'utilisateur a la permission
+        return $this->db->table('user_permission')
+            ->where('id', $userId)
+            ->where('name', $permission)
+            ->countAllResults() > 0;
     }
 
 
     public function createPermission($data)
     {
         if (isset($data['name'])) {
-            // Générer et vérifier le slug unique
             $data['slug'] = $this->generateUniqueSlug($data['name']);
         }
 
@@ -47,7 +44,6 @@ class UserPermissionModel extends Model
     public function updatePermission($id, $data)
     {
         if (isset($data['name'])) {
-            // Générer et vérifier le slug unique
             $data['slug'] = $this->generateUniqueSlug($data['name']);
         }
 
@@ -56,17 +52,15 @@ class UserPermissionModel extends Model
 
     private function generateUniqueSlug($name)
     {
-        $slug = generateSlug($name); // Utilisez la fonction du helper pour générer le slug de base
+        $slug = generateSlug($name);
         $builder = $this->builder();
 
-        // Vérifiez si le slug existe déjà
         $count = $builder->where('slug', $slug)->countAllResults();
 
         if ($count === 0) {
             return $slug;
         }
 
-        // Si le slug existe, ajoutez un suffixe numérique pour le rendre unique
         $i = 1;
         while ($count > 0) {
             $newSlug = $slug . '-' . $i;
@@ -103,12 +97,10 @@ class UserPermissionModel extends Model
     public function getPaginatedPermission($start, $length, $searchValue, $orderColumnName, $orderDirection)
     {
         $builder = $this->builder();
-        // Recherche
         if ($searchValue != null) {
             $builder->like('name', $searchValue);
         }
 
-        // Tri
         if ($orderColumnName && $orderDirection) {
             $builder->orderBy($orderColumnName, $orderDirection);
         }
@@ -127,7 +119,6 @@ class UserPermissionModel extends Model
     public function getFilteredPermission($searchValue)
     {
         $builder = $this->builder();
-        // @phpstan-ignore-next-line
         if (!empty($searchValue)) {
             $builder->like('name', $searchValue);
         }

@@ -116,23 +116,53 @@ $cb = function (bool $checked): string {
                     </button>
                 </form>
 
-                <form action="<?= site_url('report/' . (int)$report['id'] . '/pdf') ?>"
-                      method="get"
-                      class="d-inline me-1">
-
-                    <button type="submit" name="download" value="1"
-                            class="btn btn-primary me-1">
-                        <i class="fa-solid fa-file-arrow-down me-1"></i>
-                        Télécharger PDF
+                <div class="dropdown d-inline">
+                    <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fa-solid fa-download me-1"></i>
+                        Export
                     </button>
 
-                    <button type="submit" name="download" value="0"
-                            formtarget="_blank"
-                            class="btn btn-outline-primary">
-                        <i class="fa-solid fa-file-pdf me-1"></i>
-                        Ouvrir PDF
-                    </button>
-                </form>
+                    <ul class="dropdown-menu">
+                        <li class="dropdown-header">HTML</li>
+                        <li>
+                            <form action="<?= site_url('report/' . (int)$report['id'] . '/html') ?>" method="get">
+                                <button type="submit" name="download" value="1" class="dropdown-item">
+                                    <i class="fa-solid fa-file-code me-2 text-success"></i>
+                                    Télécharger HTML
+                                </button>
+                            </form>
+                        </li>
+                        <li>
+                            <form action="<?= site_url('report/' . (int)$report['id'] . '/html') ?>" method="get">
+                                <button type="submit" name="download" value="0" formtarget="_blank" class="dropdown-item">
+                                    <i class="fa-solid fa-globe me-2 text-success"></i>
+                                    Ouvrir HTML
+                                </button>
+                            </form>
+                        </li>
+
+                        <li><hr class="dropdown-divider"></li>
+
+                        <li class="dropdown-header">PDF</li>
+                        <li>
+                            <form action="<?= site_url('report/' . (int)$report['id'] . '/pdf') ?>" method="get">
+                                <button type="submit" name="download" value="1" class="dropdown-item">
+                                    <i class="fa-solid fa-file-arrow-down me-2 text-primary"></i>
+                                    Télécharger PDF
+                                </button>
+                            </form>
+                        </li>
+                        <li>
+                            <form action="<?= site_url('report/' . (int)$report['id'] . '/pdf') ?>" method="get">
+                                <button type="submit" name="download" value="0" formtarget="_blank" class="dropdown-item">
+                                    <i class="fa-solid fa-file-pdf me-2 text-primary"></i>
+                                    Ouvrir PDF
+                                </button>
+                            </form>
+                        </li>
+
+                    </ul>
+                </div>
 
                 <a href="<?= site_url('report/' . $report['id'] . '/sections') ?>" class="btn btn-outline-primary me-1">
                     Retour à la rédaction
@@ -199,12 +229,6 @@ $cb = function (bool $checked): string {
                         <div class="col-12">
                             <div class="mt-3 mb-1"><span
                                         class="fw-bold">Statut :</span> <?= ($statusLabel) ?></div>
-                        </div>
-
-                        <div class="col-12">
-                            <?php if (!empty($report['id'])): ?>
-                                <span class="text-muted small">Id dans la base : #<?= (int)$report['id'] ?></span>
-                            <?php endif; ?>
                         </div>
 
                     </div>

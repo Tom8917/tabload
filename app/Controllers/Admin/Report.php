@@ -31,6 +31,15 @@ class Report extends BaseController
         $this->menu  = 'reports';
     }
 
+    public function getIndex()
+    {
+        return $this->view('admin/reports/index', [
+            'reports' => $this->reports->orderBy('created_at', 'DESC')->findAll(),
+            'errors'  => session('errors') ?? [],
+            'success' => session('success'),
+        ], true);
+    }
+
     private function userId(): int
     {
         $user = session('user');
@@ -61,17 +70,19 @@ class Report extends BaseController
     {
         $row = $this->reports
             ->select('
-                reports.*,
+    reports.*,
 
-                reports.validated_by AS validated_by_id,
-                CONCAT(vu.firstname, " ", vu.lastname) AS validated_by,
+    reports.validated_by AS validated_by_id,
+    CONCAT(vu.firstname, " ", vu.lastname) AS validated_by,
 
-                reports.corrected_by AS corrected_by_id,
-                CONCAT(cu.firstname, " ", cu.lastname) AS corrected_by,
+    reports.corrected_by AS corrected_by_id,
+    CONCAT(cu.firstname, " ", cu.lastname) AS corrected_by,
 
-                m.id        AS file_media_id_join,
-                m.name AS name,
-            ')
+    m.id        AS file_media_id_join,
+    m.name      AS file_name,
+    m.mime_type AS file_mime_type,
+    m.file_size AS file_size
+')
             ->join('user vu', 'vu.id = reports.validated_by', 'left')
             ->join('user cu', 'cu.id = reports.corrected_by', 'left')
             ->join('media m', 'm.id = reports.file_media_id', 'left')
@@ -94,27 +105,12 @@ class Report extends BaseController
         return $section;
     }
 
-    /**
-     * (Optionnel) Si un jour tu autorises un accès admin à des non-admin,
-     * tu peux garder cette sécurité.
-     * Avec ton group filter adminOnly, ça ne sert normalement pas.
-     */
     private function requireOwnerOrAdmin(array $report): void
     {
         $ownerId = (int)($report['user_id'] ?? 0);
         if ($ownerId !== $this->userId() && !$this->isAdmin()) {
             throw HTTPException::forbidden('Accès refusé');
         }
-    }
-
-
-    public function getIndex()
-    {
-        return $this->view('admin/reports/index', [
-            'reports' => $this->reports->orderBy('created_at', 'DESC')->findAll(),
-            'errors'  => session('errors') ?? [],
-            'success' => session('success'),
-        ], true);
     }
 
     public function getNew()
@@ -428,10 +424,6 @@ class Report extends BaseController
             'title'             => 'required|min_length[2]',
             'content'           => 'permit_empty',
             'period_label'      => 'permit_empty|max_length[100]',
-            'period_number'     => 'permit_empty|integer',
-            'debit_value'       => 'permit_empty|decimal',
-            'start_date'        => 'permit_empty|valid_date[Y-m-d]',
-            'end_date'          => 'permit_empty|valid_date[Y-m-d]',
             'compliance_status' => 'permit_empty|in_list[conforme,non_conforme,partiel,non_applicable]',
         ];
 
@@ -443,10 +435,6 @@ class Report extends BaseController
             'title'             => $post['title'],
             'content'           => $post['content'] ?? null,
             'period_label'      => $post['period_label'] ?? null,
-            'period_number'     => $post['period_number'] ?: null,
-            'debit_value'       => $post['debit_value'] ?: null,
-            'start_date'        => $post['start_date'] ?: null,
-            'end_date'          => $post['end_date'] ?: null,
             'compliance_status' => $post['compliance_status'] ?? 'non_applicable',
         ]);
 
@@ -646,7 +634,6 @@ class Report extends BaseController
             'generatedAt'  => date('d/m/Y H:i'),
         ]);
 
-        // Dompdf
         $options = new \Dompdf\Options();
         $options->set('isRemoteEnabled', true);
         $options->set('isHtml5ParserEnabled', true);
@@ -686,5 +673,192 @@ class Report extends BaseController
             ->setHeader('Content-Type', 'application/pdf')
             ->setHeader('Content-Disposition', ($download ? 'attachment' : 'inline') . '; filename="' . $filename . '"')
             ->setBody($dompdf->output());
+    }
+
+
+
+    public function getHtml(int $id)
+    {
+        helper('html_helper');
+
+        $report = $this->findReportWithUsersOr404($id);
+        $this->requireOwnerOrAdmin($report);
+
+        $sectionsTree = $this->sectionsService->getTreeForReport($id);
+
+        $versions = model(\App\Models\ReportVersionModel::class)
+            ->where('report_id', $id)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+
+        $author    = (string)($report['author_name'] ?? $this->currentUserFullName());
+        $createdAt = (string)($report['created_at'] ?? '');
+        $updatedAt = (string)($report['author_updated_at'] ?? ($report['updated_at'] ?? ''));
+
+        $fmtDateTime = function (?string $value): string {
+            if (empty($value)) return '—';
+            try {
+                return (new \DateTime($value))->format('d/m/Y H:i');
+            } catch (\Throwable $e) {
+                return (string)$value;
+            }
+        };
+
+        $html = view('front/reports/html', [
+            'report'       => $report,
+            'sectionsTree' => $sectionsTree,
+            'versions'     => $versions,
+            'author'       => $author,
+            'createdAt'    => $fmtDateTime($createdAt),
+            'updatedAt'    => $fmtDateTime($updatedAt),
+            'generatedAt'  => date('d/m/Y H:i'),
+        ]);
+
+        $html = $this->inlineImagesForExport($html);
+
+        $download = ((int)($this->request->getGet('download') ?? 0) === 1);
+        $filename = 'bilan_' . (int)$id . '.html';
+
+        return $this->response
+            ->setHeader('Content-Type', 'text/html; charset=UTF-8')
+            ->setHeader(
+                'Content-Disposition',
+                ($download ? 'attachment' : 'inline') . '; filename="' . $filename . '"'
+            )
+            ->setBody($html);
+    }
+
+
+    private function inlineImagesForExport(string $html): string
+    {
+        if (trim($html) === '') {
+            return $html;
+        }
+
+        libxml_use_internal_errors(true);
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+
+        $loaded = $dom->loadHTML(
+            mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'),
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+
+        if (!$loaded) {
+            libxml_clear_errors();
+            return $html;
+        }
+
+        $images = $dom->getElementsByTagName('img');
+
+        /** @var \DOMElement $img */
+        foreach ($images as $img) {
+            $src = trim((string)$img->getAttribute('src'));
+
+            if ($src === '') {
+                continue;
+            }
+
+            if (str_starts_with($src, 'data:')) {
+                continue;
+            }
+
+            $absoluteSrc = $this->toAbsoluteUrl($src);
+            $dataUri = $this->resolveImageToDataUri($absoluteSrc);
+
+            if ($dataUri !== null) {
+                $img->setAttribute('src', $dataUri);
+            }
+        }
+
+        $result = $dom->saveHTML();
+
+        libxml_clear_errors();
+
+        return $result ?: $html;
+    }
+
+
+
+    private function resolveImageToDataUri(string $src): ?string
+    {
+        if (preg_match('~(?:https?://[^/]+)?/?media/(?:file|download)/(\d+)~i', $src, $m)) {
+            $mediaId = (int)$m[1];
+
+            $db = \Config\Database::connect();
+
+            $media = $db->table('media')
+                ->select('id, mime_type, name, deleted_at')
+                ->where('id', $mediaId)
+                ->get()
+                ->getRowArray();
+
+            if (!$media || !empty($media['deleted_at'])) {
+                return null;
+            }
+
+            $blob = $db->table('media_blob')
+                ->select('data')
+                ->where('media_id', $mediaId)
+                ->get()
+                ->getRowArray();
+
+            if (!$blob || empty($blob['data'])) {
+                return null;
+            }
+
+            $mime = trim((string)($media['mime_type'] ?? 'image/png'));
+            $base64 = base64_encode($blob['data']);
+
+            return 'data:' . $mime . ';base64,' . $base64;
+        }
+
+        $path = parse_url($src, PHP_URL_PATH);
+        if (!$path) {
+            return null;
+        }
+
+        $fullPath = rtrim(FCPATH, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . ltrim($path, '/');
+
+        if (!is_file($fullPath) || !is_readable($fullPath)) {
+            return null;
+        }
+
+        $binary = @file_get_contents($fullPath);
+        if ($binary === false) {
+            return null;
+        }
+
+        $mime = @mime_content_type($fullPath);
+        if (!$mime) {
+            $mime = 'image/png';
+        }
+
+        return 'data:' . $mime . ';base64,' . base64_encode($binary);
+    }
+
+
+
+    private function toAbsoluteUrl(string $src): string
+    {
+        $src = trim($src);
+
+        if ($src === '') {
+            return $src;
+        }
+
+        if (str_starts_with($src, 'data:')) {
+            return $src;
+        }
+
+        if (preg_match('~^https?://~i', $src)) {
+            return $src;
+        }
+
+        if (str_starts_with($src, '//')) {
+            return 'https:' . $src;
+        }
+
+        return base_url(ltrim($src, '/'));
     }
 }

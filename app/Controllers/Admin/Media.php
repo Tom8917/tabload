@@ -42,14 +42,12 @@ class Media extends BaseController
         $filter = (string)($this->request->getGet('type') ?? 'all'); // all|image|document
         $sort   = (string)($this->request->getGet('sort') ?? 'date_desc');
 
-        // dossier courant
         $currentFolder = null;
         if ($folderId !== null) {
             $currentFolder = $this->folders->find($folderId);
             if (!$currentFolder) throw new PageNotFoundException('Dossier introuvable');
         }
 
-        // dossiers enfants
         $folderQuery = $this->folders
             ->select('media_folders.*, u.firstname, u.lastname')
             ->join('`user` u', 'u.id = media_folders.user_id', 'left');
@@ -64,7 +62,6 @@ class Media extends BaseController
             ->orderBy('media_folders.name', 'ASC')
             ->findAll();
 
-        // fichiers
         $fileQuery = $this->media->where('deleted_at', null);
 
         if ($folderId === null) $fileQuery->where('folder_id', null);
