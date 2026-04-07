@@ -23,18 +23,11 @@ class MediaFolderModel extends Model
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
 
-    /**
-     * Récupère un dossier.
-     */
     public function getById(int $id): ?array
     {
         return $this->find($id) ?: null;
     }
 
-    /**
-     * Récupère un dossier en imposant le propriétaire.
-     * (Front : suppression autorisée uniquement si le créateur correspond)
-     */
     public function getByIdForUser(int $folderId, int $userId): ?array
     {
         return $this->where('id', $folderId)
@@ -42,9 +35,6 @@ class MediaFolderModel extends Model
             ->first() ?: null;
     }
 
-    /**
-     * Liste des enfants d'un dossier (tri stable).
-     */
     public function getChildren(?int $parentId): array
     {
         $builder = $this->builder();
@@ -62,9 +52,6 @@ class MediaFolderModel extends Model
             ->getResultArray();
     }
 
-    /**
-     * Liste des enfants d'un dossier pour un user (si tu en as besoin ailleurs).
-     */
     public function getChildrenForUser(?int $parentId, int $userId): array
     {
         $builder = $this->builder();
@@ -84,9 +71,6 @@ class MediaFolderModel extends Model
             ->getResultArray();
     }
 
-    /**
-     * Vérifie si le dossier appartient à l'utilisateur.
-     */
     public function isOwner(int $folderId, int $userId): bool
     {
         return (bool) $this->where('id', $folderId)
@@ -94,10 +78,6 @@ class MediaFolderModel extends Model
             ->countAllResults();
     }
 
-    /**
-     * Renomme un dossier (admin uniquement côté controller).
-     * Ici on fait juste l'update safe.
-     */
     public function renameFolder(int $folderId, string $newName): bool
     {
         $newName = trim($newName);
@@ -108,10 +88,6 @@ class MediaFolderModel extends Model
         return (bool) $this->update($folderId, ['name' => $newName]);
     }
 
-    /**
-     * Renomme un dossier en imposant le propriétaire (si tu veux un jour l'activer en front).
-     * (Pour ton besoin actuel, front n'a PAS le droit de rename, mais ça peut servir.)
-     */
     public function renameFolderForUser(int $folderId, int $userId, string $newName): bool
     {
         if (! $this->isOwner($folderId, $userId)) {
@@ -120,10 +96,6 @@ class MediaFolderModel extends Model
         return $this->renameFolder($folderId, $newName);
     }
 
-    /**
-     * Récupère tous les IDs d'un dossier + ses descendants.
-     * Utile pour sécuriser une suppression "branche entière" (front/admin).
-     */
     public function getTreeIds(int $folderId): array
     {
         $ids = [];
@@ -148,9 +120,6 @@ class MediaFolderModel extends Model
         return $ids;
     }
 
-    /**
-     * Vérifie que tout un arbre appartient à un user (important si multi-user).
-     */
     public function treeBelongsToUser(int $folderId, int $userId): bool
     {
         $ids = $this->getTreeIds($folderId);

@@ -37,10 +37,6 @@ class Media extends BaseController
         return $id;
     }
 
-    // ============================
-    // GET: /media
-    // - support ?folder=ID (utile pour le picker)
-    // ============================
     public function getIndex()
     {
         $folderId = $this->request->getGet('folder');
@@ -49,9 +45,6 @@ class Media extends BaseController
         return $this->renderExplorer($folderId);
     }
 
-    // ============================
-    // GET: /media/folder/{id}
-    // ============================
     public function getFolder(int $id)
     {
         return $this->renderExplorer($id);
@@ -63,10 +56,9 @@ class Media extends BaseController
 
         $picker = ((int)($this->request->getGet('picker') ?? 0)) === 1;
 
-        $filter = (string)($this->request->getGet('type') ?? 'all'); // all|image|document
+        $filter = (string)($this->request->getGet('type') ?? 'all');
         $sort   = (string)($this->request->getGet('sort') ?? 'date_desc');
 
-        // dossier courant (lisible par tous)
         $currentFolder = null;
         if ($folderId !== null) {
             $currentFolder = $this->folders->find($folderId);
@@ -77,7 +69,6 @@ class Media extends BaseController
 
         $breadcrumbs = $this->buildBreadcrumbs($currentFolder);
 
-        // ---------- Dossiers enfants : TOUT visible
         $foldersQ = $this->folders
             ->select('media_folders.*, u.firstname, u.lastname')
             ->join('`user` u', 'u.id = media_folders.user_id', 'left');
@@ -92,7 +83,6 @@ class Media extends BaseController
         }
         unset($d);
 
-        // ---------- Fichiers : TOUT visible
         $filesQ = $this->media
             ->select('media.*, f.user_id AS folder_user_id')
             ->join('media_folders f', 'f.id = media.folder_id', 'left')
@@ -120,7 +110,6 @@ class Media extends BaseController
         }
         unset($f);
 
-        // actions autorisées “dans ce dossier”
         $canWriteHere = ($folderId === null)
             ? true
             : (!empty($currentFolder) && !empty($currentFolder['is_owner']));
@@ -146,9 +135,6 @@ class Media extends BaseController
         return $this->view('front/media/index', $data, false);
     }
 
-    // ============================
-    // JSON: /media/folders-tree
-    // ============================
     public function getFoldersTree()
     {
         $userId = $this->ensureAuth();
@@ -171,9 +157,6 @@ class Media extends BaseController
         return $this->response->setJSON(['folders' => $folders]);
     }
 
-    // ============================
-    // POST: /media/folder/create
-    // ============================
     public function postCreateFolder()
     {
         $userId = $this->ensureAuth();
@@ -238,9 +221,6 @@ class Media extends BaseController
         return redirect()->back()->with('message', 'Dossier supprimé.');
     }
 
-    // ============================
-    // POST: /media/upload
-    // ============================
     public function postUpload()
     {
         $userId = $this->ensureAuth();

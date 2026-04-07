@@ -1,13 +1,4 @@
 <?php
-/**
- * admin/index_picker — version robuste (compatible ancien + nouveau controller)
- *
- * Nouveau mode (recommandé) :
- *  - $folders, $files, $breadcrumbs, $currentFolder, $filter, $sort
- *
- * Ancien mode :
- *  - $files = items avec 'url' + 'name'
- */
 
 $isPicker = $isPicker ?? (!empty($_GET['picker']));
 $pick = (string)($_GET['pick'] ?? 'image');
@@ -16,34 +7,28 @@ $isFilePicker = ($pick === 'file');
 $filter = $filter ?? 'all';
 $sort   = $sort ?? 'date_desc';
 
-// Nouveau format
 $folders = $folders ?? [];
-$newFiles = $files ?? []; // si controller nouveau, $files contient file_name/file_path
+$newFiles = $files ?? [];
 $currentFolderId = $currentFolder['id'] ?? null;
 $breadcrumbs = $breadcrumbs ?? [];
 
-// Ancien format fallback
 $legacyFiles = [];
 $isLegacy = false;
 if (!empty($newFiles) && isset($newFiles[0]) && array_key_exists('url', $newFiles[0])) {
     $isLegacy = true;
     $legacyFiles = $newFiles;
-    $folders = []; // pas de dossiers en legacy
+    $folders = [];
 }
 
-// Base url
 $baseUrl = rtrim(base_url(), '/');
 
-// Upload URL admin (si tu utilises une autre route, change ici)
 $uploadUrl = $uploadUrl ?? site_url('admin/media/upload');
 
 function isImageRowPicker(array $f): bool {
-    // legacy: url/name
     if (isset($f['url'])) {
         $name = strtolower((string)($f['name'] ?? ''));
         return (bool)preg_match('~\.(jpe?g|png|webp|gif)$~i', $name);
     }
-    // new: mime_type/kind
     $mime = strtolower((string)($f['mime_type'] ?? ''));
     $kind = strtolower((string)($f['kind'] ?? ''));
     return $kind === 'image' || str_starts_with($mime, 'image/');
@@ -345,10 +330,6 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    /**
-     * MEDIA PICKER (iframe/modal)
-     * - Envoie toujours: { type:'MEDIA_PICKED', media:{ id,name,path,url,kind } }
-     */
     (function () {
         const TARGET_ORIGIN = window.location.origin;
 
@@ -382,7 +363,6 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
             tryClose();
         };
 
-        // Sort
         (function () {
             const sel = document.getElementById('sortSelect');
             if (!sel) return;
@@ -396,7 +376,6 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
             });
         })();
 
-        // Search filter
         (function () {
             const input = document.getElementById('searchInput');
             if (!input) return;
@@ -429,7 +408,6 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
             input.addEventListener('input', () => apply(input.value));
         })();
 
-        // Upload (uniquement pick=image)
         (function () {
             const IS_FILE_PICKER = "<?= esc($pick, 'js') ?>" === 'file';
             if (IS_FILE_PICKER) return;
@@ -559,7 +537,6 @@ function currentNavUrlPicker(?int $folderId, string $filter, string $sort): stri
                         xhr.send(form);
                     });
 
-// maintenant responseText existe ✅
                     let res = {};
                     try { res = JSON.parse(responseText || '{}'); } catch(e) {}
 

@@ -132,12 +132,6 @@
     </div>
 
     <style>
-        /* ===========================
-           Dashboard cards (front)
-           Light + Dark (CoreUI friendly)
-           =========================== */
-
-        /* Light (par défaut) */
         .tdb-card{
             display:block;
             text-decoration:none;
@@ -209,12 +203,12 @@
             outline-offset: 2px;
         }
 
-        /* ======================================
-           DARK : CoreUI (data-coreui-theme="dark")
-           ====================================== */
+
+
+
         html[data-coreui-theme="dark"] .tdb-card{
             border-color: rgba(255,255,255,.10);
-            background: rgba(20, 24, 28, .55);   /* effet "glass" dark */
+            background: rgba(20, 24, 28, .55);
         }
 
         html[data-coreui-theme="dark"] .tdb-card:hover{
@@ -244,9 +238,9 @@
             color: rgba(255,255,255,.80);
         }
 
-        /* ======================================
-           Fallback : si pas CoreUI, suivre l'OS
-           ====================================== */
+
+
+
         @media (prefers-color-scheme: dark){
             html:not([data-coreui-theme]) .tdb-card{
                 border-color: rgba(255,255,255,.10);

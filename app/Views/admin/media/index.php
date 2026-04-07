@@ -460,20 +460,16 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
                 $type  = (string)($f['type'] ?? '');
                 $size  = (int)($f['file_size'] ?? 0);
 
-                // ✅ DB-only : URL via endpoints
-                $openUrl     = site_url('admin/media/file/' . $id);      // inline (img/pdf)
-                $downloadUrl = site_url('admin/media/download/' . $id);  // attachment
+                $openUrl     = site_url('admin/media/file/' . $id);
+                $downloadUrl = site_url('admin/media/download/' . $id);
 
                 $isImg = isImageRow($f);
                 $ext = fileExt($name);
                 [$icon, $label] = fileIcon($ext);
 
                 $safeNameJs = esc(addslashes($name));
-
-                // ⚠️ Auteur : dans ton code actuel, $aname vient de la boucle dossier -> faux ici.
-                // Solution simple sans toucher controller : affiche juste type.
-                // (Si tu veux l’auteur aussi, je te donne le patch controller après.)
                 ?>
+
                 <div class="col-12 col-md-6 col-lg-3 file-item"
                      data-name="<?= esc(strtolower($name), 'attr') ?>">
                     <div class="card-soft allow-overflow file-card h-100">
@@ -614,9 +610,6 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
 </div>
 
 <script>
-    /* =========================================================
-       1) Tri -> recharge page
-       ========================================================= */
     (() => {
         const sel = document.getElementById('sortSelect');
         if (!sel) return;
@@ -628,9 +621,7 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
         });
     })();
 
-    /* =========================================================
-       2) Recherche (filtre visuel dossiers + fichiers)
-       ========================================================= */
+
     (() => {
         const input = document.getElementById('searchInput');
         if (!input) return;
@@ -663,9 +654,7 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
         input.addEventListener('input', () => apply(input.value));
     })();
 
-    /* =========================================================
-       3) Copier URL
-       ========================================================= */
+
     function copyToClipboard(text) {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => alert('URL copiée.'));
@@ -674,9 +663,7 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
         }
     }
 
-    /* =========================================================
-       4) Upload drag & drop
-       ========================================================= */
+
     (() => {
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -823,9 +810,7 @@ $canManageFolder = function (array $folder) use ($userId, $isAdmin): bool {
         setUI();
     })();
 
-    /* =========================================================
-       5) Modal Déplacer / Copier (arbre dossiers uniquement)
-       ========================================================= */
+
     let __foldersCache = null;
 
     function openMoveCopyModal(action, fileId, fileName) {

@@ -10,7 +10,7 @@ class MediaModel extends Model
     protected $primaryKey = 'id';
     protected $returnType = 'array';
 
-    protected $useTimestamps = true; // si tu as created_at/updated_at
+    protected $useTimestamps = true;
     protected $allowedFields = [
         'folder_id',
         'name',
@@ -19,10 +19,9 @@ class MediaModel extends Model
         'type',
         'entity_type',
         'entity_id',
-        'deleted_at', // si soft delete
+        'deleted_at',
     ];
 
-    // si soft delete
     protected $useSoftDeletes = true;
     protected $deletedField   = 'deleted_at';
 

@@ -232,9 +232,8 @@
             'Perc99'
         ];
 
-        // Indices "théoriques" pour arrondir le taux à l'import brut
         const COL_TAUX = 8;
-        const COL_PERC95 = 13; // conservé pour info, mais on utilise surtout l'index dynamique
+        const COL_PERC95 = 13;
 
         function buildHeadersForCount(count) {
             const headers = [];

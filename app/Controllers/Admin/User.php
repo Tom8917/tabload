@@ -41,7 +41,6 @@ class User extends BaseController
         $utilisateur = $um->getUserById($id);
         if ($utilisateur) {
 
-            // Récupérer le token
             $tokenData = $atm->where('id_user', $id)->first();
             $utilisateur['id_api_tokens'] = $tokenData['token'] ?? '';
 
@@ -100,7 +99,6 @@ class User extends BaseController
     {
         $bm = Model("BlacklistModel");
 
-        // Ajouter l'utilisateur à la blacklist
         $result = $bm->addToBlacklist($id);
 
         if ($result) {
@@ -116,7 +114,6 @@ class User extends BaseController
     {
         $bm = Model("BlacklistModel");
 
-        // Retirer l'utilisateur de la blacklist
         $result = $bm->removeFromBlacklist($id);
 
         if ($result) {
@@ -134,11 +131,9 @@ class User extends BaseController
         $data = $this->request->getPost();
         $um = model("UserModel");
 
-        // Créer l'utilisateur
         $newUserId = $um->createUser($data);
 
         if ($newUserId) {
-            // Gérer l'image si elle existe
             $file = $this->request->getFile('profile_image');
             if ($file && $file->getError() !== UPLOAD_ERR_NO_FILE) {
                 $mediaData = [

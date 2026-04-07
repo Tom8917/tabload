@@ -49,7 +49,6 @@ class ReportTemplateService
 
         $position = 1;
 
-        // 1
         $synthId = $this->insertSection(
             reportId: $reportId,
             parentId: null,
@@ -59,11 +58,9 @@ class ReportTemplateService
         );
         $this->createFromDefinition($reportId, $synthId, $this->defSynthese($ctx), $ctx);
 
-        //2
         $campId = $this->insertSection($reportId, null, $position++, 'Description de la campagne', null);
         $this->createFromDefinition($reportId, $campId, $this->defCampaign($ctx), $ctx);
 
-        // 3
         foreach ($this->enabledTestsInOrder($ctx['tests']) as $type) {
             $cible = '';
             if ($type === 'target') {
@@ -78,7 +75,6 @@ class ReportTemplateService
             $this->createFromDefinition($reportId, $testRootId, $this->defTestBlock($testCtx), $testCtx);
         }
 
-        // 4
         $conclId = $this->insertSection($reportId, null, $position++, 'Conclusion', null);
         $this->createFromDefinition($reportId, $conclId, $this->defConclusion($ctx), $ctx);
 

@@ -1018,4 +1018,192 @@ class Report extends BaseController
             ->setHeader('Content-Disposition', ($download ? 'attachment' : 'inline') . '; filename="' . $filename . '"')
             ->setBody($dompdf->output());
     }
+
+
+
+    public function getHtml(int $id)
+    {
+        helper('html_helper');
+
+        $report = $this->findReportWithUsersOr404($id);
+        $this->requireOwnerOrAdmin($report);
+
+        $sectionsTree = $this->sectionsService->getTreeForReport($id);
+
+        $versions = model(\App\Models\ReportVersionModel::class)
+            ->where('report_id', $id)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+
+        $author    = (string)($report['author_name'] ?? $this->currentUserFullName());
+        $createdAt = (string)($report['created_at'] ?? '');
+        $updatedAt = (string)($report['author_updated_at'] ?? ($report['updated_at'] ?? ''));
+
+        $fmtDateTime = function (?string $value): string {
+            if (empty($value)) return '—';
+            try {
+                return (new \DateTime($value))->format('d/m/Y H:i');
+            } catch (\Throwable $e) {
+                return (string)$value;
+            }
+        };
+
+        $html = view('front/reports/html', [
+            'report'       => $report,
+            'sectionsTree' => $sectionsTree,
+            'versions'     => $versions,
+            'author'       => $author,
+            'createdAt'    => $fmtDateTime($createdAt),
+            'updatedAt'    => $fmtDateTime($updatedAt),
+            'generatedAt'  => date('d/m/Y H:i'),
+        ]);
+
+        $html = $this->inlineImagesForExport($html);
+
+        $download = ((int)($this->request->getGet('download') ?? 0) === 1);
+        $filename = 'bilan_' . (int)$id . '.html';
+
+        return $this->response
+            ->setHeader('Content-Type', 'text/html; charset=UTF-8')
+            ->setHeader(
+                'Content-Disposition',
+                ($download ? 'attachment' : 'inline') . '; filename="' . $filename . '"'
+            )
+            ->setBody($html);
+    }
+
+
+    private function inlineImagesForExport(string $html): string
+    {
+        if (trim($html) === '') {
+            return $html;
+        }
+
+        libxml_use_internal_errors(true);
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+
+        $loaded = $dom->loadHTML(
+            mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'),
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+
+        if (!$loaded) {
+            libxml_clear_errors();
+            return $html;
+        }
+
+        $images = $dom->getElementsByTagName('img');
+
+        /** @var \DOMElement $img */
+        foreach ($images as $img) {
+            $src = trim((string)$img->getAttribute('src'));
+
+            if ($src === '') {
+                continue;
+            }
+
+            // déjà inline
+            if (str_starts_with($src, 'data:')) {
+                continue;
+            }
+
+            $absoluteSrc = $this->toAbsoluteUrl($src);
+            $dataUri = $this->resolveImageToDataUri($absoluteSrc);
+
+            if ($dataUri !== null) {
+                $img->setAttribute('src', $dataUri);
+            }
+        }
+
+        $result = $dom->saveHTML();
+
+        libxml_clear_errors();
+
+        return $result ?: $html;
+    }
+
+
+
+    private function resolveImageToDataUri(string $src): ?string
+    {
+        if (preg_match('~(?:https?://[^/]+)?/?media/(?:file|download)/(\d+)~i', $src, $m)) {
+            $mediaId = (int)$m[1];
+
+            $db = \Config\Database::connect();
+
+            $media = $db->table('media')
+                ->select('id, mime_type, name, deleted_at')
+                ->where('id', $mediaId)
+                ->get()
+                ->getRowArray();
+
+            if (!$media || !empty($media['deleted_at'])) {
+                return null;
+            }
+
+            $blob = $db->table('media_blob')
+                ->select('data')
+                ->where('media_id', $mediaId)
+                ->get()
+                ->getRowArray();
+
+            if (!$blob || empty($blob['data'])) {
+                return null;
+            }
+
+            $mime = trim((string)($media['mime_type'] ?? 'image/png'));
+            $base64 = base64_encode($blob['data']);
+
+            return 'data:' . $mime . ';base64,' . $base64;
+        }
+
+        $path = parse_url($src, PHP_URL_PATH);
+        if (!$path) {
+            return null;
+        }
+
+        $fullPath = rtrim(FCPATH, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . ltrim($path, '/');
+
+        if (!is_file($fullPath) || !is_readable($fullPath)) {
+            return null;
+        }
+
+        $binary = @file_get_contents($fullPath);
+        if ($binary === false) {
+            return null;
+        }
+
+        $mime = @mime_content_type($fullPath);
+        if (!$mime) {
+            $mime = 'image/png';
+        }
+
+        return 'data:' . $mime . ';base64,' . base64_encode($binary);
+    }
+
+
+
+    private function toAbsoluteUrl(string $src): string
+    {
+        $src = trim($src);
+
+        if ($src === '') {
+            return $src;
+        }
+
+        if (str_starts_with($src, 'data:')) {
+            return $src;
+        }
+
+        if (preg_match('~^https?://~i', $src)) {
+            return $src;
+        }
+
+        if (str_starts_with($src, '//')) {
+            return 'https:' . $src;
+        }
+
+        return base_url(ltrim($src, '/'));
+    }
 }

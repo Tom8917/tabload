@@ -1,8 +1,4 @@
 <?php
-// ----------------------------
-// Admin Logs — Vue "Journal d’activité"
-// (Feed pro + filtres + pagination + titre bilan)
-// ----------------------------
 
 $logs    = $logs ?? [];
 $page    = (int)($page ?? 1);
@@ -73,7 +69,6 @@ $toN   = min($total, $page * $limit);
 ?>
 
 <style>
-    /* ====== Base “admin pro” : pas de texte coloré imposé ====== */
     .logs-ui { --bd: rgba(0,0,0,.08); --bd2: rgba(0,0,0,.06); --bg-soft: rgba(0,0,0,.025); }
     .logs-ui .card { border-radius: 14px; border-color: var(--bd2); }
     .logs-ui .section-title { font-size: 1.1rem; font-weight: 750; letter-spacing: -.01em; }
@@ -81,7 +76,6 @@ $toN   = min($total, $page * $limit);
     .logs-ui .toolbar { gap: .75rem; }
     .logs-ui .form-label { font-size: .8rem; opacity: .85; }
 
-    /* ====== Feed ====== */
     .log-feed { display:flex; flex-direction:column; gap: 10px; }
     .log-item {
         border: 1px solid var(--bd2);
@@ -120,7 +114,6 @@ $toN   = min($total, $page * $limit);
     .dot-warning { background: rgba(255,193,7,.85); }
     .dot-neutral { background: rgba(108,117,125,.65); }
 
-    /* ====== Badges soft (fond discret, texte normal) ====== */
     .badge-soft {
         display:inline-flex;
         align-items:center;
@@ -139,14 +132,12 @@ $toN   = min($total, $page * $limit);
     .badge-soft-warning { background: rgba(255,193,7,.10); border-color: rgba(255,193,7,.25); }
     .badge-soft-neutral { background: rgba(108,117,125,.08); border-color: rgba(108,117,125,.18); }
 
-    /* ====== Bouton détail ====== */
     .btn-icon {
         width: 34px; height: 34px;
         display:inline-flex; align-items:center; justify-content:center;
         border-radius: 10px;
     }
 
-    /* ====== Détails changes ====== */
     .log-details {
         border-top: 1px solid var(--bd2);
         background: rgba(0,0,0,.012);
@@ -162,10 +153,8 @@ $toN   = min($total, $page * $limit);
     .diff-label { font-size: .75rem; font-weight: 650; opacity: .7; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .03em; }
     .diff-val { font-size: .9rem; white-space: pre-wrap; word-break: break-word; }
 
-    /* ====== Pagination ====== */
     .logs-ui .pagination { margin-bottom: 0; }
 
-    /* rotation icone chevron au toggle */
     button[aria-expanded="true"] i { transform: rotate(180deg); }
     button i { transition: transform .2s ease; }
 </style>
