@@ -1103,7 +1103,6 @@ class Report extends BaseController
                 continue;
             }
 
-            // déjà inline
             if (str_starts_with($src, 'data:')) {
                 continue;
             }
