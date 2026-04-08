@@ -4,7 +4,7 @@
             <?php if ($user->id_permission === 1) { ?>
                 <div class="d-flex align-items-center justify-content-center">
 <!--                    <a href="--><?php //= base_url('admin') ?><!--">-->
-<!--                        <img src="--><?php //= base_url('assets/brand/coda_logo.png') ?><!--" alt="Logo"-->
+<!--                        <img src="--><?php //= base_url('assets/brand/.png') ?><!--" alt="Logo"-->
 <!--                             style="max-width:175px; height:auto; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));"-->
 <!--                             class="ms-3">-->
 <!--                    </a>-->
