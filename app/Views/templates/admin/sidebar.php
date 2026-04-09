@@ -9,9 +9,9 @@
 <!--                             class="ms-3">-->
 <!--                    </a>-->
                     <div class="d-flex align-items-center justify-content-center">
-                        <img src="<?= base_url('assets/brand/tabload_logo_2.png') ?>"
+                        <img src="<?= base_url('assets/brand/tabload_logo.png') ?>"
                              alt="Tabload logo"
-                             height="100">
+                             height="125">
                     </div>                </div>
             <?php } else { ?>
                 <div class="d-flex align-items-center justify-content-center">
